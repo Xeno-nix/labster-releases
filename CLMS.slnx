@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="CLMS.Agent/CLMS.Agent.csproj" />
+  <Project Path="CLMS.Application/CLMS.Application.csproj" />
+  <Project Path="CLMS.Domain/CLMS.Domain.csproj" />
+  <Project Path="CLMS.Infrastructure/CLMS.Infrastructure.csproj" />
+  <Project Path="CLMS.Shared/CLMS.Shared.csproj" />
+  <Project Path="CLMS.Web/CLMS.Web.csproj" />
+</Solution>
