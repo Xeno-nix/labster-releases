@@ -10,4 +10,9 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\CLMS.Domain\CLMS.Domain.csproj" />
+    <ProjectReference Include="..\CLMS.Shared\CLMS.Shared.csproj" />
+  </ItemGroup>
+
 </Project>
