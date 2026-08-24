@@ -6,4 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CLMS.Application\CLMS.Application.csproj" />
+    <ProjectReference Include="..\CLMS.Infrastructure\CLMS.Infrastructure.csproj" />
+    <ProjectReference Include="..\CLMS.Domain\CLMS.Domain.csproj" />
+  </ItemGroup>
 </Project>
