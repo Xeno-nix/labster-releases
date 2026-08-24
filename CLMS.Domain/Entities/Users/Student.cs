@@ -52,6 +52,10 @@ public class Student : AuditableEntity
         _enrollments.Add(enrollment);
     }
 
+    /// <summary>
+    /// Returns true if the student has an active scheduled class at the given timestamp.
+    /// The resolver callback is used to obtain the ClassSchedule for an enrollment id.
+    /// </summary>
     public bool HasActiveScheduleAt(DateTime timestamp, Func<int, Booking.ClassSchedule?> classScheduleResolver)
     {
         if (classScheduleResolver == null) throw new ArgumentNullException(nameof(classScheduleResolver));
@@ -75,6 +79,9 @@ public class Student : AuditableEntity
         return false;
     }
 
+    /// <summary>
+    /// Returns the ClassSchedule that matches the current timestamp, or null if none.
+    /// </summary>
     public Booking.ClassSchedule? GetCurrentClassSchedule(DateTime timestamp, Func<int, Booking.ClassSchedule?> classScheduleResolver)
     {
         if (classScheduleResolver == null) throw new ArgumentNullException(nameof(classScheduleResolver));

@@ -3,6 +3,9 @@
 @using CLMS.Application.Logging
 @using CLMS.Application.Logging.Dtos
 @inject ILoggingAppService LoggingAppService
+@* TEMP-DEBUG: remove this line + the DebugLogger.LogAsync calls below — see the revert
+   checklist at the top of CLMS.Web/Debug/TerminalDebugLogger.cs *@
+@inject CLMS.Web.Debug.TerminalDebugLogger DebugLogger
 
 <PageTitle>CLMS — Logging Terminal</PageTitle>
 
@@ -226,6 +229,8 @@
     {
         var result = await LoggingAppService.StudentTimeInAsync(StudentModel);
         ApplyResult(result);
+        // TEMP-DEBUG: remove — see CLMS.Web/Debug/TerminalDebugLogger.cs
+        await DebugLogger.LogAsync("StudentTimeIn", StudentModel.StudentId, result);
         if (result.Success) StudentModel = new();
     });
 
@@ -233,6 +238,8 @@
     {
         var result = await LoggingAppService.GuestTimeInAsync(GuestModel);
         ApplyResult(result);
+        // TEMP-DEBUG: remove — see CLMS.Web/Debug/TerminalDebugLogger.cs
+        await DebugLogger.LogAsync("GuestTimeIn", $"{GuestModel.GuestName} (booked under {GuestModel.BookedUnder})", result);
         if (result.Success) GuestModel = new();
     });
 
@@ -240,6 +247,8 @@
     {
         var result = await LoggingAppService.TimeOutAsync(TimeOutModel);
         ApplyResult(result);
+        // TEMP-DEBUG: remove — see CLMS.Web/Debug/TerminalDebugLogger.cs
+        await DebugLogger.LogAsync("TimeOut", TimeOutModel.Identifier, result);
         if (result.Success) TimeOutModel = new();
     });
 

@@ -25,4 +25,10 @@ public class InMemoryGuestRepository : IGuestRepository
 
     public Task<Guest?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         => Task.FromResult(_guests.TryGetValue(id, out var guest) ? guest : null);
+
+    // ── TEMP-DEBUG ─────────────────────────────────────────────────
+    // Not part of IGuestRepository — only used by the temporary browser-console logger
+    // (see CLMS.Web/Debug/TerminalDebugLogger.cs) to dump current state for testing.
+    // Delete this method when that debug logger is removed.
+    public IReadOnlyList<Guest> GetAllForDebug() => _guests.Values.ToList();
 }

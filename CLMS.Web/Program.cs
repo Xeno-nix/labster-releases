@@ -12,6 +12,11 @@ builder.Services.AddRazorComponents()
 builder.Services.AddInfrastructureServices();
 builder.Services.AddApplication();
 
+// TEMP-DEBUG: browser-console logging for the terminal while there's no real DB to
+// inspect. Remove this line as step 2 of the revert checklist in
+// CLMS.Web/Debug/TerminalDebugLogger.cs.
+builder.Services.AddScoped<CLMS.Web.Debug.TerminalDebugLogger>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
