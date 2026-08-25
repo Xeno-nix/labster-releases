@@ -1,0 +1,306 @@
+@page "/inventory"
+@using CLMS.Web.Components.Shared
+@using CLMS.Web.Components.Pages.Inventory
+
+<PageTitle>Inventory Management</PageTitle>
+
+<div class="space-y-6">
+
+    @if (!string.IsNullOrEmpty(FlashSuccess))
+    {
+        <div class="flex items-center gap-3 p-4 bg-success/10 border border-success/30 rounded-lg">
+            <p class="text-sm text-success">@FlashSuccess</p>
+        </div>
+    }
+
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h1 class="text-primary text-2xl mb-1">Inventory Management</h1>
+            <p class="text-muted text-sm">Physical count records for equipment and consumable supplies</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <a href="@($"/inventory/print?tab={ActiveTab}")" target="_blank"
+               class="flex items-center gap-2 px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-[#2c2c2c]">
+                Print List
+            </a>
+            @if (ActiveTab == "equipment")
+            {
+                <button @onclick="OpenScanner"
+                        class="flex items-center gap-2 px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-[#2c2c2c]">
+                    Scan QR
+                </button>
+                <button @onclick="OpenAddEquipment"
+                        class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm text-sm font-medium">
+                    Add Equipment
+                </button>
+            }
+            else
+            {
+                <button @onclick="OpenAddSupply"
+                        class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm text-sm font-medium">
+                    Add Supply
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="border-b border-black/10">
+        <nav class="flex gap-1">
+            <button @onclick='() => ActiveTab = "equipment"'
+                    class="px-5 py-3 text-sm font-medium transition-colors flex items-center gap-2 -mb-px @(ActiveTab == "equipment" ? "border-b-2 border-primary text-primary" : "text-muted hover:text-[#2c2c2c]")">
+                Equipment / Hardware
+                <span class="px-2 py-0.5 bg-surface rounded-full text-xs">@Equipment.Count</span>
+            </button>
+            <button @onclick='() => ActiveTab = "supplies"'
+                    class="px-5 py-3 text-sm font-medium transition-colors flex items-center gap-2 -mb-px @(ActiveTab == "supplies" ? "border-b-2 border-primary text-primary" : "text-muted hover:text-[#2c2c2c]")">
+                Consumable Supplies
+                <span class="px-2 py-0.5 bg-surface rounded-full text-xs">@Supplies.Count</span>
+            </button>
+        </nav>
+    </div>
+
+    @if (ActiveTab == "equipment")
+    {
+        <div class="bg-white rounded-lg border border-black/10 shadow-sm">
+            <div class="p-5 border-b border-black/10">
+                <div class="flex flex-wrap items-center gap-3">
+                    <input type="text" @bind="EqSearch" @bind:event="oninput"
+                           placeholder="Search name, serial no., brand..."
+                           class="flex-1 min-w-[180px] max-w-sm px-4 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                    <select @bind="EqTypeFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
+                        <option value="all">All Types</option>
+                        <option value="computer_unit">Computer Unit</option>
+                        <option value="peripheral">Peripheral</option>
+                        <option value="component">Component</option>
+                        <option value="miscellaneous">Miscellaneous</option>
+                    </select>
+                    <select @bind="EqLabFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
+                        <option value="all">All Labs</option>
+                        @foreach (var lab in Labs)
+                        {
+                            <option value="@lab.LabId">@lab.LabName</option>
+                        }
+                    </select>
+                    <select @bind="EqStatusFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
+                        <option value="all">All Statuses</option>
+                        <option value="available">Available</option>
+                        <option value="in-use">In Use</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="damaged">Damaged</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-surface">
+                        <tr>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Equip. No.</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Serial No.</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Item Name</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Brand / Model</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Type</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Lab</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Status</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">PM</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">CAL</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-black/5">
+                        @foreach (var item in FilteredEquipment)
+                        {
+                            <tr class="hover:bg-surface transition-colors">
+                                <td class="px-5 py-3 text-sm font-mono text-[#2c2c2c]">@item.EquipmentNo</td>
+                                <td class="px-5 py-3 text-sm font-mono text-muted">@(item.SerialNo ?? "—")</td>
+                                <td class="px-5 py-3 text-sm font-medium text-[#2c2c2c]">@item.EquipmentName</td>
+                                <td class="px-5 py-3 text-sm text-muted">
+                                    @(item.Brand ?? "—")@(item.ModelNumber is not null ? $" / {item.ModelNumber}" : "")
+                                </td>
+                                <td class="px-5 py-3 text-sm text-[#2c2c2c]">@InventoryLookups.EquipmentTypeLabels.GetValueOrDefault(item.EquipmentType, item.EquipmentType)</td>
+                                <td class="px-5 py-3 text-sm text-muted">@item.LabName</td>
+                                <td class="px-5 py-3"><StatusBadge Status="item.EquipmentStatus" Kind="equipment" /></td>
+                                <td class="px-5 py-3 text-sm text-[#2c2c2c]">@(item.PreventiveMaintenanceDone ? "Yes" : "No")</td>
+                                <td class="px-5 py-3 text-sm text-[#2c2c2c]">@(item.CalibrationDone ? "Yes" : "No")</td>
+                                <td class="px-5 py-3">
+                                    <div class="flex items-center gap-1">
+                                        <button @onclick="() => OpenQr(item)" title="View / Print QR Code" class="p-1.5 hover:bg-white rounded-lg transition-colors">QR</button>
+                                        <button @onclick="() => OpenEditEquipment(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">Edit</button>
+                                        <button @onclick="() => OpenDeleteEquipment(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">Del</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!FilteredEquipment.Any())
+                        {
+                            <tr>
+                                <td colspan="10" class="px-5 py-12 text-center text-sm text-muted">
+                                    @(Equipment.Count == 0 ? "No equipment added yet" : "No equipment matches your filters.")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 border-t border-black/10">
+                <p class="text-sm text-muted">Showing @FilteredEquipment.Count of @Equipment.Count items</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="bg-white rounded-lg border border-black/10 shadow-sm">
+            <div class="p-5 border-b border-black/10">
+                <div class="flex flex-wrap items-center gap-3">
+                    <input type="text" @bind="SupSearch" @bind:event="oninput"
+                           placeholder="Search supply name..."
+                           class="flex-1 min-w-[180px] max-w-sm px-4 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                    <select @bind="SupCategoryFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
+                        <option value="all">All Categories</option>
+                        @foreach (var cat in InventoryLookups.SupplyCategories)
+                        {
+                            <option value="@cat">@cat</option>
+                        }
+                    </select>
+                    <select @bind="SupStatusFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
+                        <option value="all">All Statuses</option>
+                        <option value="fully_stocked">Fully Stocked</option>
+                        <option value="in_stock">In Stock</option>
+                        <option value="low_stock">Low Stock</option>
+                        <option value="out_of_stock">Out of Stock</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-surface">
+                        <tr>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Supply Name</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Category</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Unit</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Status</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Remarks</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-black/5">
+                        @foreach (var item in FilteredSupplies)
+                        {
+                            <tr class="hover:bg-surface transition-colors">
+                                <td class="px-5 py-3 text-sm font-medium text-[#2c2c2c]">@item.SupplyName</td>
+                                <td class="px-5 py-3 text-sm text-muted">@item.Category</td>
+                                <td class="px-5 py-3 text-sm text-muted">@(item.Unit ?? "—")</td>
+                                <td class="px-5 py-3">
+                                    <select value="@item.Status" @onchange="e => ConfirmStatusChange(item, e.Value?.ToString() ?? item.Status)"
+                                            class="px-2 py-1 border border-black/10 rounded text-xs font-medium bg-surface focus:border-primary focus:outline-none cursor-pointer">
+                                        <option value="fully_stocked">Fully Stocked</option>
+                                        <option value="in_stock">In Stock</option>
+                                        <option value="low_stock">Low Stock</option>
+                                        <option value="out_of_stock">Out of Stock</option>
+                                    </select>
+                                </td>
+                                <td class="px-5 py-3 text-sm text-muted max-w-[160px] truncate">@(item.Remarks ?? "—")</td>
+                                <td class="px-5 py-3">
+                                    <div class="flex items-center gap-1">
+                                        <button @onclick="() => OpenEditSupply(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">Edit</button>
+                                        <button @onclick="() => OpenDeleteSupply(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">Del</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!FilteredSupplies.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="px-5 py-12 text-center text-sm text-muted">
+                                    @(Supplies.Count == 0 ? "No supplies added yet" : "No supplies match your filters.")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 border-t border-black/10">
+                <p class="text-sm text-muted">Showing @FilteredSupplies.Count of @Supplies.Count items</p>
+            </div>
+        </div>
+    }
+
+    @if (ShowScanner)
+    {
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @onclick="CloseScanner">
+            <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6" @onclick:stopPropagation="true">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-[#2c2c2c]">Scan equipment QR</h3>
+                    <button type="button" @onclick="CloseScanner" class="p-2 hover:bg-surface rounded-lg transition-colors">✕</button>
+                </div>
+
+                <label class="block text-sm font-medium text-[#2c2c2c] mb-2">Equipment code or serial</label>
+                <input @bind="ScannerCode" @bind:event="oninput" placeholder="e.g. EQ-001 or SN-A001"
+                       class="w-full px-4 py-3 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+
+                <div class="flex justify-end gap-3 mt-5">
+                    <button type="button" @onclick="CloseScanner" class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm">Close</button>
+                    <button type="button" @onclick="ScanEquipmentCode" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium">Scan</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (ShowQr && SelectedEquipment is not null)
+    {
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @onclick="CloseQr">
+            <div class="bg-white rounded-xl w-full max-w-lg shadow-2xl p-6" @onclick:stopPropagation="true">
+                <div class="flex items-center justify-between mb-5">
+                    <h3 class="text-lg font-semibold text-[#2c2c2c]">Equipment QR</h3>
+                    <button type="button" @onclick="CloseQr" class="p-2 hover:bg-surface rounded-lg transition-colors">✕</button>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-5 items-center sm:items-start">
+                    <div class="qr-preview">
+                        <div class="qr-chip">QR</div>
+                    </div>
+
+                    <div class="flex-1 space-y-2">
+                        <p class="text-sm text-muted">Equipment #</p>
+                        <p class="text-xl font-semibold text-[#2c2c2c]">@SelectedEquipment.EquipmentNo</p>
+                        <p class="text-sm text-[#2c2c2c]">@SelectedEquipment.EquipmentName</p>
+                        <p class="text-sm text-muted">Serial: @SelectedEquipment.SerialNo</p>
+                        <p class="text-sm text-muted">Lab: @SelectedEquipment.LabName</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" @onclick="CloseQr" class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm">Close</button>
+                    <a href="@($"/inventory/print?tab={ActiveTab}")" target="_blank" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium">Print</a>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<EquipmentFormModal Show="ShowEquipmentForm" IsEdit="EditingEquipment" Model="EquipmentFormModel" Labs="Labs"
+                   OnCancel="CloseEquipmentForm" OnSave="SaveEquipment" />
+
+<SupplyFormModal Show="ShowSupplyForm" IsEdit="EditingSupply" Model="SupplyFormModel"
+                OnCancel="CloseSupplyForm" OnSave="SaveSupply" />
+
+<ConfirmModal Show="ShowDeleteEquipment" Title="Delete Equipment"
+              ConfirmLabel="Yes, Delete"
+              OnCancel="() => ShowDeleteEquipment = false" OnConfirm="DeleteEquipmentConfirmed">
+    <Body>
+        <p class="text-sm text-muted mb-2">You are about to delete:</p>
+        <p class="text-sm font-medium text-[#2c2c2c] mb-2">@PendingDeleteEquipment?.EquipmentName (@PendingDeleteEquipment?.EquipmentNo)</p>
+        <p class="text-xs text-muted">This action cannot be undone.</p>
+    </Body>
+</ConfirmModal>
+
+<ConfirmModal Show="ShowDeleteSupply" Title="Delete Supply Item"
+              ConfirmLabel="Yes, Delete"
+              OnCancel="() => ShowDeleteSupply = false" OnConfirm="DeleteSupplyConfirmed">
+    <Body>
+        <p class="text-sm text-muted mb-2">You are about to delete:</p>
+        <p class="text-sm font-medium text-[#2c2c2c] mb-2">@PendingDeleteSupply?.SupplyName</p>
+        <p class="text-xs text-muted">This action cannot be undone.</p>
+    </Body>
+</ConfirmModal>

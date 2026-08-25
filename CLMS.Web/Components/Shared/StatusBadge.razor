@@ -1,0 +1,40 @@
+@* Equipment or supply status pill. Pass the raw status string; class + label are resolved here. *@
+
+<span class="inline-block px-2 py-1 rounded text-xs font-medium @CssClass">@Label</span>
+
+@code {
+    [Parameter, EditorRequired] public string Status { get; set; } = "";
+
+    [Parameter] public string Kind { get; set; } = "equipment";
+
+    private string CssClass => (Kind, Status) switch
+    {
+        ("equipment", "available")   => "badge-available",
+        ("equipment", "in-use")      => "badge-in-use",
+        ("equipment", "maintenance") => "badge-maintenance",
+        ("equipment", "damaged")     => "badge-damaged",
+
+        ("supply", "fully_stocked")  => "bg-success text-white",
+        ("supply", "in_stock")       => "bg-blue-100 text-blue-800",
+        ("supply", "low_stock")      => "bg-warning text-[#2c2c2c]",
+        ("supply", "out_of_stock")   => "bg-primary text-white",
+
+        _ => "bg-muted text-white"
+    };
+
+    private string Label => (Kind, Status) switch
+    {
+        ("equipment", "in-use")      => "In Use",
+        ("equipment", var s)          => Capitalize(s),
+
+        ("supply", "fully_stocked")  => "Fully Stocked",
+        ("supply", "in_stock")       => "In Stock",
+        ("supply", "low_stock")      => "Low Stock",
+        ("supply", "out_of_stock")   => "Out of Stock",
+
+        _ => Status
+    };
+
+    private static string Capitalize(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..].Replace('-', ' ');
+}
