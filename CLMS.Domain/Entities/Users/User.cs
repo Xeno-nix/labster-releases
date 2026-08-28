@@ -33,6 +33,9 @@ public class User : AuditableEntity
         UserRole = userRole;
     }
 
+    public User()
+    {
+    }
     public string GetFullName()
     {
         string fullName = FirstName.Value;

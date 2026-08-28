@@ -1,6 +1,7 @@
 ﻿namespace CLMS.Domain.Entities.UnitManagement;
 using CLMS.Domain.Enums;
-internal class DesktopActivityLog:
+using CLMS.Domain.Common;
+internal class DesktopActivityLog: AuditableEntity
 
 {
     public Guid DesktopActivityId { get; set; }

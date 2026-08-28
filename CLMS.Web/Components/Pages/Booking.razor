@@ -1,0 +1,412 @@
+@page "/bookings"
+@rendermode InteractiveServer
+@inject IBookingService BookingService
+@inject ILaboratoryService LaboratoryService
+
+<PageTitle>Laboratory Bookings</PageTitle>
+
+<style>
+    .modal-backdrop-page {
+        display: flex;
+        justify-content: center;
+        padding: 3rem 1rem;
+    }
+
+    .modal-card {
+        width: 100%;
+        max-width: 520px;
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-radius: 12px;
+    }
+
+    .modal-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem 1.5rem 0.5rem;
+    }
+
+    .modal-card-header h5 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
+
+    .close-btn {
+        color: #888;
+        font-size: 1.25rem;
+        text-decoration: none;
+        line-height: 1;
+        background: none;
+        border: none;
+        cursor: pointer;
+    }
+
+    .modal-card-body {
+        padding: 0.5rem 1.5rem 1.5rem;
+    }
+
+    .field {
+        margin-bottom: 1rem;
+        flex: 1;
+    }
+
+    .field label {
+        display: block;
+        font-size: 0.8rem;
+        color: #666;
+        margin-bottom: 0.35rem;
+    }
+
+    .field-input {
+        width: 100%;
+        padding: 0.5rem 0.65rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+
+    .field-row {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .time-slot {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .modal-card-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+    }
+
+    .btn-cancel {
+        padding: 0.55rem 1.25rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        color: #444;
+        text-decoration: none;
+        font-size: 0.9rem;
+        background: #fff;
+        cursor: pointer;
+    }
+
+    .btn-submit {
+        padding: 0.55rem 1.25rem;
+        background: #7a1f2b;
+        border: none;
+        border-radius: 6px;
+        color: #fff;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .btn-submit:disabled {
+        opacity: 0.6;
+    }
+
+    .modal-error {
+        background: #fdecea;
+        color: #b3261e;
+        border: 1px solid #f5c2c0;
+        border-radius: 6px;
+        padding: 0.6rem 0.9rem;
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Laboratory Bookings</h2>
+            <p class="text-muted">Manage laboratory reservations.</p>
+        </div>
+        <button class="btn btn-primary" @onclick="OpenCreateForm">+ New Booking</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage) && !showForm)
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (isLoading)
+    {
+        <p>Loading bookings...</p>
+    }
+    else if (!bookings.Any())
+    {
+        <div class="alert alert-info">No bookings found.</div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Requestor</th>
+                                <th>Contact</th>
+                                <th>Laboratory</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Purpose</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (BookingDto booking in bookings)
+                            {
+                                <tr>
+                                    <td>@booking.RequestorName</td>
+                                    <td>@booking.Email</td>
+                                    <td>@GetLaboratoryName(booking.LaboratoryId)</td>
+                                    <td>@booking.Date.ToString("MMM dd, yyyy")</td>
+                                    <td>@booking.StartTime.ToString("HH:mm") - @booking.EndTime.ToString("HH:mm")</td>
+                                    <td>@booking.Purpose</td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => OpenEditForm(booking.Id)">Edit</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showForm)
+{
+    <div class="modal-backdrop-page">
+        <div class="modal-card">
+            <div class="modal-card-header">
+                <h5>@(isEditing ? "Edit Booking" : "New Booking")</h5>
+                <button type="button" class="close-btn" @onclick="CloseForm" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-card-body">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="modal-error">@errorMessage</div>
+                }
+
+                <EditForm Model="formModel" OnValidSubmit="SaveBooking">
+                    <DataAnnotationsValidator />
+
+                    <div class="field-row">
+                        <div class="field">
+                            <label>Requestor Name</label>
+                            <InputText @bind-Value="formModel.RequestorName" class="field-input" />
+                            <ValidationMessage For="@(() => formModel.RequestorName)" />
+                        </div>
+                        <div class="field">
+                            <label>Email</label>
+                            <InputText @bind-Value="formModel.Email" class="field-input" placeholder="email@example.com" />
+                            <ValidationMessage For="@(() => formModel.Email)" />
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Laboratory</label>
+                        <InputSelect @bind-Value="formModel.LaboratoryId" class="field-input">
+                            <option value="0">-- Select laboratory --</option>
+                            @foreach (var lab in laboratories)
+                            {
+                                <option value="@lab.Id">@lab.Name</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => formModel.LaboratoryId)" />
+                    </div>
+
+                    <div class="field">
+                        <label>Date</label>
+                        <input type="date" class="field-input" @bind="formModel.Date" @bind:format="yyyy-MM-dd" />
+                    </div>
+
+                    <div class="field time-slot">
+                        <div class="field">
+                            <label>Start Time</label>
+                            <input type="time" class="field-input" @bind="formModel.StartTime" @bind:format="HH:mm" />
+                        </div>
+                        <div class="field">
+                            <label>End Time</label>
+                            <input type="time" class="field-input" @bind="formModel.EndTime" @bind:format="HH:mm" />
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Purpose</label>
+                        <InputTextArea @bind-Value="formModel.Purpose" class="field-input" rows="3" />
+                        <ValidationMessage For="@(() => formModel.Purpose)" />
+                    </div>
+
+                    <div class="modal-card-footer">
+                        <a href="javascript:void(0)" class="btn-cancel" @onclick="CloseForm">Cancel</a>
+                        <button type="submit" class="btn-submit" disabled="@isSaving">@(isSaving ? "Saving..." : "Save Booking")</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private IEnumerable<BookingDto> bookings = Enumerable.Empty<BookingDto>();
+    private IEnumerable<LaboratoryDTO> laboratories = Enumerable.Empty<LaboratoryDTO>();
+    private UpsertBookingDTO formModel = new();
+
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool isEditing;
+    private bool showForm;
+
+    private int editingId;
+    private int deletingId;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLaboratories();
+        await LoadBookings();
+    }
+
+    private async Task LoadLaboratories()
+    {
+        try
+        {
+            laboratories = await LaboratoryService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to load laboratories.";
+            Console.WriteLine(ex);
+        }
+    }
+
+    private string GetLaboratoryName(int labId)
+        => laboratories.FirstOrDefault(l => l.Id == labId)?.Name ?? $"Lab {labId}";
+
+    private async Task LoadBookings()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            bookings = await BookingService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to load bookings.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenCreateForm()
+    {
+        isEditing = false;
+        editingId = 0;
+        formModel = new UpsertBookingDTO
+        {
+            Date = DateOnly.FromDateTime(DateTime.Today),
+            StartTime = new TimeOnly(8, 0),
+            EndTime = new TimeOnly(10, 0)
+        };
+        errorMessage = null;
+        showForm = true;
+    }
+
+    private async Task OpenEditForm(int id)
+    {
+        errorMessage = null;
+
+        try
+        {
+            var booking = await BookingService.GetByIdAsync(id);
+            if (booking is null)
+            {
+                errorMessage = "Booking was not found.";
+                return;
+            }
+
+            editingId = id;
+            isEditing = true;
+
+            formModel = new UpsertBookingDTO
+            {
+                LaboratoryId = booking.LaboratoryId,
+                RequestorName = booking.RequestorName,
+                Email = booking.Email,
+                Purpose = booking.Purpose,
+                Date = booking.Date,
+                StartTime = booking.StartTime,
+                EndTime = booking.EndTime
+            };
+
+            showForm = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to load the booking.";
+            Console.WriteLine(ex);
+        }
+    }
+
+    private void CloseForm() => showForm = false;
+
+    private async Task SaveBooking()
+    {
+        errorMessage = null;
+
+        if (formModel.LaboratoryId <= 0)
+        {
+            errorMessage = "Please select a laboratory.";
+            return;
+        }
+
+        if (formModel.StartTime >= formModel.EndTime)
+        {
+            errorMessage = "Start time must be earlier than end time.";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            if (isEditing)
+            {
+                await BookingService.UpdateAsync(editingId, formModel);
+            }
+            else
+            {
+                await BookingService.CreateAsync(formModel);
+            }
+
+            showForm = false;
+            await LoadBookings();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to save the booking.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+
+}
