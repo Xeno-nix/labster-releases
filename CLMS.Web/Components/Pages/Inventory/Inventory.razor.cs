@@ -120,19 +120,8 @@ public partial class Inventory : ComponentBase
             model.Remarks);
 
         await InventoryService.CreateOrUpdateEquipmentAsync(dto);
-
-        if (EditingEquipment)
-        {
-            var idx = Equipment.FindIndex(e => e.EquipmentId == model.EquipmentId);
-            if (idx >= 0) Equipment[idx] = model;
-            FlashSuccess = "Equipment updated successfully.";
-        }
-        else
-        {
-            model.EquipmentId = Equipment.Count == 0 ? 1 : Equipment.Max(e => e.EquipmentId) + 1;
-            Equipment.Add(model);
-            FlashSuccess = "Equipment added successfully.";
-        }
+        Equipment = (await InventoryService.GetEquipmentAsync()).Select(MapEquipment).ToList();
+        FlashSuccess = EditingEquipment ? "Equipment updated successfully." : "Equipment added successfully.";
 
         ShowEquipmentForm = false;
     }
@@ -148,7 +137,7 @@ public partial class Inventory : ComponentBase
         if (PendingDeleteEquipment is not null)
         {
             await InventoryService.DeleteEquipmentAsync(PendingDeleteEquipment.EquipmentId);
-            Equipment.Remove(PendingDeleteEquipment);
+            Equipment = (await InventoryService.GetEquipmentAsync()).Select(MapEquipment).ToList();
             FlashSuccess = "Equipment deleted.";
         }
 
@@ -232,19 +221,8 @@ public partial class Inventory : ComponentBase
             model.Remarks);
 
         await InventoryService.CreateOrUpdateSupplyAsync(dto);
-
-        if (EditingSupply)
-        {
-            var idx = Supplies.FindIndex(s => s.SupplyId == model.SupplyId);
-            if (idx >= 0) Supplies[idx] = model;
-            FlashSuccess = "Supply updated successfully.";
-        }
-        else
-        {
-            model.SupplyId = Supplies.Count == 0 ? 1 : Supplies.Max(s => s.SupplyId) + 1;
-            Supplies.Add(model);
-            FlashSuccess = "Supply added successfully.";
-        }
+        Supplies = (await InventoryService.GetSuppliesAsync()).Select(MapSupply).ToList();
+        FlashSuccess = EditingSupply ? "Supply updated successfully." : "Supply added successfully.";
 
         ShowSupplyForm = false;
     }
@@ -260,7 +238,7 @@ public partial class Inventory : ComponentBase
         if (PendingDeleteSupply is not null)
         {
             await InventoryService.DeleteSupplyAsync(PendingDeleteSupply.SupplyId);
-            Supplies.Remove(PendingDeleteSupply);
+            Supplies = (await InventoryService.GetSuppliesAsync()).Select(MapSupply).ToList();
             FlashSuccess = "Supply deleted.";
         }
 

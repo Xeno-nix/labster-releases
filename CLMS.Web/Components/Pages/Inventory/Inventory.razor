@@ -192,7 +192,7 @@
                                 <td class="px-5 py-3 text-sm text-muted">@item.Category</td>
                                 <td class="px-5 py-3 text-sm text-muted">@(item.Unit ?? "—")</td>
                                 <td class="px-5 py-3">
-                                    <select value="@item.Status" @onchange="e => ConfirmStatusChange(item, e.Value?.ToString() ?? item.Status)"
+                                    <select @key="item.Status" value="@item.Status" @onchange="e => ConfirmStatusChange(item, e.Value?.ToString() ?? item.Status)"
                                             class="px-2 py-1 border border-black/10 rounded text-xs font-medium bg-surface focus:border-primary focus:outline-none cursor-pointer">
                                         <option value="fully_stocked">Fully Stocked</option>
                                         <option value="in_stock">In Stock</option>
@@ -302,5 +302,16 @@
         <p class="text-sm text-muted mb-2">You are about to delete:</p>
         <p class="text-sm font-medium text-[#2c2c2c] mb-2">@PendingDeleteSupply?.SupplyName</p>
         <p class="text-xs text-muted">This action cannot be undone.</p>
+    </Body>
+</ConfirmModal>
+
+<ConfirmModal Show="ShowStatusConfirm" Title="Update Supply Status"
+              ConfirmLabel="Yes, Update"
+              OnCancel="() => ShowStatusConfirm = false" OnConfirm="StatusChangeConfirmed">
+    <Body>
+        <p class="text-sm text-muted mb-2">
+            Change status of <span class="font-medium text-[#2c2c2c]">@PendingStatusSupply?.SupplyName</span> to
+            <span class="font-medium text-[#2c2c2c]">@PendingStatusValue</span>?
+        </p>
     </Body>
 </ConfirmModal>

@@ -18,7 +18,12 @@ public static class DependencyInjection
         services.AddScoped<ILogbookRepository>(_ => new LogbookRepository(connectionString));
 
         services.AddScoped<IDbConnectionFactory, MySqlConnectionFactory>();
-        services.AddScoped<IInventoryService, InventoryService>();
+
+        // TEMP: the database schema isn't ready yet, so Inventory runs on an
+        // in-memory store (seeded with sample data, resets on app restart).
+        // Once the DB is ready, swap this line back to:
+        //   services.AddScoped<IInventoryService, InventoryService>();
+        services.AddSingleton<IInventoryService, InMemoryInventoryService>();
 
         return services;
     }
