@@ -93,4 +93,19 @@ public class ClassScheduleService : IClassScheduleService
             TimeEnd = schedule.TimeEnd
         };
     }
+
+     private static ClassScheduleDto MapToDto(ClassSchedule schedule)
+    {
+        return new ClassScheduleDto
+        {
+            Id = schedule.Id,
+            CourseId = schedule.CourseId,
+            InstructorId = schedule.InstructorId,
+            LaboratoryId = schedule.LaboratoryId,
+            AcademicTermId = schedule.AcademicTermId,
+            DayOfWeek = schedule.DayOfWeek,
+            TimeStart = schedule.TimeStart,
+            TimeEnd = schedule.TimeEnd
+        };
+    }
 }

@@ -3,6 +3,7 @@ using CLMS.Application.DTOs;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Users;
+using CLMS.Domain.Enums;
 
 namespace CLMS.Application.Services;
 
@@ -18,7 +19,7 @@ public class UserService : IUserService
 
     public async Task<IEnumerable<UserDTO>> GetFacultyAsync()
     {
-        var users = await _repository.GetByRoleAsync(Domain.Enums.Role.Faculty);
+        var users = await _repository.GetByRoleAsync(Role.Faculty);
 
         return users.Select(MapToDto);
     }

@@ -30,7 +30,7 @@ public class UserRepository : IUserRepository
                 email,
                 role_type
             FROM users
-            WHERE role_type = 'Faculty'
+            WHERE role_type = @Role
             ORDER BY last_name, first_name;
             """;
 
@@ -38,6 +38,7 @@ public class UserRepository : IUserRepository
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@Role", role.ToString());
 
         await using var reader = await command.ExecuteReaderAsync();
 
