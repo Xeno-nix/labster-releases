@@ -1,0 +1,281 @@
+﻿@page "/logging-terminal"
+@rendermode InteractiveServer
+@using CLMS.Application.Logging
+@using CLMS.Application.Logging.Dtos
+@inject ILoggingAppService LoggingAppService
+@* TEMP-DEBUG: remove this line + the DebugLogger.LogAsync calls below — see the revert
+   checklist at the top of CLMS.Web/Debug/TerminalDebugLogger.cs *@
+@inject CLMS.Web.Debug.TerminalDebugLogger DebugLogger
+
+<PageTitle>CLMS — Logging Terminal</PageTitle>
+
+@* Self-contained public chrome mirroring Laravel's resources/views/layouts/public.blade.php *@
+<div class="bg-surface antialiased min-h-screen flex flex-col">
+
+    <header class="bg-white border-b border-black/10">
+        <div class="max-w-4xl mx-auto px-6 py-4 flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="20" height="14" x="2" y="3" rx="2" />
+                    <path d="M8 21h8m-4-4v4" />
+                </svg>
+            </div>
+            <div>
+                <p class="text-primary font-heading font-semibold text-base leading-tight">CLMS</p>
+                <p class="text-xs text-muted">USeP — Computer Laboratory Management</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 py-10 px-6">
+        <div class="max-w-2xl mx-auto">
+
+            @* Header *@
+            <div class="text-center mb-8">
+                <h1 class="text-primary text-3xl mb-2">Laboratory Logging Terminal</h1>
+                <p class="text-muted text-sm">
+                    Students sign in with your student number. Visitors enter your name and purpose.
+                </p>
+            </div>
+
+            @* Success / error flash *@
+            @if (!string.IsNullOrEmpty(SuccessMessage))
+            {
+                <div class="mb-6 px-4 py-3 rounded-lg bg-success/10 border border-success/30 text-sm text-success">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M8 2v4" />
+                            <path d="M16 2v4" />
+                            <rect width="18" height="18" x="3" y="4" rx="2" />
+                            <path d="M3 10h18" />
+                        </svg>
+                        <span>@SuccessMessage</span>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="mb-6 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                    @ErrorMessage
+                </div>
+            }
+
+            @* Action tabs *@
+            <div class="bg-white rounded-lg border border-black/10 shadow-sm overflow-hidden">
+
+                <div class="flex border-b border-black/10">
+                    <button type="button" @onclick='() => SetMode("student_in")' class="@TabClass("student_in")">
+                        Student Time In
+                    </button>
+                    <button type="button" @onclick='() => SetMode("guest_in")' class="@TabClass("guest_in") border-l border-black/10">
+                        Visitor Time In
+                    </button>
+                    <button type="button" @onclick='() => SetMode("time_out")' class="@TabClass("time_out") border-l border-black/10">
+                        Time Out
+                    </button>
+                </div>
+
+                @* ─── STUDENT TIME IN ─── *@
+                @if (Mode == "student_in")
+                {
+                    <div class="p-6">
+                        <EditForm Model="StudentModel" OnValidSubmit="HandleStudentTimeIn" class="space-y-4">
+                            <DataAnnotationsValidator />
+
+                            <div>
+                                <label for="si_student_id" class="block text-sm font-medium text-[#2c2c2c] mb-2">
+                                    Student Number <span class="text-primary">*</span>
+                                </label>
+                                <InputText id="si_student_id"
+                                           @bind-Value="StudentModel.StudentId"
+                                           placeholder="e.g. 2024-00123"
+                                           class="w-full px-4 py-4 border border-black/10 rounded-lg bg-surface text-base
+                                                  focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                                <ValidationMessage For="@(() => StudentModel.StudentId)" class="text-xs text-red-500 mt-1" />
+                            </div>
+
+                            <p class="text-xs text-muted">
+                                The laboratory, course, and instructor will be detected from your active class schedule.
+                            </p>
+
+                            <button type="submit" disabled="@IsBusy"
+                                    class="w-full px-6 py-4 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium disabled:opacity-60">
+                                @(IsBusy ? "Signing In..." : "Sign In")
+                            </button>
+                        </EditForm>
+                    </div>
+                }
+
+                @* ─── GUEST TIME IN ─── *@
+                @if (Mode == "guest_in")
+                {
+                    <div class="p-6">
+                        <EditForm Model="GuestModel" OnValidSubmit="HandleGuestTimeIn" class="space-y-4">
+                            <DataAnnotationsValidator />
+
+                            <div>
+                                <label for="g_booked_under" class="block text-sm font-medium text-[#2c2c2c] mb-2">
+                                    Reservation Booked Under <span class="text-primary">*</span>
+                                </label>
+                                <InputText id="g_booked_under"
+                                           @bind-Value="GuestModel.BookedUnder"
+                                           placeholder="Name on the reservation (e.g. your group leader)"
+                                           class="w-full px-4 py-4 border border-black/10 rounded-lg bg-surface text-base
+                                                  focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                                <ValidationMessage For="@(() => GuestModel.BookedUnder)" class="text-xs text-red-500 mt-1" />
+                            </div>
+
+                            <div>
+                                <label for="g_name" class="block text-sm font-medium text-[#2c2c2c] mb-2">
+                                    Your Full Name <span class="text-primary">*</span>
+                                </label>
+                                <InputText id="g_name"
+                                           @bind-Value="GuestModel.GuestName"
+                                           placeholder="Your own name — for individual attendance"
+                                           class="w-full px-4 py-4 border border-black/10 rounded-lg bg-surface text-base
+                                                  focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                                <ValidationMessage For="@(() => GuestModel.GuestName)" class="text-xs text-red-500 mt-1" />
+                            </div>
+
+                            <p class="text-xs text-muted">
+                                Each attendee signs in with the same reservation name but their own full name.
+                                Don't have a reservation?
+                                <a href="/reserve" class="text-primary underline">Book one here</a>.
+                            </p>
+
+                            <button type="submit" disabled="@IsBusy"
+                                    class="w-full px-6 py-4 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium disabled:opacity-60">
+                                @(IsBusy ? "Signing In..." : "Sign In as Visitor")
+                            </button>
+                        </EditForm>
+                    </div>
+                }
+
+                @* ─── TIME OUT (unified) ─── *@
+                @if (Mode == "time_out")
+                {
+                    <div class="p-6">
+                        <EditForm Model="TimeOutModel" OnValidSubmit="HandleTimeOut" class="space-y-4">
+                            <DataAnnotationsValidator />
+
+                            <div>
+                                <label for="to_identifier" class="block text-sm font-medium text-[#2c2c2c] mb-2">
+                                    Student Number or Full Name <span class="text-primary">*</span>
+                                </label>
+                                <InputText id="to_identifier"
+                                           @bind-Value="TimeOutModel.Identifier"
+                                           placeholder="Students: e.g. 2024-00123    Visitors: your full name"
+                                           class="w-full px-4 py-4 border border-black/10 rounded-lg bg-surface text-base
+                                                  focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                                <ValidationMessage For="@(() => TimeOutModel.Identifier)" class="text-xs text-red-500 mt-1" />
+                            </div>
+
+                            <p class="text-xs text-muted">
+                                This will end your current laboratory session.
+                            </p>
+
+                            <button type="submit" disabled="@IsBusy"
+                                    class="w-full px-6 py-4 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium disabled:opacity-60">
+                                @(IsBusy ? "Signing Out..." : "Sign Out")
+                            </button>
+                        </EditForm>
+                    </div>
+                }
+
+            </div>
+
+            @* Footer hint *@
+            <p class="text-center text-xs text-muted mt-6">
+                Need help? Ask a laboratory staff member.
+            </p>
+
+        </div>
+    </main>
+
+    <footer class="border-t border-black/10 py-4">
+        <div class="max-w-4xl mx-auto px-6 text-center text-xs text-muted">
+            University of Southeastern Philippines — Tagum-Mabini
+        </div>
+    </footer>
+
+</div>
+
+@code {
+    private string Mode { get; set; } = "student_in";
+    private bool IsBusy { get; set; }
+
+    private string? SuccessMessage { get; set; }
+    private string? ErrorMessage { get; set; }
+
+    private StudentTimeInRequest StudentModel { get; set; } = new();
+    private GuestTimeInRequest GuestModel { get; set; } = new();
+    private TimeOutRequest TimeOutModel { get; set; } = new();
+
+    private string TabClass(string mode) =>
+        "flex-1 px-6 py-4 text-sm font-medium transition-colors "
+        + (Mode == mode ? "bg-primary text-white" : "bg-white text-muted hover:bg-surface");
+
+    private void SetMode(string mode)
+    {
+        Mode = mode;
+        SuccessMessage = null;
+        ErrorMessage = null;
+    }
+
+    private Task HandleStudentTimeIn() => RunAsync(async () =>
+    {
+        var result = await LoggingAppService.StudentTimeInAsync(StudentModel);
+        ApplyResult(result);
+        // TEMP-DEBUG: remove — see CLMS.Web/Debug/TerminalDebugLogger.cs
+        await DebugLogger.LogAsync("StudentTimeIn", StudentModel.StudentId, result);
+        if (result.Success) StudentModel = new();
+    });
+
+    private Task HandleGuestTimeIn() => RunAsync(async () =>
+    {
+        var result = await LoggingAppService.GuestTimeInAsync(GuestModel);
+        ApplyResult(result);
+        // TEMP-DEBUG: remove — see CLMS.Web/Debug/TerminalDebugLogger.cs
+        await DebugLogger.LogAsync("GuestTimeIn", $"{GuestModel.GuestName} (booked under {GuestModel.BookedUnder})", result);
+        if (result.Success) GuestModel = new();
+    });
+
+    private Task HandleTimeOut() => RunAsync(async () =>
+    {
+        var result = await LoggingAppService.TimeOutAsync(TimeOutModel);
+        ApplyResult(result);
+        // TEMP-DEBUG: remove — see CLMS.Web/Debug/TerminalDebugLogger.cs
+        await DebugLogger.LogAsync("TimeOut", TimeOutModel.Identifier, result);
+        if (result.Success) TimeOutModel = new();
+    });
+
+    private void ApplyResult(LoggingResult result)
+    {
+        if (result.Success)
+        {
+            SuccessMessage = result.Message;
+            ErrorMessage = null;
+        }
+        else
+        {
+            ErrorMessage = result.Message;
+            SuccessMessage = null;
+        }
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        IsBusy = true;
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+}

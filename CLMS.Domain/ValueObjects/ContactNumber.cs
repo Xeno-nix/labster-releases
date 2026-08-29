@@ -24,7 +24,7 @@ public class ContactNumber
     {
         if (string.IsNullOrEmpty(value))
         {
-            throw new ArgumentException("Contact Number cannot be null or empty",nameof(value))
+            throw new ArgumentException("Contact Number cannot be null or empty", nameof(value));
         }
 
         if (!Regex.IsMatch(value, @"^\+?\d{10,15}$"))
