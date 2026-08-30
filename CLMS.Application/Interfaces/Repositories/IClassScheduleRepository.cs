@@ -1,12 +1,13 @@
+using CLMS.Application.DTOs.Booking;
 using CLMS.Domain.Entities.Booking;
 
 namespace CLMS.Application.Interfaces.Repositories;
 
 public interface IClassScheduleRepository
 {
-    Task<IEnumerable<ClassSchedule>> GetAllAsync();
+    Task<IEnumerable<ClassScheduleDTO>> GetAllAsync();
 
-    Task<ClassSchedule?> GetByIdAsync(int id);
+    Task<ClassScheduleDTO?> GetByIdAsync(int id);
 
     Task<int> CreateAsync(ClassSchedule schedule);
 

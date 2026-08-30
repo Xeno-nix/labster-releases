@@ -2,7 +2,7 @@ using CLMS.Domain.ValueObjects;
 
 namespace CLMS.Application.DTOs.Booking;
 
-public class BookingDto
+public class BookingDTO
 {
     public int Id { get; set; }
 

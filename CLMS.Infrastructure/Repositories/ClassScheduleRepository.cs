@@ -1,3 +1,4 @@
+using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Booking;
 using MySqlConnector;
@@ -13,24 +14,50 @@ public class ClassScheduleRepository : IClassScheduleRepository
         _connectionString = connectionString;
     }
 
-    public async Task<IEnumerable<ClassSchedule>> GetAllAsync()
+    public async Task<IEnumerable<ClassScheduleDTO>> GetAllAsync()
     {
-        var schedules = new List<ClassSchedule>();
+        var schedules = new List<ClassScheduleDTO>();
 
         const string sql = """
             SELECT
-                class_schedule_id,
-                course_id,
-                instructor_id,
-                lab_id,
-                term_id,
-                day_of_week,
-                time_start,
-                time_end
-            FROM class_schedule
+                cs.class_schedule_id,
+                cs.course_id,
+                c.course_code,
+                c.course_name,
+
+                cs.instructor_id,
+                CONCAT(u.first_name, ' ', u.last_name) AS instructor_name,
+
+                cs.lab_id,
+                l.lab_name,
+
+                cs.term_id,
+                at.academic_year,
+                at.semester,
+
+                cs.day_of_week,
+                cs.time_start,
+                cs.time_end
+
+            FROM class_schedule cs
+
+            INNER JOIN courses c
+                ON cs.course_id = c.course_id
+
+            INNER JOIN users u
+                ON cs.instructor_id = u.user_id
+
+            INNER JOIN laboratories l
+                ON cs.lab_id = l.lab_id
+
+            INNER JOIN academic_terms at
+                ON cs.term_id = at.academic_term_id
+
+            WHERE u.role_type = 'Faculty'
+
             ORDER BY
-                day_of_week,
-                time_start;
+                cs.day_of_week,
+                cs.time_start;
             """;
 
         await using var connection = new MySqlConnection(_connectionString);
@@ -48,20 +75,45 @@ public class ClassScheduleRepository : IClassScheduleRepository
         return schedules;
     }
 
-    public async Task<ClassSchedule?> GetByIdAsync(int id)
+    public async Task<ClassScheduleDTO?> GetByIdAsync(int id)
     {
         const string sql = """
             SELECT
-                class_schedule_id,
-                course_id,
-                instructor_id,
-                lab_id,
-                term_id,
-                day_of_week,
-                time_start,
-                time_end
-            FROM class_schedule
-            WHERE class_schedule_id = @Id;
+                cs.class_schedule_id,
+                cs.course_id,
+                c.course_code,
+                c.course_name,
+
+                cs.instructor_id,
+                CONCAT(u.first_name, ' ', u.last_name) AS instructor_name,
+
+                cs.lab_id,
+                l.lab_name,
+
+                cs.term_id,
+                at.academic_year,
+                at.semester,
+
+                cs.day_of_week,
+                cs.time_start,
+                cs.time_end
+
+            FROM class_schedule cs
+
+            INNER JOIN courses c
+                ON cs.course_id = c.course_id
+
+            INNER JOIN users u
+                ON cs.instructor_id = u.user_id
+
+            INNER JOIN laboratories l
+                ON cs.lab_id = l.lab_id
+
+            INNER JOIN academic_terms at
+                ON cs.term_id = at.academic_term_id
+
+            WHERE cs.class_schedule_id = @Id
+            AND u.role_type = 'Faculty';
             """;
 
         await using var connection = new MySqlConnection(_connectionString);
@@ -189,29 +241,35 @@ public class ClassScheduleRepository : IClassScheduleRepository
         await command.ExecuteNonQueryAsync();
     }
 
-    private static ClassSchedule MapSchedule(
-        MySqlDataReader reader)
-    {
-        return new ClassSchedule
+    private static ClassScheduleDTO MapSchedule(
+            MySqlDataReader reader)
         {
-            Id = reader.GetInt32("class_schedule_id"),
+            return new ClassScheduleDTO
+            {
+                Id = reader.GetInt32("class_schedule_id"),
 
-            CourseId = reader.GetInt32("course_id"),
+                CourseId = reader.GetInt32("course_id"),
+                CourseCode = reader.GetString("course_code"),
+                CourseName = reader.GetString("course_name"),
 
-            InstructorId = reader.GetGuid("instructor_id"),
+                InstructorId = reader.GetGuid("instructor_id"),
+                InstructorName = reader.GetString("instructor_name"),
 
-            LaboratoryId = reader.GetInt32("lab_id"),
+                LaboratoryId = reader.GetInt32("lab_id"),
+                LaboratoryName = reader.GetString("lab_name"),
 
-            AcademicTermId = reader.GetInt32("term_id"),
+                AcademicTermId = reader.GetInt32("term_id"),
+                AcademicYear = reader.GetString("academic_year"),
+                Semester = reader.GetString("semester"),
 
-            DayOfWeek = Enum.Parse<DayOfWeek>(
-                reader.GetString("day_of_week")),
+                DayOfWeek = Enum.Parse<DayOfWeek>(
+                    reader.GetString("day_of_week")),
 
-            TimeStart = TimeOnly.FromTimeSpan(
-                reader.GetTimeSpan("time_start")),
+                TimeStart = TimeOnly.FromTimeSpan(
+                    reader.GetTimeSpan("time_start")),
 
-            TimeEnd = TimeOnly.FromTimeSpan(
-                reader.GetTimeSpan("time_end"))
-        };
-    }
+                TimeEnd = TimeOnly.FromTimeSpan(
+                    reader.GetTimeSpan("time_end"))
+            };
+        }
 }

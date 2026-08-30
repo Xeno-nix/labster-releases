@@ -8,6 +8,7 @@ namespace CLMS.Application.Services;
 public class ClassScheduleService : IClassScheduleService
 {
     private readonly IClassScheduleRepository _repository;
+    
 
     public ClassScheduleService(
         IClassScheduleRepository repository)
@@ -38,22 +39,16 @@ public class ClassScheduleService : IClassScheduleService
     }
 
 //get all sched
-    public async Task<IEnumerable<ClassScheduleDto>> GetAllAsync()
+    public async Task<IEnumerable<ClassScheduleDTO>> GetAllAsync()
     {
-        var schedules = await _repository.GetAllAsync();
-
-        return schedules.Select(MapToDto);}
-
+        return await _repository.GetAllAsync();
+    }
 
 
-    public async Task<ClassScheduleDto?> GetByIdAsync(int id)
+
+    public async Task<ClassScheduleDTO?> GetByIdAsync(int id)
     {
-        var schedule = await _repository.GetByIdAsync(id);
-
-        if (schedule == null)
-            return null;
-
-        return MapToDto(schedule);
+        return  await _repository.GetByIdAsync(id);
     }
 
 //update sched
@@ -61,51 +56,19 @@ public class ClassScheduleService : IClassScheduleService
         int id,
         UpsertClassScheduleDTO dto)
     {
-        var schedule = await _repository.GetByIdAsync(id);
-
-        if (schedule == null)
-            throw new KeyNotFoundException(
-                $"Class schedule with ID {id} was not found.");
-
-        schedule.CourseId = dto.CourseId;
-        schedule.InstructorId = dto.InstructorId;
-        schedule.LaboratoryId = dto.LaboratoryId;
-        schedule.AcademicTermId = dto.AcademicTermId;
-        schedule.DayOfWeek = dto.DayOfWeek;
-        schedule.TimeStart = dto.TimeStart;
-        schedule.TimeEnd = dto.TimeEnd;
+        var schedule = new ClassSchedule
+        {
+            Id = id,
+            CourseId = dto.CourseId,
+            InstructorId = dto.InstructorId,
+            LaboratoryId = dto.LaboratoryId,
+            AcademicTermId = dto.AcademicTermId,
+            DayOfWeek = dto.DayOfWeek,
+            TimeStart = dto.TimeStart,
+            TimeEnd = dto.TimeEnd
+        };
 
         await _repository.UpdateAsync(schedule);
     }
 
-
-    private static ClassScheduleDto MapToDto(ClassSchedule schedule)
-    {
-        return new ClassScheduleDto
-        {
-            Id = schedule.Id,
-            CourseId = schedule.CourseId,
-            InstructorId = schedule.InstructorId,
-            LaboratoryId = schedule.LaboratoryId,
-            AcademicTermId = schedule.AcademicTermId,
-            DayOfWeek = schedule.DayOfWeek,
-            TimeStart = schedule.TimeStart,
-            TimeEnd = schedule.TimeEnd
-        };
-    }
-
-     private static ClassScheduleDto MapToDto(ClassSchedule schedule)
-    {
-        return new ClassScheduleDto
-        {
-            Id = schedule.Id,
-            CourseId = schedule.CourseId,
-            InstructorId = schedule.InstructorId,
-            LaboratoryId = schedule.LaboratoryId,
-            AcademicTermId = schedule.AcademicTermId,
-            DayOfWeek = schedule.DayOfWeek,
-            TimeStart = schedule.TimeStart,
-            TimeEnd = schedule.TimeEnd
-        };
-    }
 }

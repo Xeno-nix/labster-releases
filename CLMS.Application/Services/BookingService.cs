@@ -38,14 +38,14 @@ public class BookingService : IBookingService
         return await _repository.CreateAsync(booking);
     }
 
-    public async Task<IEnumerable<BookingDto>> GetAllAsync()
+    public async Task<IEnumerable<BookingDTO>> GetAllAsync()
     {
         var bookings = await _repository.GetAllAsync();
 
         return bookings.Select(MapToDto);
     }
 
-    public async Task<BookingDto?> GetByIdAsync(int id)
+    public async Task<BookingDTO?> GetByIdAsync(int id)
     {
         var booking = await _repository.GetByIdAsync(id);
 
@@ -90,10 +90,10 @@ public class BookingService : IBookingService
         await _repository.DeleteAsync(id);
     }
 
-    private static BookingDto MapToDto(
+    private static BookingDTO MapToDto(
         Booking booking)
     {
-        return new BookingDto
+        return new BookingDTO
         {
             Id = booking.Id,
             LaboratoryId = booking.LaboratoryId,

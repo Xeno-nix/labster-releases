@@ -6,9 +6,9 @@ public interface IBookingService
 {
     Task<int> CreateAsync(UpsertBookingDTO dto);
 
-    Task<IEnumerable<BookingDto>> GetAllAsync();
+    Task<IEnumerable<BookingDTO>> GetAllAsync();
 
-    Task<BookingDto?> GetByIdAsync(int id);
+    Task<BookingDTO?> GetByIdAsync(int id);
 
     Task UpdateAsync(int id, UpsertBookingDTO dto);
 

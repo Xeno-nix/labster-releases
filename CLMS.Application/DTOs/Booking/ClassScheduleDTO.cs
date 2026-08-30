@@ -1,6 +1,6 @@
 namespace CLMS.Application.DTOs.Booking;
 
-public class ClassScheduleDto
+public class ClassScheduleDTO
 {
     public int Id { get; set; }
 

@@ -4,9 +4,9 @@ namespace CLMS.Application.Interfaces;
 
 public interface IClassScheduleService
 {
-    Task<IEnumerable<ClassScheduleDto>> GetAllAsync();
+    Task<IEnumerable<ClassScheduleDTO>> GetAllAsync();
 
-    Task<ClassScheduleDto?> GetByIdAsync(int id);
+    Task<ClassScheduleDTO?> GetByIdAsync(int id);
 
     Task<int> CreateAsync(UpsertClassScheduleDTO dto);
 

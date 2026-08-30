@@ -160,7 +160,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (BookingDto booking in bookings)
+                            @foreach (BookingDTO booking in bookings)
                             {
                                 <tr>
                                     <td>@booking.RequestorName</td>
@@ -258,7 +258,7 @@
 
 
 @code {
-    private IEnumerable<BookingDto> bookings = Enumerable.Empty<BookingDto>();
+    private IEnumerable<BookingDTO> bookings = Enumerable.Empty<BookingDTO>();
     private IEnumerable<LaboratoryDTO> laboratories = Enumerable.Empty<LaboratoryDTO>();
     private UpsertBookingDTO formModel = new();
 
