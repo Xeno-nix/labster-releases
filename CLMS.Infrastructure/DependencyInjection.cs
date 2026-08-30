@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using CLMS.Domain.Repositories;
 using CLMS.Domain.Common;
 using CLMS.Infrastructure.Repositories;
-using CLMS.Infrastructure.Security;
 
 namespace CLMS.Infrastructure;
 
@@ -33,9 +32,6 @@ public static class DependencyInjection
 
         services.AddSingleton<InMemoryLabUtilizationRepository>();
         services.AddSingleton<ILabUtilizationRepository>(sp => sp.GetRequiredService<InMemoryLabUtilizationRepository>());
-
-        // Password hasher for user credentials
-        services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
 
         return services;
     }
