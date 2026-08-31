@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\CLMS.Application\CLMS.Application.csproj" />
+    <ProjectReference Include="..\CLMS.Shared\CLMS.Shared.csproj" />
+  </ItemGroup>
+
 </Project>

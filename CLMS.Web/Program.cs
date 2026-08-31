@@ -5,8 +5,10 @@ using CLMS.Application;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+builder.Services
+    .AddInfrastructure()
+    .AddRazorComponents()
+        .AddInteractiveServerComponents();
 
 // Register infrastructure and application services
 builder.Services.AddInfrastructureServices();
