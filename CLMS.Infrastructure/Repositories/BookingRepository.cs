@@ -1,6 +1,6 @@
+using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Booking;
-using CLMS.Domain.ValueObjects;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
@@ -14,22 +14,25 @@ public class BookingRepository : IBookingRepository
         _connectionString = connectionString;
     }
 
-    public async Task<IEnumerable<Booking>> GetAllAsync()
+    public async Task<IEnumerable<BookingDTO>> GetAllAsync()
     {
-        var bookings = new List<Booking>();
+        var bookings = new List<BookingDTO>();
 
         const string sql = """
-            SELECT
-                booking_id,
-                lab_id,
-                requestor_name,
-                email,
-                purpose,
-                booking_date,
-                start_time,
-                end_time
-            FROM bookings
-            ORDER BY booking_date, start_time;
+             SELECT
+                b.booking_id,
+                b.lab_id,
+                l.lab_name,
+                b.requestor_name,
+                b.email,
+                b.purpose,
+                b.booking_date,
+                b.start_time,
+                b.end_time
+            FROM bookings b
+            INNER JOIN laboratories l
+                ON b.lab_id = l.lab_id
+            ORDER BY b.booking_date, b.start_time;
             """;
 
         await using var connection =
@@ -51,19 +54,22 @@ public class BookingRepository : IBookingRepository
         return bookings;
     }
 
-    public async Task<Booking?> GetByIdAsync(int id)
+    public async Task<BookingDTO?> GetByIdAsync(int id)
     {
         const string sql = """
             SELECT
-                booking_id,
-                lab_id,
-                requestor_name,
-                email,
-                purpose,
-                booking_date,
-                start_time,
-                end_time
-            FROM bookings
+                b.booking_id,
+                b.lab_id,
+                l.lab_name,
+                b.requestor_name,
+                b.email,
+                b.purpose,
+                b.booking_date,
+                b.start_time,
+                b.end_time
+            FROM bookings b
+            INNER JOIN laboratories l
+                ON b.lab_id = l.lab_id
             WHERE booking_id = @Id;
             """;
 
@@ -244,14 +250,16 @@ public class BookingRepository : IBookingRepository
         await command.ExecuteNonQueryAsync();
     }
 
-    private static Booking MapBooking(
+    private static BookingDTO MapBooking(
         MySqlDataReader reader)
     {
-        return new Booking
+        return new BookingDTO
         {
             Id = reader.GetInt32("booking_id"),
 
             LaboratoryId = reader.GetInt32("lab_id"),
+
+            LaboratoryName = reader.GetString("lab_name"),
 
             RequestorName = reader.GetString("requestor_name"),
 
