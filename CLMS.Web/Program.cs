@@ -3,6 +3,8 @@ using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Application.Services;
 using CLMS.Infrastructure.Repositories;
+using CLMS.Infrastructure;
+using CLMS.Application;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +12,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services
+    .AddInfrastructure()
+    .AddRazorComponents()
+        .AddInteractiveServerComponents();
+
+// Register infrastructure and application services
+builder.Services.AddInfrastructureServices();
+builder.Services.AddApplication();
+
+// TEMP-DEBUG: browser-console logging for the terminal while there's no real DB to
+// inspect. Remove this line as step 2 of the revert checklist in
+// CLMS.Web/Debug/TerminalDebugLogger.cs.
 
 
 // Database connection
