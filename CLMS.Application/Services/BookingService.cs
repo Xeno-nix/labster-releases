@@ -40,47 +40,30 @@ public class BookingService : IBookingService
 
     public async Task<IEnumerable<BookingDTO>> GetAllAsync()
     {
-        var bookings = await _repository.GetAllAsync();
-
-        return bookings.Select(MapToDto);
+        return await _repository.GetAllAsync();
     }
 
     public async Task<BookingDTO?> GetByIdAsync(int id)
     {
-        var booking = await _repository.GetByIdAsync(id);
-
-        if (booking is null)
-            return null;
-
-        return MapToDto(booking);
+        return await _repository.GetByIdAsync(id);
     }
 
     public async Task UpdateAsync(
         int id,
         UpsertBookingDTO dto)
     {
-        if (dto.StartTime >= dto.EndTime)
+       
+        var booking = new Booking
         {
-            throw new ArgumentException(
-                "Start time must be earlier than end time.");
-        }
-
-        var booking = await _repository.GetByIdAsync(id);
-
-        if (booking is null)
-        {
-            throw new KeyNotFoundException(
-                $"Booking with ID {id} was not found.");
-        }
-
-
-        booking.LaboratoryId = dto.LaboratoryId;
-        booking.RequestorName = dto.RequestorName;
-        booking.Email = dto.Email;
-        booking.Purpose = dto.Purpose;
-        booking.Date = dto.Date;
-        booking.StartTime = dto.StartTime;
-        booking.EndTime = dto.EndTime;
+            Id = id,
+            LaboratoryId = dto.LaboratoryId,
+            RequestorName = dto.RequestorName,
+            Email = dto.Email,
+            Purpose = dto.Purpose,
+            Date = dto.Date,
+            StartTime = dto.StartTime,
+            EndTime = dto.EndTime
+        };
 
         await _repository.UpdateAsync(booking);
     }
@@ -90,19 +73,4 @@ public class BookingService : IBookingService
         await _repository.DeleteAsync(id);
     }
 
-    private static BookingDTO MapToDto(
-        Booking booking)
-    {
-        return new BookingDTO
-        {
-            Id = booking.Id,
-            LaboratoryId = booking.LaboratoryId,
-            RequestorName = booking.RequestorName,
-            Email = booking.Email,
-            Purpose = booking.Purpose,
-            Date = booking.Date,
-            StartTime = booking.StartTime,
-            EndTime = booking.EndTime
-        };
-    }
 }

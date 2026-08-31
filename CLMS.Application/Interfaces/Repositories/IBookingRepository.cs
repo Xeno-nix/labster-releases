@@ -1,3 +1,4 @@
+using CLMS.Application.DTOs.Booking;
 using CLMS.Domain.Entities.Booking;
 
 namespace CLMS.Application.Interfaces.Repositories;
@@ -6,9 +7,9 @@ public interface IBookingRepository
 {
     Task<int> CreateAsync(Booking booking);
 
-    Task<IEnumerable<Booking>> GetAllAsync();
+    Task<IEnumerable<BookingDTO>> GetAllAsync();
 
-    Task<Booking?> GetByIdAsync(int id);
+    Task<BookingDTO?> GetByIdAsync(int id);
 
     /// <summary>
     /// Bookings made under the given requestor name ("booked under") for a given date.

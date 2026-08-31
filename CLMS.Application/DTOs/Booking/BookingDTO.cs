@@ -7,6 +7,7 @@ public class BookingDTO
     public int Id { get; set; }
 
     public int LaboratoryId { get; set; }
+    public string LaboratoryName { get; set; } = string.Empty;
 
     public string RequestorName { get; set; } = string.Empty;
 
