@@ -18,4 +18,8 @@
     <ProjectReference Include="..\CLMS.Shared\CLMS.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\CLMS.Domain\CLMS.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

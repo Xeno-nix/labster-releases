@@ -7,6 +7,10 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <UserSecretsId>cmlslms-web</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CLMS.Application\CLMS.Application.csproj" />
+    <ProjectReference Include="..\CLMS.Infrastructure\CLMS.Infrastructure.csproj" />
   <ItemGroup>
     <ProjectReference Include="..\CLMS.Application\CLMS.Application.csproj" />
     <ProjectReference Include="..\CLMS.Infrastructure\CLMS.Infrastructure.csproj" />

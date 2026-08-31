@@ -2,18 +2,14 @@
 namespace CLMS.Domain.Entities.Booking;
 public class ClassSchedule : AuditableEntity
 {
-    public new readonly int Id;
+    public int Id { get; set; }
     public int CourseId { get; set; }
-    public Course? Course { get; set; }
-    public int InstructorId { get; set; }
+    public Guid InstructorId { get; set; }
+    public int LaboratoryId { get; set; }
+    public int AcademicTermId { get; set; }
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeOnly TimeStart { get; set; }
+    public TimeOnly TimeEnd { get; set; }
 
-    public Schedule[] Schedules { get; set; }
-
-    public ClassSchedule(int id, Course course, int instructorId)
-    {
-        Id = id;
-        CourseId = course.Id;
-        Course = course;
-        InstructorId = instructorId;
-    }
+ 
 }
