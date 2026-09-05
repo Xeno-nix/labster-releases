@@ -13,4 +13,5 @@ public interface IBookingService
     Task UpdateAsync(int id, UpsertBookingDTO dto);
 
     Task DeleteAsync(int id);
+    Task<bool> CheckScheduleConflictAsync(UpsertBookingDTO dto, int? excludingBookingId = null);
 }

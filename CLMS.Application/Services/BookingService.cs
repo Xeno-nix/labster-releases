@@ -9,11 +9,14 @@ namespace CLMS.Application.Services;
 public class BookingService : IBookingService
 {
     private readonly IBookingRepository _repository;
+    private readonly IClassScheduleRepository _classScheduleRepository;
 
     public BookingService(
-        IBookingRepository repository)
+        IBookingRepository repository,
+        IClassScheduleRepository classScheduleRepository)
     {
         _repository = repository;
+        _classScheduleRepository = classScheduleRepository;
     }
 
     public async Task<int> CreateAsync(UpsertBookingDTO dto)
@@ -71,6 +74,39 @@ public class BookingService : IBookingService
     public async Task DeleteAsync(int id)
     {
         await _repository.DeleteAsync(id);
+    }
+
+    public async Task<bool> CheckScheduleConflictAsync(UpsertBookingDTO dto, int? excludingBookingId = null)
+    {
+        var allBookings = await _repository.GetAllAsync();
+
+        var bookingConflict = allBookings
+            .Where(b => b.LaboratoryId == dto.LaboratoryId && b.Date == dto.Date)
+            .Where(b => excludingBookingId is null || b.Id != excludingBookingId)
+            .Any(b => TimeRangesOverlap(dto.StartTime, dto.EndTime, b.StartTime, b.EndTime));
+
+        if (bookingConflict)
+        {
+            return true;
+        }
+
+        var allSchedules = await _classScheduleRepository.GetAllAsync();
+        var targetDayOfWeek = dto.Date.ToDateTime(TimeOnly.MinValue).DayOfWeek;
+
+        return allSchedules
+            .Where(s => s.LaboratoryId == dto.LaboratoryId)
+            .Where(s => s.DayOfWeek == targetDayOfWeek)
+            .Any(s => TimeRangesOverlap(dto.StartTime, dto.EndTime, s.TimeStart, s.TimeEnd));
+    }
+
+
+    private static bool TimeRangesOverlap(
+        TimeOnly start1,
+        TimeOnly end1,
+        TimeOnly start2,
+        TimeOnly end2)
+    {
+        return start1 < end2 && start2 < end1;
     }
 
 }
