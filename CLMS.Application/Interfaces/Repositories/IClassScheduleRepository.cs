@@ -9,6 +9,13 @@ public interface IClassScheduleRepository
 
     Task<ClassScheduleDTO?> GetByIdAsync(int id);
 
+    /// <summary>
+    /// Finds the class schedule (course/lab/instructor resolved) a student is enrolled
+    /// in that is currently in session for the given day/time. Added for the logging
+    /// terminal's Student Time-In flow — see ClassScheduleRepository for the query.
+    /// </summary>
+    Task<ClassScheduleDTO?> FindCurrentForStudentAsync(string studentId, DayOfWeek dayOfWeek, TimeOnly currentTime);
+
     Task<int> CreateAsync(ClassSchedule schedule);
 
     Task UpdateAsync(ClassSchedule schedule);

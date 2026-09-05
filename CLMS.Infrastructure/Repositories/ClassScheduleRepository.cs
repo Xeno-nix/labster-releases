@@ -131,6 +131,75 @@ public class ClassScheduleRepository : IClassScheduleRepository
         return MapSchedule(reader);
     }
 
+    public async Task<ClassScheduleDTO?> FindCurrentForStudentAsync(string studentId, DayOfWeek dayOfWeek, TimeOnly currentTime)
+    {
+        // Added for the logging terminal's Student Time-In flow. Joins through
+        // student_enrollment to find the schedule this student is enrolled in that is
+        // in session right now (day matches, current time within start/end).
+        const string sql = """
+            SELECT
+                cs.class_schedule_id,
+                cs.course_id,
+                c.course_code,
+                c.course_name,
+
+                cs.instructor_id,
+                CONCAT(u.first_name, ' ', u.last_name) AS instructor_name,
+
+                cs.lab_id,
+                l.lab_name,
+
+                cs.term_id,
+                at.academic_year,
+                at.semester,
+
+                cs.day_of_week,
+                cs.time_start,
+                cs.time_end
+
+            FROM class_schedule cs
+
+            INNER JOIN student_enrollment se
+                ON se.class_schedule_id = cs.class_schedule_id
+
+            INNER JOIN courses c
+                ON cs.course_id = c.course_id
+
+            INNER JOIN users u
+                ON cs.instructor_id = u.user_id
+
+            INNER JOIN laboratories l
+                ON cs.lab_id = l.lab_id
+
+            INNER JOIN academic_terms at
+                ON cs.term_id = at.academic_term_id
+
+            WHERE se.student_id = @StudentId
+            AND cs.day_of_week = @DayOfWeek
+            AND cs.time_start <= @CurrentTime
+            AND cs.time_end >= @CurrentTime
+            AND u.role_type = 'Faculty'
+
+            LIMIT 1;
+            """;
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@StudentId", studentId);
+        command.Parameters.AddWithValue("@DayOfWeek", dayOfWeek.ToString());
+        command.Parameters.AddWithValue("@CurrentTime", currentTime.ToTimeSpan());
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+            return null;
+
+        return MapSchedule(reader);
+    }
+
     public async Task<int> CreateAsync(ClassSchedule schedule)
     {
         const string sql = """

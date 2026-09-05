@@ -1,34 +1,101 @@
-﻿using System.Collections.Concurrent;
+﻿using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Users;
-using CLMS.Domain.Repositories;
+using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-/// <summary>
-/// TEMPORARY in-memory implementation — see remarks on InMemoryStudentRepository.
-/// Registered as a singleton so data survives for the lifetime of the app process.
-/// </summary>
-public class InMemoryGuestRepository : IGuestRepository
+public class GuestRepository : IGuestRepository
 {
-    private readonly ConcurrentDictionary<int, Guest> _guests = new();
-    private int _nextId;
+    private readonly string _connectionString;
 
-    public Task<Guest> AddAsync(Guest guest, CancellationToken cancellationToken = default)
+    public GuestRepository(string connectionString)
     {
-        if (guest == null) throw new ArgumentNullException(nameof(guest));
-
-        var id = Interlocked.Increment(ref _nextId);
-        guest.AssignId(id);
-        _guests[id] = guest;
-        return Task.FromResult(guest);
+        _connectionString = connectionString;
     }
 
-    public Task<Guest?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
-        => Task.FromResult(_guests.TryGetValue(id, out var guest) ? guest : null);
+    public async Task<int> CreateAsync(Guest guest)
+    {
+        const string sql = """
+            INSERT INTO guests
+            (
+                guest_name,
+                organization,
+                contact_number,
+                purpose
+            )
+            VALUES
+            (
+                @GuestName,
+                @Organization,
+                @ContactNumber,
+                @Purpose
+            );
 
-    // ── TEMP-DEBUG ─────────────────────────────────────────────────
-    // Not part of IGuestRepository — only used by the temporary browser-console logger
-    // (see CLMS.Web/Debug/TerminalDebugLogger.cs) to dump current state for testing.
-    // Delete this method when that debug logger is removed.
-    public IReadOnlyList<Guest> GetAllForDebug() => _guests.Values.ToList();
+            SELECT LAST_INSERT_ID();
+            """;
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@GuestName", guest.GuestName);
+        command.Parameters.AddWithValue("@Organization", (object?)guest.Organization ?? DBNull.Value);
+        command.Parameters.AddWithValue("@ContactNumber", (object?)guest.ContactNumber ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Purpose", (object?)guest.Purpose ?? DBNull.Value);
+
+        var result = await command.ExecuteScalarAsync();
+
+        var id = Convert.ToInt32(result);
+        guest.AssignId(id);
+        return id;
+    }
+
+    public async Task<Guest?> GetByIdAsync(int id)
+    {
+        const string sql = """
+            SELECT
+                guest_id,
+                guest_name,
+                organization,
+                contact_number,
+                purpose
+            FROM guests
+            WHERE guest_id = @Id;
+            """;
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@Id", id);
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+            return null;
+
+        return MapGuest(reader);
+    }
+
+    private static Guest MapGuest(MySqlDataReader reader)
+    {
+        var purposeOrdinal = reader.GetOrdinal("purpose");
+        var guest = new Guest(
+            reader.GetString("guest_name"),
+            reader.IsDBNull(purposeOrdinal) ? null : reader.GetString(purposeOrdinal));
+
+        guest.AssignId(reader.GetInt32("guest_id"));
+
+        var orgOrdinal = reader.GetOrdinal("organization");
+        if (!reader.IsDBNull(orgOrdinal))
+            guest.Organization = reader.GetString(orgOrdinal);
+
+        var contactOrdinal = reader.GetOrdinal("contact_number");
+        if (!reader.IsDBNull(contactOrdinal))
+            guest.ContactNumber = reader.GetString(contactOrdinal);
+
+        return guest;
+    }
 }

@@ -140,6 +140,49 @@ public class BookingRepository : IBookingRepository
         return Convert.ToInt32(result);
     }
 
+    public async Task<IEnumerable<Booking>> FindByRequestorNameAndDateAsync(string requestorName, DateOnly date)
+    {
+        // Added for the logging terminal's Guest Time-In flow.
+        var bookings = new List<Booking>();
+
+        const string sql = """
+            SELECT
+                booking_id,
+                lab_id,
+                requestor_name,
+                email,
+                purpose,
+                booking_date,
+                start_time,
+                end_time
+            FROM bookings
+            WHERE requestor_name = @RequestorName
+            AND booking_date = @Date
+            ORDER BY start_time;
+            """;
+
+        await using var connection =
+            new MySqlConnection(_connectionString);
+
+        await connection.OpenAsync();
+
+        await using var command =
+            new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@RequestorName", requestorName);
+        command.Parameters.AddWithValue("@Date", date.ToDateTime(TimeOnly.MinValue));
+
+        await using var reader =
+            await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            bookings.Add(MapBooking(reader));
+        }
+
+        return bookings;
+    }
+
     public async Task UpdateAsync(Booking booking)
     {
         const string sql = """

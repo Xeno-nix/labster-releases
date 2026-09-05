@@ -2,7 +2,7 @@
 namespace CLMS.Domain.Entities.Booking;
 public class ClassSchedule : AuditableEntity
 {
-    public int Id { get; set; }
+    public new int Id { get; set; }
     public int CourseId { get; set; }
     public Guid InstructorId { get; set; }
     public int LaboratoryId { get; set; }

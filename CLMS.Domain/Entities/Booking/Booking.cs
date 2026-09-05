@@ -3,8 +3,7 @@ using CLMS.Domain.ValueObjects;
 namespace CLMS.Domain.Entities.Booking;
 public class Booking : AuditableEntity
 {
-
-    public int Id { get; set; }
+    public new int Id { get; set; }
     public int LaboratoryId { get; set; }
     public string RequestorName { get; set; }
     public string Email { get; set; } 

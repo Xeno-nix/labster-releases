@@ -1,30 +1,35 @@
 ﻿namespace CLMS.Domain.Entities.UtilizationLogging;
 
 /// <summary>
-/// Mirrors the Laravel `lab_utilization_logs` table. Exactly one of StudentId / GuestLogId
-/// is set per row (student session or visitor session), matching the DB's
-/// chk_student_or_guest constraint. An open session is one where TimeOut is null.
+/// Mirrors the `attendance_logs` table (see Initial_Database_Setup.txt). Exactly one of
+/// StudentId / GuestId is set per row (student session or visitor session). An open
+/// session is one where TimeOut is null.
 ///
-/// LaboratoryId / InstructorId / ClassScheduleId are nullable for now: resolving them
-/// requires reading the booking module's ClassSchedule/Booking data (student's active
-/// class, or the visitor's approved reservation), which isn't wired up yet. Once that
-/// lookup exists, LoggingService should populate these instead of leaving them null.
-/// Note the live `lab_utilization_logs.lab_id` column is currently NOT NULL, so until
-/// this is wired up, real inserts against that schema will need a value supplied some
-/// other way (or the column constraint revisited) — flagging for whoever picks this up.
+/// Note: attendance_logs has no lab_id column — unlike the Laravel source project this
+/// was migrated from, this table doesn't track which laboratory a session happened in
+/// as its own FK. LaboratoryId/ClassScheduleId below are NOT persisted columns; they're
+/// resolved transiently (e.g. from the student's class schedule, or the guest's
+/// booking) purely to build a meaningful Purpose string and for in-memory use during a
+/// single request. If per-log laboratory tracking is needed later, attendance_logs
+/// would need a lab_id column added.
 /// </summary>
 public class LaboratoryUseLog
 {
     public int Id { get; set; }
 
     public string? StudentId { get; set; }
-    public int? GuestLogId { get; set; }
+    public int? GuestId { get; set; }
 
+    /// <summary>Maps to the `purpose_subject` column.</summary>
     public string Purpose { get; set; } = string.Empty;
-    public int? InstructorId { get; set; }
+
+    /// <summary>Maps to the `faculty_in_charge` column (a users.user_id GUID stored as text).</summary>
+    public Guid? InstructorId { get; set; }
+
+    /// <summary>Not persisted — see class remarks.</summary>
     public int? LaboratoryId { get; set; }
 
-    /// <summary>Forward-compat hook: the class_schedule row this session was tied to, once resolvable.</summary>
+    /// <summary>Not persisted — see class remarks.</summary>
     public int? ClassScheduleId { get; set; }
 
     public DateOnly LogDate { get; set; }

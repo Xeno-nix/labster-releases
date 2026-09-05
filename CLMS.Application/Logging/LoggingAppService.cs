@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using CLMS.Application.Interfaces;
+using CLMS.Application.Interfaces.Repositories;
 using CLMS.Application.Logging.Dtos;
 using CLMS.Domain.Common;
-using CLMS.Domain.Repositories;
-using CLMS.Domain.Services;
 
 namespace CLMS.Application.Logging;
 
@@ -25,13 +25,13 @@ public class LoggingAppService : ILoggingAppService
 
         // Laravel's FormRequest 'exists:students,student_id' rule runs before the controller,
         // so this is what a user actually sees for an unknown student number.
-        var student = await _studentRepository.GetByIdAsync(request.StudentId, cancellationToken).ConfigureAwait(false);
+        var student = await _studentRepository.GetByIdAsync(request.StudentId).ConfigureAwait(false);
         if (student is null)
             return LoggingResult.Failed("No student found with that number.");
 
         try
         {
-            await _loggingService.StudentTimeInAsync(request.StudentId, DateTime.Now, cancellationToken).ConfigureAwait(false);
+            await _loggingService.StudentTimeInAsync(request.StudentId, DateTime.Now).ConfigureAwait(false);
             return LoggingResult.Succeeded("Student successfully logged in.");
         }
         catch (DomainException ex)
@@ -48,7 +48,7 @@ public class LoggingAppService : ILoggingAppService
 
         try
         {
-            await _loggingService.GuestTimeInAsync(request.GuestName, request.BookedUnder, DateTime.Now, cancellationToken).ConfigureAwait(false);
+            await _loggingService.GuestTimeInAsync(request.GuestName, request.BookedUnder, DateTime.Now).ConfigureAwait(false);
             return LoggingResult.Succeeded("Welcome! You are now signed in.");
         }
         catch (DomainException ex)
@@ -65,7 +65,7 @@ public class LoggingAppService : ILoggingAppService
 
         try
         {
-            await _loggingService.TimeOutAsync(request.Identifier, DateTime.Now, cancellationToken).ConfigureAwait(false);
+            await _loggingService.TimeOutAsync(request.Identifier, DateTime.Now).ConfigureAwait(false);
             return LoggingResult.Succeeded("Successfully signed out. Have a great day!");
         }
         catch (DomainException ex)

@@ -66,14 +66,11 @@ public class Student : AuditableEntity
         foreach (var enrollment in _enrollments)
         {
             var schedule = classScheduleResolver(enrollment.ClassScheduleId);
-            if (schedule?.Schedules == null) continue;
-
-            foreach (var s in schedule.Schedules)
-            {
-                if (s.DayOfWeek != day) continue;
-                if (time >= s.TimeStart && time <= s.TimeEnd)
-                    return true;
-            }
+            if (schedule == null) continue;
+            // ClassSchedule now exposes DayOfWeek/TimeStart/TimeEnd directly
+            if (schedule.DayOfWeek != day) continue;
+            if (time >= schedule.TimeStart && time <= schedule.TimeEnd)
+                return true;
         }
 
         return false;
@@ -92,14 +89,11 @@ public class Student : AuditableEntity
         foreach (var enrollment in _enrollments)
         {
             var schedule = classScheduleResolver(enrollment.ClassScheduleId);
-            if (schedule?.Schedules == null) continue;
-
-            foreach (var s in schedule.Schedules)
-            {
-                if (s.DayOfWeek != day) continue;
-                if (time >= s.TimeStart && time <= s.TimeEnd)
-                    return schedule;
-            }
+            if (schedule == null) continue;
+            // ClassSchedule now exposes DayOfWeek/TimeStart/TimeEnd directly
+            if (schedule.DayOfWeek != day) continue;
+            if (time >= schedule.TimeStart && time <= schedule.TimeEnd)
+                return schedule;
         }
 
         return null;
