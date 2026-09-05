@@ -1,11 +1,20 @@
 using CLMS.Application.Inventory;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using System.Text.RegularExpressions;
 
 namespace CLMS.Web.Components.Pages.Inventory;
 
-public partial class Inventory : ComponentBase
+public partial class Inventory : ComponentBase, IAsyncDisposable
 {
     [Inject] private IInventoryService InventoryService { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private const string QrElementId = "qr-canvas";
+    private const string ScannerVideoElementId = "scanner-video";
+    private bool _pendingQrRender;
+    private DotNetObjectReference<Inventory>? _selfRef;
 
     [SupplyParameterFromQuery(Name = "tab")]
     public string? TabFromQuery { get; set; }
@@ -51,10 +60,19 @@ public partial class Inventory : ComponentBase
     private bool ShowDeleteEquipment { get; set; }
     private EquipmentItem? PendingDeleteEquipment { get; set; }
 
-    private bool ShowQr { get; set; }
+   private bool ShowQr { get; set; }
     private bool ShowScanner { get; set; }
     private EquipmentItem? SelectedEquipment { get; set; }
+    private string QrEditStatus { get; set; } = "available";
+    private int QrEditLabId { get; set; }
+    private bool QrEditPmDone { get; set; }
+    private bool QrEditCalDone { get; set; }
+    private string QrEditRemarks { get; set; } = "";
     private string ScannerCode { get; set; } = string.Empty;
+    private bool? ScannerHasCamera { get; set; } // null = checking, true = active, false = none found
+    private string? ScannerError { get; set; }
+    private bool _pendingCameraCheck;
+    private bool _pendingCameraStart;
 
     private bool ShowSupplyForm { get; set; }
     private bool EditingSupply { get; set; }
@@ -83,6 +101,103 @@ public partial class Inventory : ComponentBase
         Equipment = equipmentTask.Result.Select(MapEquipment).ToList();
         Supplies = suppliesTask.Result.Select(MapSupply).ToList();
         Labs = labsTask.Result.Select(x => new LabOption(x.LabId, x.LabName)).ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingQrRender && ShowQr && SelectedEquipment is not null)
+        {
+            _pendingQrRender = false;
+            await JS.InvokeVoidAsync("clmsInventoryQr.render", QrElementId, BuildEquipmentQrPayload(SelectedEquipment));
+        }
+
+        if (_pendingCameraCheck && ShowScanner)
+        {
+            _pendingCameraCheck = false;
+
+            var hasCamera = await JS.InvokeAsync<bool>("clmsInventoryScanner.hasCamera");
+            ScannerHasCamera = hasCamera;
+
+            if (hasCamera)
+            {
+                // Don't start the camera yet — the <video> element only exists in the
+                // DOM once Blazor re-renders with ScannerHasCamera == true. Flag it for
+                // the *next* OnAfterRenderAsync pass, which fires after that render.
+                _pendingCameraStart = true;
+            }
+            else
+            {
+                ScannerError = "Unable to find a camera.";
+            }
+
+            StateHasChanged();
+            return;
+        }
+
+        if (_pendingCameraStart && ShowScanner && ScannerHasCamera == true)
+        {
+            _pendingCameraStart = false;
+
+            _selfRef ??= DotNetObjectReference.Create(this);
+            var result = await JS.InvokeAsync<ScannerStartResult>(
+                "clmsInventoryScanner.start", ScannerVideoElementId, _selfRef);
+
+            if (!result.Ok)
+            {
+                // e.g. camera permission denied, or already in use by another app/tab.
+                ScannerHasCamera = false;
+                ScannerError = result.Error ?? "Unable to find a camera.";
+                StateHasChanged();
+            }
+        }
+    }
+
+    private sealed class ScannerStartResult
+    {
+        public bool Ok { get; set; }
+        public string? Error { get; set; }
+    }
+
+    /// <summary>Invoked from JS (inventory-scanner.js) whenever the camera decodes a QR code.</summary>
+    [JSInvokable]
+    public async Task OnQrScanned(string data)
+    {
+        await JS.InvokeVoidAsync("clmsInventoryScanner.stop");
+        ResolveAndOpenFromScan(data);
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("clmsInventoryScanner.stop");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit already gone (e.g. browser tab closed) — nothing to clean up client-side.
+        }
+        catch (InvalidOperationException)
+        {
+            // Disposed during static prerendering, before the interactive circuit
+            // (and JS interop) was ever attached — nothing to clean up client-side.
+        }
+
+        _selfRef?.Dispose();
+    }
+
+    private string BuildEquipmentQrPayload(EquipmentItem item)
+    {
+        // Encodes a URL so scanning opens the equipment record directly.
+        // Add a matching "/inventory/equipment/{id}" route/page later if you
+        // want the scan to deep-link straight to a detail view.
+        return $"{Navigation.BaseUri}inventory/equipment/{item.EquipmentId}";
+    }
+
+    private async Task DownloadQr()
+    {
+        if (SelectedEquipment is null) return;
+        await JS.InvokeVoidAsync("clmsInventoryQr.download", QrElementId, $"QR-{SelectedEquipment.EquipmentNo}.png");
     }
 
     private void OpenAddEquipment()
@@ -148,7 +263,47 @@ public partial class Inventory : ComponentBase
     private void OpenQr(EquipmentItem item)
     {
         SelectedEquipment = item;
+        LoadQrEditFields(item);
         ShowQr = true;
+        _pendingQrRender = true;
+    }
+
+    private void LoadQrEditFields(EquipmentItem item)
+    {
+        QrEditStatus = item.EquipmentStatus;
+        QrEditLabId = item.LabId;
+        QrEditPmDone = item.PreventiveMaintenanceDone;
+        QrEditCalDone = item.CalibrationDone;
+        QrEditRemarks = item.Remarks ?? "";
+    }
+
+    private async Task SaveQrEdit()
+    {
+        if (SelectedEquipment is null) return;
+
+        var lab = Labs.FirstOrDefault(l => l.LabId == QrEditLabId);
+        var dto = new InventoryEquipmentDto(
+            SelectedEquipment.EquipmentId,
+            SelectedEquipment.EquipmentNo,
+            SelectedEquipment.SerialNo,
+            SelectedEquipment.EquipmentName,
+            SelectedEquipment.Brand,
+            SelectedEquipment.ModelNumber,
+            SelectedEquipment.EquipmentType,
+            QrEditLabId,
+            lab?.LabName ?? SelectedEquipment.LabName,
+            QrEditStatus,
+            SelectedEquipment.Quantity,
+            QrEditPmDone,
+            QrEditCalDone,
+            string.IsNullOrWhiteSpace(QrEditRemarks) ? null : QrEditRemarks);
+
+        await InventoryService.CreateOrUpdateEquipmentAsync(dto);
+        Equipment = (await InventoryService.GetEquipmentAsync()).Select(MapEquipment).ToList();
+
+        SelectedEquipment = Equipment.FirstOrDefault(e => e.EquipmentId == SelectedEquipment.EquipmentId);
+        FlashSuccess = "Equipment record updated.";
+        CloseQr();
     }
 
     private void CloseQr()
@@ -161,24 +316,43 @@ public partial class Inventory : ComponentBase
     {
         ShowScanner = true;
         ScannerCode = string.Empty;
+        ScannerError = null;
+        ScannerHasCamera = null; // triggers the "checking..." state, resolved in OnAfterRenderAsync
+        _pendingCameraCheck = true;
     }
 
-    private void CloseScanner()
+    private async Task CloseScanner()
     {
+        await JS.InvokeVoidAsync("clmsInventoryScanner.stop");
         ShowScanner = false;
         ScannerCode = string.Empty;
+        ScannerHasCamera = null;
+        ScannerError = null;
     }
 
-    private void ScanEquipmentCode()
+    private void ScanEquipmentCode() => ResolveAndOpenFromScan(ScannerCode);
+
+    private void ResolveAndOpenFromScan(string query)
     {
-        var query = ScannerCode.Trim();
+        query = (query ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(query))
         {
-            FlashSuccess = "Enter an equipment number or serial to scan.";
+            FlashSuccess = "No code detected. Try again or enter it manually.";
             return;
         }
 
-        var match = Equipment.FirstOrDefault(item =>
+        EquipmentItem? match = null;
+
+        // Camera scans decode our QR payload URL (".../inventory/equipment/{id}") —
+        // try that first, then fall back to matching raw text (manual entry, or a
+        // QR/serial label that just contains the equipment/serial number).
+        var idMatch = Regex.Match(query, @"inventory/equipment/(\d+)");
+        if (idMatch.Success && int.TryParse(idMatch.Groups[1].Value, out var id))
+        {
+            match = Equipment.FirstOrDefault(e => e.EquipmentId == id);
+        }
+
+        match ??= Equipment.FirstOrDefault(item =>
             item.EquipmentNo.Contains(query, StringComparison.OrdinalIgnoreCase) ||
             (item.SerialNo ?? string.Empty).Contains(query, StringComparison.OrdinalIgnoreCase));
 
@@ -189,8 +363,10 @@ public partial class Inventory : ComponentBase
         }
 
         SelectedEquipment = match;
+        LoadQrEditFields(match);
         ShowScanner = false;
         ShowQr = true;
+        _pendingQrRender = true;
         ScannerCode = string.Empty;
     }
 

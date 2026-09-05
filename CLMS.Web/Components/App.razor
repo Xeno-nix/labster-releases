@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -19,6 +19,17 @@
     <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+
+    @* davidshimjs/qrcodejs — https://davidshimjs.github.io/qrcodejs/ *@
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="@Assets["js/inventory-qr.js"]"></script>
+
+    @* nimiq/qr-scanner — https://github.com/nimiq/qr-scanner (camera-based scanning) *@
+    <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+    <script>
+        QrScanner.WORKER_PATH = "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js";
+    </script>
+    <script src="@Assets["js/inventory-scanner.js"]"></script>
 </body>
 
 </html>
