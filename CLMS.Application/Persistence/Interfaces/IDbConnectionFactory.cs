@@ -1,6 +1,6 @@
 ﻿using System.Data;
 
-namespace CLMS.Application.Interfaces;
+namespace CLMS.Application.Persistence.Interfaces;
 
 public interface IDbConnectionFactory
 {

@@ -4,7 +4,12 @@ using System.Text;
 
 namespace CLMS.Domain.Enums
 {
-    internal class ActivityType
+    public enum ActivityType
     {
+        Unknown,
+        Login,
+        Logout,
+        FileAccess,
+        FileModification
     }
 }

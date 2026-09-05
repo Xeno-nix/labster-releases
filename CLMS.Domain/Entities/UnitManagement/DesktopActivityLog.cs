@@ -1,5 +1,4 @@
-﻿using System;
-using CLMS.Domain.Enums;
+﻿using CLMS.Domain.Enums;
 
 namespace CLMS.Domain.Entities.UnitManagement;
 
