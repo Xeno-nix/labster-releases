@@ -8,6 +8,8 @@ public class LogoutUseCase
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IRefreshTokenHasher _refreshTokenHasher;
 
+    private LogoutUseCase(){}
+    
     public LogoutUseCase(
         IRefreshTokenRepository refreshTokenRepository,
         IRefreshTokenHasher refreshTokenHasher)
@@ -15,20 +17,20 @@ public class LogoutUseCase
         _refreshTokenRepository = refreshTokenRepository;
         _refreshTokenHasher = refreshTokenHasher;
     }
-
-
+    
     public async Task ExecuteAsync(string refreshToken)
     {
-        var tokenHash =
-            _refreshTokenHasher.Hash(refreshToken);
+        // hash refresh token for verification
+        var tokenHash = _refreshTokenHasher.Hash(refreshToken);
+        
+        // search for token
+        var storedToken = await _refreshTokenRepository.FindByHashAsync(tokenHash);
 
-        var storedToken =
-            await _refreshTokenRepository.FindByHashAsync(
-                tokenHash);
-
+        // end if token is null
         if (storedToken is null)
             return;
 
+        // if refresh token is not revoked 
         if (!storedToken.IsRevoked)
         {
             storedToken.Revoke();

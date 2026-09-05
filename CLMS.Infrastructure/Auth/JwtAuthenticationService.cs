@@ -16,17 +16,26 @@ public class JwtAuthenticationService : ITokenService
         _config = config;
     }
 
+    /// <summary>
+    /// Creates a JWT Access Token made of 3 parts:
+    /// <list type="number">
+    ///     <item>Signature for verifying token</item>
+    ///     <item>Claims associated with the user/resource owner</item>
+    ///     <item>Metadata (i.e. expiry date, issuer)</item>
+    /// </list>
+    /// </summary>
+    /// <param name="user">The resource owner requesting access</param>
+    /// <returns>A base64 encoded JSON token</returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    /// <exception cref="InvalidOperationException"></exception>
     public string GenerateAccessToken(User user)
     {
-
-
-        if (user == null) throw new ArgumentNullException("User object is null", nameof(user);
+        
+        if (user == null) throw new ArgumentNullException(nameof(user), "user cannot be null.");
         if (!_config.IsValid()) throw new InvalidOperationException("Invalid JWT Configuration");
         
-
         // signing credentials
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.SecretKey));
-
         var signature = new SigningCredentials(key, _config.HashAlgorithm);
 
         // claims
@@ -44,8 +53,7 @@ public class JwtAuthenticationService : ITokenService
             issuer: _config.Issuer,
             claims:claims, 
             signingCredentials:signature,
-            expires:expiry
-            
+            expires:expiry 
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);

@@ -22,20 +22,23 @@ public sealed class RegisterUseCase
         _passwordHasher = passwordHasher;
     }
 
+    /// <summary>
+    /// Registers User
+    /// </summary>
+    /// <param name="request"> Request details. <see cref="RegisterRequest"/></param>
+    /// <exception cref="InvalidOperationException">Email already been used.</exception>
     public async Task ExecuteAsync(RegisterRequest request)
     {
-        var existingUser =
-            await _userRepository.FindByEmailAsync(request.Email);
+        // Search if user with same email already exists
+        var existingUser = await _userRepository.FindByEmailAsync(request.Email);
 
         if (existingUser is not null)
-        {
-            throw new InvalidOperationException(
-                "A user with this email already exists.");
-        }
+            throw new InvalidOperationException("A user with this email already exists.");
 
-        var passwordHash =
-            _passwordHasher.Hash(request.Password);
+        // hash password
+        var passwordHash = _passwordHasher.Hash(request.Password);
 
+        // generate new user entity
         var user = new User(
             Guid.NewGuid(),
             new Name(request.FirstName),
@@ -50,6 +53,7 @@ public sealed class RegisterUseCase
             Role.Admin,
             passwordHash);
 
+        // Saves user entity
         await _userRepository.AddAsync(user);
     }
 }

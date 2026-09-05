@@ -6,7 +6,7 @@ public class ContactNumber
     private string _value;
     public string Value
     {
-        get { return _value; }
+        get => _value;
         set
         {
             Validate(value);
@@ -25,7 +25,6 @@ public class ContactNumber
         if (string.IsNullOrEmpty(value))
         {
             throw new ArgumentException("Contact Number cannot be null or empty",nameof(value));
-            throw new ArgumentException("Contact Number cannot be null or empty", nameof(value));
         }
 
         if (!Regex.IsMatch(value, @"^\+?\d{10,15}$"))

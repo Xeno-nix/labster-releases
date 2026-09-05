@@ -3,27 +3,28 @@
 public class RefreshToken
 {
     public Guid Id { get; private set; }
+    public  Guid UserId { get; set; }
     public string TokenHash { get; private set; } = null!;
     public DateTime CreatedAt { get; private set; }
-    public DateTime ExpiresAt { get; private set; }
-    public DateTime? RevokedAt { get; private set; }
+    private DateTime ExpiresAt { get; }
+    private DateTime? RevokedAt { get; set; }
     public bool IsRevoked => RevokedAt.HasValue;
     public bool IsExpired =>
         DateTime.UtcNow >= ExpiresAt;
     public bool IsActive =>
         !IsRevoked && !IsExpired;
 
-    private RefreshToken()
-    {
-    }
+    private RefreshToken(){}
 
     public RefreshToken(
         Guid id,
+        Guid userId,
         string tokenHash,
         DateTime createdAt,
         DateTime expiresAt)
     {
         Id = id;
+        UserId = userId;
         TokenHash = tokenHash;
         CreatedAt = createdAt;
         ExpiresAt = expiresAt;
@@ -37,10 +38,19 @@ public class RefreshToken
         RevokedAt = DateTime.UtcNow;
     }
 
-    public static RefreshToken Create(Guid id,
-                                      Guid userId,
+    /// <summary>
+    /// Creates a refresh token entity to be stored in
+    /// the database.
+    /// 
+    /// </summary>
+    /// <param name="userId">Token owner</param>
+    /// <param name="tokenHash">Hashed base64 encoded token</param>
+    /// <param name="createdAt"></param>
+    /// <param name="expiresAt"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
+    public static RefreshToken Create(Guid userId,
                                       string tokenHash,
-                                      DateTime createdAt,
                                       DateTime expiresAt)
     {
         if (userId == Guid.Empty)
@@ -53,12 +63,14 @@ public class RefreshToken
                 "Token hash cannot be empty.",
                 nameof(tokenHash));
 
+        var createdAt = DateTime.UtcNow;
+        
         if (expiresAt <= createdAt)
             throw new ArgumentException(
                 "Expiration must be after creation.");
 
         return new RefreshToken(
-            id,
+            Guid.NewGuid(),
             userId,
             tokenHash,
             createdAt,

@@ -25,45 +25,55 @@ public sealed class LoginUseCase
         _refreshTokenRepository = refreshTokenRepository;
     }
 
-    public async Task<AuthenticationResponse> ExecuteAsync(
-        LoginRequest request)
+    /// <summary>
+    /// Verifies user credentials and issuing access and refresh tokens.
+    /// </summary>
+    /// <param name="request">request details (email and password)</param>
+    /// <returns>Access and Refresh Token</returns>
+    /// <exception cref="UnauthorizedAccessException">Returns when credentials are invalid</exception>
+    public async Task<AuthenticationResponse> ExecuteAsync(LoginRequest request)
     {
-        var user =
-            await _userRepository.FindByEmailAsync(request.Email);
+        // find user by email
+        var user = await _userRepository.FindByEmailAsync(request.Email);
 
-        if (user is null)
-            throw new UnauthorizedAccessException(
-                "Invalid credentials.");
+        // if user not found using email
+        if (user is null) throw new UnauthorizedAccessException("Invalid credentials.");
 
+        // checks if the password is correct for the user
         var passwordValid =
             _passwordHasher.Verify(
                 request.Password,
                 user.PasswordHash);
+        
+        // invalid password
+        if (!passwordValid) throw new UnauthorizedAccessException("Invalid credentials.");
+        
+        // generate access token
+        var accessToken = _tokenService.GenerateAccessToken(user);
 
-        if (!passwordValid)
-            throw new UnauthorizedAccessException(
-                "Invalid credentials.");
-
-        var accessToken =
-            _tokenService.GenerateAccessToken(user);
-
-        var refreshToken =
-            _tokenService.GenerateRefreshToken();
-
-        var refreshTokenHash =
-            _refreshTokenHasher.Hash(refreshToken);
-
-        var refreshTokenEntity =
-            RefreshToken.Create(
-                Guid.NewGuid(),
+        // generate refresh token 
+        var refreshToken = _tokenService.GenerateRefreshToken();
+        
+        // hashing refresh token for storing
+        var refreshTokenHash = _refreshTokenHasher.Hash(refreshToken);
+        
+        // constructing refresh token entity to be stored in the database.
+        // Includes refresh token hash and metadata.
+        //
+        // Refresh token lifetime is 1 day
+        //
+        // TODO: Retrieve lifetime from config
+        var refreshTokenEntity = RefreshToken.Create(
                 user.Id,
                 refreshTokenHash,
-                DateTime.UtcNow,
-                DateTime.UtcNow.AddDays(7));
+                DateTime.UtcNow.AddDays(1)
+        );
 
+        // store refresh token
         await _refreshTokenRepository.AddAsync(
             refreshTokenEntity);
 
+        // return response
         return new AuthenticationResponse(
             accessToken,
             refreshToken);

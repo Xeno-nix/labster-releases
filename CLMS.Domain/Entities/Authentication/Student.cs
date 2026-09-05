@@ -4,15 +4,14 @@ namespace CLMS.Domain.Entities.Authentication;
 
 public class Student : AuditableEntity
 {
-    public new readonly string Id { get; set; }
     public Name FirstName { get; set; }
     public Name LastName { get; set; }
     public Name? MiddleInitial { get; set; }
     public Name? Suffix { get; set; }
     
-    public Student(string id, Name firstName, Name lastName, Name? middleInitial, Name? suffix)
+    public Student(Guid id, Name firstName, Name lastName, Name? middleInitial, Name? suffix)
     {
-        Id = id;
+        _id = id;
         FirstName = firstName;
         LastName = lastName;
         MiddleInitial = middleInitial;

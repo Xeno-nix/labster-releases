@@ -14,6 +14,6 @@ public class GoogleOAuth2 : IOAuthService
 
     public Task<ExternalUserInfo> AuthenticateAsync(string authorizationCode)
     {
-        
+        throw new NotImplementedException();
     }
 }
