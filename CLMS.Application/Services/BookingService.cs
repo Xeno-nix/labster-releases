@@ -73,11 +73,11 @@ public class BookingService : IBookingService
             EndTime = dto.EndTime
         };
 
-        if (await CheckScheduleConflictAsync(dto))
+        if (await CheckScheduleConflictAsync(dto, excludingBookingId: id))
         {
             throw new InvalidOperationException("The booking time conflicts with an existing booking or class schedule.");
         }
-        
+
         await _repository.UpdateAsync(booking);
     }
 
