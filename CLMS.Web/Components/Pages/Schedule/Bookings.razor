@@ -1,0 +1,263 @@
+@page "/bookings"
+@rendermode InteractiveServer
+@inject IBookingService BookingService
+@inject ILaboratoryService LaboratoryService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Laboratory Bookings</PageTitle>
+
+<div class="relative p-4 md:p-8">
+
+    @if (!string.IsNullOrEmpty(toastMessage))
+    {
+        <div class="fixed top-6 right-6 z-[2000] flex items-center gap-2.5 rounded-lg bg-green-700 px-4 py-3 text-sm font-medium text-white shadow-lg animate-[toast-in_0.2s_ease-out]">
+            <span class="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white/25 text-[0.7rem] font-bold">✓</span>
+            <span>@toastMessage</span>
+        </div>
+    }
+
+    <div class="mb-6 flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+            <h3 class="m-0 text-xl font-semibold text-gray-800">Laboratory Bookings</h3>
+            <p class="mt-1 text-sm text-gray-500">Manage laboratory reservations.</p>
+        </div>
+        <button type="button"
+                class="rounded-md bg-[#7a1f2b] px-4 py-2.5 text-sm text-white transition-colors hover:bg-[#651923]"
+                @onclick="OpenCreateForm">
+            + New Booking
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            @errorMessage
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <p class="py-4 text-sm text-gray-500">Loading bookings...</p>
+    }
+    else if (!bookings.Any())
+    {
+        <div class="rounded-lg border border-gray-200 bg-white px-6 py-12 text-center">
+            <div class="mb-3 text-3xl opacity-35">📅</div>
+            <h5 class="m-0 text-sm text-gray-600">No bookings yet</h5>
+            <p class="mt-1.5 mb-4 text-xs text-gray-400">Add your first laboratory booking to get started.</p>
+            <button type="button"
+                    class="rounded-md bg-[#7a1f2b] px-3.5 py-2 text-sm text-white hover:bg-[#651923]"
+                    @onclick="OpenCreateForm">
+                + New Booking
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="overflow-hidden rounded-lg border border-gray-200 bg-white md:overflow-x-auto">
+            <table class="w-full min-w-[700px] border-collapse md:min-w-0">
+                <thead>
+                    <tr>
+                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Requestor</th>
+                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Contact</th>
+                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Laboratory</th>
+                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Date</th>
+                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Time</th>
+                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Purpose</th>
+                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (BookingDTO booking in bookings)
+                    {
+                        <tr class="hover:bg-gray-50">
+                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm font-semibold text-blue-900 last:border-b-0">
+                                @booking.RequestorName
+                            </td>
+                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
+                                @booking.Email
+                            </td>
+                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
+                                @GetLaboratoryName(booking.LaboratoryId)
+                            </td>
+                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
+                                @booking.Date.ToString("MMM dd, yyyy")
+                            </td>
+                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
+                                @booking.StartTime.ToString("hh:mm tt") - @booking.EndTime.ToString("hh:mm tt")
+                            </td>
+                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
+                                @booking.Purpose
+                            </td>
+                            <td class="border-b border-gray-100 px-4.5 py-3.5 text-right align-middle last:border-b-0">
+                                <div class="flex justify-end gap-2">
+                                    <button type="button"
+                                            class="rounded-md border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-[#7a1f2b] hover:border-[#7a1f2b] hover:bg-red-50/40"
+                                            @onclick="() => OpenEditForm(booking.Id)">
+                                        Edit
+                                    </button>
+                                    <button type="button"
+                                            class="rounded-md border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-red-700 hover:border-red-700 hover:bg-red-50 disabled:cursor-default disabled:opacity-60"
+                                            disabled="@(deletingId == booking.Id)"
+                                            @onclick="() => DeleteBooking(booking.Id)">
+                                        @(deletingId == booking.Id ? "Deleting..." : "Delete")
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (showModal)
+{
+    <BookingModal BookingId="editingId"
+                  OnClose="CloseModal"
+                  OnSaved="HandleBookingSaved" />
+}
+
+<style>
+    @@keyframes toast-in {
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+@code {
+    private IEnumerable<BookingDTO> bookings = Enumerable.Empty<BookingDTO>();
+    private IEnumerable<LaboratoryDTO> laboratories = Enumerable.Empty<LaboratoryDTO>();
+
+    private bool isLoading = true;
+    private bool showModal;
+    private int? editingId;
+    private int? deletingId;
+    private string? errorMessage;
+
+    private string? toastMessage;
+    private CancellationTokenSource? toastCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLaboratories();
+        await LoadBookings();
+    }
+
+    private async Task LoadLaboratories()
+    {
+        try
+        {
+            laboratories = await LaboratoryService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to load laboratories.";
+            Console.WriteLine(ex);
+        }
+    }
+
+    private string GetLaboratoryName(int labId)
+        => laboratories.FirstOrDefault(l => l.Id == labId)?.Name ?? $"Lab {labId}";
+
+    private async Task LoadBookings()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            bookings = await BookingService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to load bookings.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenCreateForm()
+    {
+        editingId = null;
+        showModal = true;
+    }
+
+    private void OpenEditForm(int id)
+    {
+        editingId = id;
+        showModal = true;
+    }
+
+    private void CloseModal() => showModal = false;
+
+    private async Task HandleBookingSaved()
+    {
+        var wasEditing = editingId is not null;
+        showModal = false;
+        await LoadBookings();
+        ShowToast(wasEditing ? "Booking updated successfully." : "Booking added successfully.");
+    }
+
+    private async Task DeleteBooking(int id)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm", "Are you sure you want to delete this booking? This cannot be undone.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        deletingId = id;
+        errorMessage = null;
+
+        try
+        {
+            await BookingService.DeleteAsync(id);
+            await LoadBookings();
+            ShowToast("Booking deleted successfully.");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to delete booking.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            deletingId = null;
+        }
+    }
+
+    private void ShowToast(string message)
+    {
+        toastMessage = message;
+        toastCts?.Cancel();
+        toastCts = new CancellationTokenSource();
+        var token = toastCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(3000, token);
+                if (!token.IsCancellationRequested)
+                {
+                    toastMessage = null;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (TaskCanceledException) { }
+        });
+    }
+}
