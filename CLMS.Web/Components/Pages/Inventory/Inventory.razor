@@ -119,7 +119,7 @@
                                 </td>
                                 <td class="px-5 py-3 text-sm text-[#2c2c2c]">@InventoryLookups.EquipmentTypeLabels.GetValueOrDefault(item.EquipmentType, item.EquipmentType)</td>
                                 <td class="px-5 py-3 text-sm text-muted">@item.LabName</td>
-                                <td class="px-5 py-3"><StatusBadge Status="item.EquipmentStatus" Kind="equipment" /></td>
+                                <td class="px-5 py-3"><StatusBadge Status="@item.EquipmentStatus" Kind="equipment" /></td>
                                 <td class="px-5 py-3 text-sm text-[#2c2c2c]">@(item.PreventiveMaintenanceDone ? "Yes" : "No")</td>
                                 <td class="px-5 py-3 text-sm text-[#2c2c2c]">@(item.CalibrationDone ? "Yes" : "No")</td>
                                 <td class="px-5 py-3">
