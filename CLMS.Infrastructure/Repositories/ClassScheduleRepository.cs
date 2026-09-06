@@ -24,48 +24,42 @@ public class ClassScheduleRepository : IClassScheduleRepository
                 cs.course_id,
                 c.course_code,
                 c.course_name,
-
                 cs.instructor_id,
                 CONCAT(u.first_name, ' ', u.last_name) AS instructor_name,
-
                 cs.lab_id,
                 l.lab_name,
-
                 cs.term_id,
                 at.academic_year,
                 at.semester,
-
                 cs.day_of_week,
                 cs.time_start,
                 cs.time_end
-
             FROM class_schedule cs
-
             INNER JOIN courses c
                 ON cs.course_id = c.course_id
-
             INNER JOIN users u
                 ON cs.instructor_id = u.user_id
-
             INNER JOIN laboratories l
                 ON cs.lab_id = l.lab_id
-
             INNER JOIN academic_terms at
                 ON cs.term_id = at.academic_term_id
-
             WHERE u.role_type = 'Faculty'
-
+              AND cs.is_deleted = FALSE
             ORDER BY
                 cs.day_of_week,
                 cs.time_start;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection =
+            new MySqlConnection(_connectionString);
+
         await connection.OpenAsync();
 
-        await using var command = new MySqlCommand(sql, connection);
+        await using var command =
+            new MySqlCommand(sql, connection);
 
-        await using var reader = await command.ExecuteReaderAsync();
+        await using var reader =
+            await command.ExecuteReaderAsync();
 
         while (await reader.ReadAsync())
         {
@@ -83,47 +77,42 @@ public class ClassScheduleRepository : IClassScheduleRepository
                 cs.course_id,
                 c.course_code,
                 c.course_name,
-
                 cs.instructor_id,
                 CONCAT(u.first_name, ' ', u.last_name) AS instructor_name,
-
                 cs.lab_id,
                 l.lab_name,
-
                 cs.term_id,
                 at.academic_year,
                 at.semester,
-
                 cs.day_of_week,
                 cs.time_start,
                 cs.time_end
-
             FROM class_schedule cs
-
             INNER JOIN courses c
                 ON cs.course_id = c.course_id
-
             INNER JOIN users u
                 ON cs.instructor_id = u.user_id
-
             INNER JOIN laboratories l
                 ON cs.lab_id = l.lab_id
-
             INNER JOIN academic_terms at
                 ON cs.term_id = at.academic_term_id
-
             WHERE cs.class_schedule_id = @Id
-            AND u.role_type = 'Faculty';
+              AND u.role_type = 'Faculty'
+              AND cs.is_deleted = FALSE;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection =
+            new MySqlConnection(_connectionString);
+
         await connection.OpenAsync();
 
-        await using var command = new MySqlCommand(sql, connection);
+        await using var command =
+            new MySqlCommand(sql, connection);
 
         command.Parameters.AddWithValue("@Id", id);
 
-        await using var reader = await command.ExecuteReaderAsync();
+        await using var reader =
+            await command.ExecuteReaderAsync();
 
         if (!await reader.ReadAsync())
             return null;
@@ -227,23 +216,38 @@ public class ClassScheduleRepository : IClassScheduleRepository
             SELECT LAST_INSERT_ID();
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection =
+            new MySqlConnection(_connectionString);
+
         await connection.OpenAsync();
 
-        await using var command = new MySqlCommand(sql, connection);
+        await using var command =
+            new MySqlCommand(sql, connection);
 
-        command.Parameters.AddWithValue("@CourseId", schedule.CourseId);
-        command.Parameters.AddWithValue("@InstructorId", schedule.InstructorId);
-        command.Parameters.AddWithValue("@LaboratoryId", schedule.LaboratoryId);
+        command.Parameters.AddWithValue(
+            "@CourseId",
+            schedule.CourseId);
+
+        command.Parameters.AddWithValue(
+            "@InstructorId",
+            schedule.InstructorId);
+
+        command.Parameters.AddWithValue(
+            "@LaboratoryId",
+            schedule.LaboratoryId);
+
         command.Parameters.AddWithValue(
             "@DayOfWeek",
             schedule.DayOfWeek.ToString());
+
         command.Parameters.AddWithValue(
             "@TimeStart",
             schedule.TimeStart.ToTimeSpan());
+
         command.Parameters.AddWithValue(
             "@TimeEnd",
             schedule.TimeEnd.ToTimeSpan());
+
         command.Parameters.AddWithValue(
             "@AcademicTermId",
             schedule.AcademicTermId);
@@ -265,27 +269,46 @@ public class ClassScheduleRepository : IClassScheduleRepository
                 time_start = @TimeStart,
                 time_end = @TimeEnd,
                 term_id = @AcademicTermId
-            WHERE class_schedule_id = @Id;
+            WHERE class_schedule_id = @Id
+              AND is_deleted = FALSE;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection =
+            new MySqlConnection(_connectionString);
+
         await connection.OpenAsync();
 
-        await using var command = new MySqlCommand(sql, connection);
+        await using var command =
+            new MySqlCommand(sql, connection);
 
-        command.Parameters.AddWithValue("@Id", schedule.Id);
-        command.Parameters.AddWithValue("@CourseId", schedule.CourseId);
-        command.Parameters.AddWithValue("@InstructorId", schedule.InstructorId);
-        command.Parameters.AddWithValue("@LaboratoryId", schedule.LaboratoryId);
+        command.Parameters.AddWithValue(
+            "@Id",
+            schedule.Id);
+
+        command.Parameters.AddWithValue(
+            "@CourseId",
+            schedule.CourseId);
+
+        command.Parameters.AddWithValue(
+            "@InstructorId",
+            schedule.InstructorId);
+
+        command.Parameters.AddWithValue(
+            "@LaboratoryId",
+            schedule.LaboratoryId);
+
         command.Parameters.AddWithValue(
             "@DayOfWeek",
             schedule.DayOfWeek.ToString());
+
         command.Parameters.AddWithValue(
-            "@TimeStart",   
+            "@TimeStart",
             schedule.TimeStart.ToTimeSpan());
+
         command.Parameters.AddWithValue(
             "@TimeEnd",
             schedule.TimeEnd.ToTimeSpan());
+
         command.Parameters.AddWithValue(
             "@AcademicTermId",
             schedule.AcademicTermId);
@@ -296,11 +319,16 @@ public class ClassScheduleRepository : IClassScheduleRepository
     public async Task DeleteAsync(int id)
     {
         const string sql = """
-            DELETE FROM class_schedule
-            WHERE class_schedule_id = @Id;
+            UPDATE class_schedule
+            SET
+                is_deleted = TRUE,
+                deleted_at = NOW()
+            WHERE class_schedule_id = @Id
+              AND is_deleted = FALSE;
             """;
 
         await using var connection = new MySqlConnection(_connectionString);
+
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
@@ -311,34 +339,37 @@ public class ClassScheduleRepository : IClassScheduleRepository
     }
 
     private static ClassScheduleDTO MapSchedule(
-            MySqlDataReader reader)
+        MySqlDataReader reader)
+    {
+        return new ClassScheduleDTO
         {
-            return new ClassScheduleDTO
-            {
-                Id = reader.GetInt32("class_schedule_id"),
+            Id = reader.GetInt32("class_schedule_id"),
 
-                CourseId = reader.GetInt32("course_id"),
-                CourseCode = reader.GetString("course_code"),
-                CourseName = reader.GetString("course_name"),
+            CourseId = reader.GetInt32("course_id"),
 
-                InstructorId = reader.GetGuid("instructor_id"),
-                InstructorName = reader.GetString("instructor_name"),
+            CourseCode = reader.GetString("course_code"),
 
-                LaboratoryId = reader.GetInt32("lab_id"),
-                LaboratoryName = reader.GetString("lab_name"),
+            CourseName = reader.GetString("course_name"),
 
-                AcademicTermId = reader.GetInt32("term_id"),
-                AcademicYear = reader.GetString("academic_year"),
-                Semester = reader.GetString("semester"),
+            InstructorId = reader.GetGuid("instructor_id"),
 
-                DayOfWeek = Enum.Parse<DayOfWeek>(
-                    reader.GetString("day_of_week")),
+            InstructorName =reader.GetString("instructor_name"),
 
-                TimeStart = TimeOnly.FromTimeSpan(
-                    reader.GetTimeSpan("time_start")),
+            LaboratoryId =reader.GetInt32("lab_id"),
 
-                TimeEnd = TimeOnly.FromTimeSpan(
-                    reader.GetTimeSpan("time_end"))
-            };
-        }
+            LaboratoryName =reader.GetString("lab_name"),
+
+            AcademicTermId =reader.GetInt32("term_id"),
+
+            AcademicYear =reader.GetString("academic_year"),
+
+            Semester =reader.GetString("semester"),
+
+            DayOfWeek =Enum.Parse<DayOfWeek>(reader.GetString("day_of_week")),
+
+            TimeStart =TimeOnly.FromTimeSpan(reader.GetTimeSpan("time_start")),
+
+            TimeEnd =TimeOnly.FromTimeSpan(reader.GetTimeSpan("time_end"))
+        };
+    }
 }

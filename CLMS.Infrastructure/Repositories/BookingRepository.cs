@@ -19,7 +19,7 @@ public class BookingRepository : IBookingRepository
         var bookings = new List<BookingDTO>();
 
         const string sql = """
-             SELECT
+            SELECT
                 b.booking_id,
                 b.lab_id,
                 l.lab_name,
@@ -32,6 +32,7 @@ public class BookingRepository : IBookingRepository
             FROM bookings b
             INNER JOIN laboratories l
                 ON b.lab_id = l.lab_id
+            WHERE b.is_deleted = FALSE
             ORDER BY b.booking_date, b.start_time;
             """;
 
@@ -70,7 +71,8 @@ public class BookingRepository : IBookingRepository
             FROM bookings b
             INNER JOIN laboratories l
                 ON b.lab_id = l.lab_id
-            WHERE booking_id = @Id;
+            WHERE b.booking_id = @Id
+              AND b.is_deleted = FALSE;
             """;
 
         await using var connection =
@@ -127,19 +129,33 @@ public class BookingRepository : IBookingRepository
         await using var command =
             new MySqlCommand(sql, connection);
 
-        command.Parameters.AddWithValue("@LaboratoryId",booking.LaboratoryId);
+        command.Parameters.AddWithValue(
+            "@LaboratoryId",
+            booking.LaboratoryId);
 
-        command.Parameters.AddWithValue("@RequestorName",booking.RequestorName);
+        command.Parameters.AddWithValue(
+            "@RequestorName",
+            booking.RequestorName);
 
-        command.Parameters.AddWithValue("@Email",booking.Email);
+        command.Parameters.AddWithValue(
+            "@Email",
+            booking.Email);
 
-        command.Parameters.AddWithValue("@Purpose",booking.Purpose);
+        command.Parameters.AddWithValue(
+            "@Purpose",
+            booking.Purpose);
 
-        command.Parameters.AddWithValue("@Date",booking.Date.ToDateTime(TimeOnly.MinValue));
+        command.Parameters.AddWithValue(
+            "@Date",
+            booking.Date.ToDateTime(TimeOnly.MinValue));
 
-        command.Parameters.AddWithValue("@StartTime",booking.StartTime.ToTimeSpan());
+        command.Parameters.AddWithValue(
+            "@StartTime",
+            booking.StartTime.ToTimeSpan());
 
-        command.Parameters.AddWithValue("@EndTime",booking.EndTime.ToTimeSpan());
+        command.Parameters.AddWithValue(
+            "@EndTime",
+            booking.EndTime.ToTimeSpan());
 
         var result = await command.ExecuteScalarAsync();
 
@@ -201,7 +217,8 @@ public class BookingRepository : IBookingRepository
                 booking_date = @Date,
                 start_time = @StartTime,
                 end_time = @EndTime
-            WHERE booking_id = @Id;
+            WHERE booking_id = @Id
+              AND is_deleted = FALSE;
             """;
 
         await using var connection =
@@ -212,21 +229,35 @@ public class BookingRepository : IBookingRepository
         await using var command =
             new MySqlCommand(sql, connection);
 
-        command.Parameters.AddWithValue("@Id",booking.Id);
+        command.Parameters.AddWithValue("@Id", booking.Id);
 
-        command.Parameters.AddWithValue("@LaboratoryId",booking.LaboratoryId);
+        command.Parameters.AddWithValue(
+            "@LaboratoryId",
+            booking.LaboratoryId);
 
-        command.Parameters.AddWithValue("@RequestorName",booking.RequestorName);
+        command.Parameters.AddWithValue(
+            "@RequestorName",
+            booking.RequestorName);
 
-        command.Parameters.AddWithValue("@Email",booking.Email);
+        command.Parameters.AddWithValue(
+            "@Email",
+            booking.Email);
 
-        command.Parameters.AddWithValue("@Purpose",booking.Purpose);
+        command.Parameters.AddWithValue(
+            "@Purpose",
+            booking.Purpose);
 
-        command.Parameters.AddWithValue("@Date",booking.Date.ToDateTime(TimeOnly.MinValue));
+        command.Parameters.AddWithValue(
+            "@Date",
+            booking.Date.ToDateTime(TimeOnly.MinValue));
 
-        command.Parameters.AddWithValue("@StartTime",booking.StartTime.ToTimeSpan());
+        command.Parameters.AddWithValue(
+            "@StartTime",
+            booking.StartTime.ToTimeSpan());
 
-        command.Parameters.AddWithValue("@EndTime",booking.EndTime.ToTimeSpan());
+        command.Parameters.AddWithValue(
+            "@EndTime",
+            booking.EndTime.ToTimeSpan());
 
         await command.ExecuteNonQueryAsync();
     }
@@ -234,8 +265,12 @@ public class BookingRepository : IBookingRepository
     public async Task DeleteAsync(int id)
     {
         const string sql = """
-            DELETE FROM bookings
-            WHERE booking_id = @Id;
+            UPDATE bookings
+            SET
+                is_deleted = TRUE,
+                deleted_at = NOW()
+            WHERE booking_id = @Id
+              AND is_deleted = FALSE;
             """;
 
         await using var connection =
@@ -271,7 +306,7 @@ public class BookingRepository : IBookingRepository
 
             StartTime = TimeOnly.FromTimeSpan(reader.GetTimeSpan("start_time")),
 
-            EndTime =TimeOnly.FromTimeSpan(reader.GetTimeSpan("end_time"))
+            EndTime = TimeOnly.FromTimeSpan(reader.GetTimeSpan("end_time"))
         };
     }
 }
