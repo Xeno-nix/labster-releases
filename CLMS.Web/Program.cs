@@ -5,13 +5,30 @@ using CLMS.Application.Services;
 using CLMS.Infrastructure.Repositories;
 using CLMS.Infrastructure.Services;
 using CLMS.Infrastructure;
+using CLMS.Infrastructure.Auth;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using CLMS.Application;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+builder.Services
+    .AddInfrastructure()
+    .AddRazorComponents()
+        .AddInteractiveServerComponents();
+
+builder.Services.Configure<JwtOptions>(
+    builder.Configuration.GetSection("Jwt"));
+
+builder.Services
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(option =>
+    {
+        option.LoginPath = "/login";
+        option.LogoutPath = "/logout";
+        option.ExpireTimeSpan = TimeSpan.FromHours(8);
+        option.SlidingExpiration = true;
+    });
 
 // Database connection — shared by every repository below (booking + logging), each of
 // which opens its own MySqlConnection per call rather than going through a shared
@@ -50,7 +67,6 @@ builder.Services.AddScoped<IUserRepository>(
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler(
@@ -65,6 +81,9 @@ app.UseStatusCodePagesWithReExecute(
     createScopeForStatusCodePages: true);
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseAntiforgery();
 
