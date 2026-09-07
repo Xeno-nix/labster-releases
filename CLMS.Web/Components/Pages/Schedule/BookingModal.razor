@@ -229,6 +229,10 @@
 
             await OnSaved.InvokeAsync();
         }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
         catch (Exception ex)
         {
             errorMessage = "Unable to save the booking.";
