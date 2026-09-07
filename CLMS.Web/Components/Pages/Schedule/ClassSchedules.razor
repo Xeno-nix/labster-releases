@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject IClassScheduleService ScheduleService
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <PageTitle>Class Schedules</PageTitle>
 
@@ -17,6 +18,11 @@
 
     <div class="flex justify-between items-center mb-6">
         <div>
+            <button type="button"
+                class="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                @onclick="BackToCalendar">
+                ← Back to Calendar
+            </button>
             <h3 class="m-0 text-2xl text-gray-800">Class Schedules</h3>
             <p class="mt-1 mb-0 text-gray-500 text-sm">Manage recurring class schedules.</p>
         </div>
@@ -193,6 +199,7 @@
         }
     }
 
+    private void BackToCalendar() => Navigation.NavigateTo("schedule/calendar-view");
     private void ShowToast(string message)
     {
         toastMessage = message;

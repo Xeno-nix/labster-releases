@@ -3,6 +3,7 @@
 @inject IBookingService BookingService
 @inject ILaboratoryService LaboratoryService
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <PageTitle>Laboratory Bookings</PageTitle>
 
@@ -18,6 +19,11 @@
 
     <div class="mb-6 flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
         <div>
+            <button type="button"
+                class="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                @onclick="BackToCalendar">
+                ← Back to Calendar
+            </button>
             <h3 class="m-0 text-xl font-semibold text-gray-800">Laboratory Bookings</h3>
             <p class="mt-1 text-sm text-gray-500">Manage laboratory reservations.</p>
         </div>
@@ -238,6 +244,8 @@
             deletingId = null;
         }
     }
+
+    private void BackToCalendar() => Navigation.NavigateTo("schedule/calendar-view");
 
     private void ShowToast(string message)
     {
