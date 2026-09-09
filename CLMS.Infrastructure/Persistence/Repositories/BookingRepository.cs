@@ -32,7 +32,7 @@ public class BookingRepository : IBookingRepository
             FROM bookings b
             INNER JOIN laboratories l
                 ON b.lab_id = l.lab_id
-            WHERE b.is_deleted = FALSE
+            WHERE b.deleted_at IS NULL
             ORDER BY b.booking_date, b.start_time;
             """;
 
@@ -72,7 +72,7 @@ public class BookingRepository : IBookingRepository
             INNER JOIN laboratories l
                 ON b.lab_id = l.lab_id
             WHERE b.booking_id = @Id
-              AND b.is_deleted = FALSE;
+              AND b.deleted_at IS NULL;
             """;
 
         await using var connection =
@@ -218,7 +218,7 @@ public class BookingRepository : IBookingRepository
                 start_time = @StartTime,
                 end_time = @EndTime
             WHERE booking_id = @Id
-              AND is_deleted = FALSE;
+              AND deleted_at IS NULL;
             """;
 
         await using var connection =
@@ -267,10 +267,9 @@ public class BookingRepository : IBookingRepository
         const string sql = """
             UPDATE bookings
             SET
-                is_deleted = TRUE,
                 deleted_at = NOW()
             WHERE booking_id = @Id
-              AND is_deleted = FALSE;
+              AND deleted_at IS NULL;
             """;
 
         await using var connection =
@@ -278,7 +277,8 @@ public class BookingRepository : IBookingRepository
 
         await connection.OpenAsync();
 
-        await using var command = new MySqlCommand(sql, connection);
+        await using var command =
+            new MySqlCommand(sql, connection);
 
         command.Parameters.AddWithValue("@Id", id);
 
@@ -291,22 +291,17 @@ public class BookingRepository : IBookingRepository
         return new BookingDTO
         {
             Id = reader.GetInt32("booking_id"),
-
             LaboratoryId = reader.GetInt32("lab_id"),
-
             LaboratoryName = reader.GetString("lab_name"),
-
             RequestorName = reader.GetString("requestor_name"),
-
             Email = reader.GetString("email"),
-
             Purpose = reader.GetString("purpose"),
-
-            Date = DateOnly.FromDateTime(reader.GetDateTime("booking_date")),
-
-            StartTime = TimeOnly.FromTimeSpan(reader.GetTimeSpan("start_time")),
-
-            EndTime = TimeOnly.FromTimeSpan(reader.GetTimeSpan("end_time"))
+            Date = DateOnly.FromDateTime(
+                reader.GetDateTime("booking_date")),
+            StartTime = TimeOnly.FromTimeSpan(
+                reader.GetTimeSpan("start_time")),
+            EndTime = TimeOnly.FromTimeSpan(
+                reader.GetTimeSpan("end_time"))
         };
     }
 }
