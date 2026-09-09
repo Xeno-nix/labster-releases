@@ -19,6 +19,23 @@
         </p>
     </div>
 
+    @* Flash messages — lightweight query-string equivalent of Laravel's session('success')/
+       session('error'), since nothing currently redirects here with a message, but this
+       keeps the same visual affordance available for whatever eventually does. *@
+    @if (!string.IsNullOrEmpty(Success))
+    {
+        <div class="px-4 py-3 rounded-lg bg-success/10 border border-success/30 text-sm text-success">
+            @Success
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            @Error
+        </div>
+    }
+
     @* NOTE: the Laravel source also has a Laboratory column + lab filter. The current
        attendance_logs table has no lab_id column, so there is no reliable way to show
        which laboratory a past session happened in — that column/filter is intentionally
@@ -31,10 +48,17 @@
             <form method="get" action="/logbook" class="flex items-center gap-3 flex-wrap flex-1">
 
                 <div class="relative flex-1 min-w-[200px] max-w-md">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.3-4.3" />
+                        </svg>
+                    </span>
                     <input type="text" name="search"
                            value="@Search"
                            placeholder="Search by Student ID, name, or purpose..."
-                           class="w-full pl-4 pr-4 py-2 border border-black/10 rounded-lg bg-surface text-sm
+                           class="w-full pl-10 pr-4 py-2 border border-black/10 rounded-lg bg-surface text-sm
                                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
                 </div>
 
@@ -63,6 +87,12 @@
 
             <a href="@ExportUrl"
                class="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-lg hover:bg-success-dark transition-colors text-sm font-medium">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" x2="12" y1="15" y2="3" />
+                </svg>
                 Export CSV
             </a>
         </div>
@@ -188,6 +218,12 @@
 
     [SupplyParameterFromQuery(Name = "page")]
     private int? Page { get; set; }
+
+    [SupplyParameterFromQuery(Name = "success")]
+    private string? Success { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
 
     private int CurrentPage => Page is > 0 ? Page.Value : 1;
 
