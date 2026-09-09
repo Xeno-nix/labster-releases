@@ -48,10 +48,6 @@ public sealed class RefreshTokenUseCase
         //        delete ug user which is NO! NO! NO!
         if (user is null)
             throw new UnauthorizedAccessException("User does not exist.");
-
-        // Rotate refresh token (revoke and generate new)
-        // Revoke refresh token
-        storedToken.Revoke();
         
         // Issue new access token 
         var newAccessToken =
@@ -73,8 +69,8 @@ public sealed class RefreshTokenUseCase
                 newRefreshTokenHash,
                 DateTime.UtcNow.AddHours(_tokenService.RefreshTokenLifetime.Hours));
         
-        // update stored token and store newly generated one
-        await _refreshTokenRepository.UpdateAsync(storedToken);
+        // revoked old token and store newly generated one
+        await _refreshTokenRepository.RevokeAsync(storedToken.Id, DateTime.UtcNow);
         await _refreshTokenRepository.AddAsync(newRefreshTokenEntity);
         
         return new AuthenticationResponse(newAccessToken,newRefreshToken);

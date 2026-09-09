@@ -7,6 +7,47 @@ namespace CLMS.Infrastructure.Persistence.MySql.Repositories;
 
 public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : IRefreshTokenRepository
 {
+    public async Task<IReadOnlyList<RefreshToken>> GetActiveByUserIdAsync(Guid userId)
+    {
+        const string sql = """
+                           SELECT
+                               id,
+                               user_id,
+                               token_hash,
+                               created_at,
+                               expires_at,
+                               revoked_at
+                           FROM refresh_tokens
+                           WHERE user_id = @UserId
+                             AND revoked_at IS NULL
+                             AND expires_at > UTC_TIMESTAMP()
+                           ORDER BY created_at ASC;
+                           """;
+
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+        command.AddParam("@UserId", userId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        var refreshTokens = new List<RefreshToken>();
+
+        while (await reader.ReadAsync())
+        {
+            refreshTokens.Add(
+                RefreshToken.Create(
+                    reader.GetGuid("user_id"),
+                    reader.GetString("token_hash"),
+                    reader.GetDateTime("expires_at")
+                )
+            );
+        }
+
+        return refreshTokens;
+    }
+
     public async Task<bool> AddAsync(RefreshToken refreshToken)
     {
         // define SQL
@@ -74,23 +115,26 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
         return null;
     }
 
-    public async Task<bool> UpdateAsync(RefreshToken refreshToken)
+    public async Task<bool> RevokeAsync(
+        Guid refreshTokenId,
+        DateTime revokedAt)
     {
         const string sql = """
-            UPDATE refresh_tokens
-            SET
-                revoked_at = @RevokedAt
-            WHERE id = @Id;
-            """;
+           UPDATE refresh_tokens
+           SET revoked_at = @RevokedAt
+           WHERE id = @Id
+             AND revoked_at IS NULL;
+           """;
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
-        
+
         await using var command = new MySqlCommand(sql, connection);
-        command.AddParam("@Id", refreshToken.Id);
-        command.AddParam("@RevokedAt", refreshToken.RevokedAt);
-        
+        command.AddParam("@Id", refreshTokenId);
+        command.AddParam("@RevokedAt", revokedAt);
+
         var affectedRows = await command.ExecuteNonQueryAsync();
+
         return affectedRows > 0;
     }
 }

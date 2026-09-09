@@ -10,6 +10,9 @@ public sealed class LoginUseCase
     private readonly ITokenService _tokenService;
     private readonly IRefreshTokenHasher _refreshTokenHasher;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
+    
+    // Max number of refresh tokens per user
+    private const int MaxSessions = 5;
 
     public LoginUseCase(
         IUserRepository userRepository,
@@ -51,6 +54,21 @@ public sealed class LoginUseCase
         // generate access token
         var accessToken = _tokenService.GenerateAccessToken(user);
 
+        // retrieve active refresh tokens and revoke if number is above MaxSessions (5)
+        var activeTokens =
+            await _refreshTokenRepository.GetActiveByUserIdAsync(user.Id);
+
+        if (activeTokens.Count >= MaxSessions)
+        {
+            var oldestToken = activeTokens[0];
+
+            oldestToken.Revoke();
+
+            await _refreshTokenRepository.RevokeAsync(
+                oldestToken.Id,
+                oldestToken.RevokedAt!.Value);
+        }
+        
         // generate refresh token 
         var refreshToken = _tokenService.GenerateRefreshToken();
         

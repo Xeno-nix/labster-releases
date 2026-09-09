@@ -71,7 +71,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
 
         await using var command =  new MySqlCommand(sql, connection);
         command.AddParam("@UserId", user.Id);
-        command.AddParam("@DeletedAt", DateTime.Now);
+        command.AddParam("@DeletedAt", DateTime.UtcNow);
         
         var rowsAffected = await command.ExecuteNonQueryAsync();
         return rowsAffected == 1;

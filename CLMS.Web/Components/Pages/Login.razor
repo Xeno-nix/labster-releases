@@ -1,8 +1,9 @@
 ﻿@page "/login"
+
 @using CLMS.Shared.AuthRequests
-@using CLMS.Application.Authentication
-@using CLMS.Web.Controllers
 @using CLMS.Web.Models
+
+@inject LoginUseCase LoginUseCase;
 
 <div class="min-h-screen flex items-center justify-center p-6 bg-[#f8f8f8]">
     <div class="w-full max-w-md">
@@ -17,7 +18,7 @@
         <div class="border-[#d5d5d5] border px-6 py-8 w-full rounded-xl bg-white shadow-lg">
             <EditForm
                 Model="@_loginModel"
-                OnInvalidSubmit="@HandleLogin"
+                OnValidSubmit="@HandleLogin"
                 class="space-y-6">
                 <div>
                     <label class="block mb-2">Email Address</label>
@@ -63,8 +64,6 @@
 @code {
     private bool _showPassword = false;
     private LoginFormModel _loginModel = new();
-    private AuthController _authController;
-    private LoginUseCase _loginUseCase;
 
     private async Task HandleLogin()
     {
@@ -74,7 +73,8 @@
         AuthenticationResponse result;
         try
         {
-            result = await _loginUseCase.ExecuteAsync(loginRequest);
+            result = await LoginUseCase.ExecuteAsync(loginRequest);
+            Console.WriteLine(result.AccessToken +" : "+ result.RefreshToken);
         }
         catch (UnauthorizedAccessException ex)
         {

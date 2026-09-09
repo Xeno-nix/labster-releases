@@ -35,8 +35,7 @@ public class LogoutUseCase
         {
             storedToken.Revoke();
 
-            await _refreshTokenRepository.UpdateAsync(
-                storedToken);
+            await _refreshTokenRepository.RevokeAsync(storedToken.Id,DateTime.UtcNow);
         }
     }
 }

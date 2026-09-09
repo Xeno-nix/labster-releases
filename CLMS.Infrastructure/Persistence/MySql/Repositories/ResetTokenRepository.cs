@@ -13,7 +13,7 @@ public class ResetTokenRepository(MySqlConnectionFactory connectionFactory) : IR
            SELECT
                user_id,
                reset_token,
-               reset_token_expires_at
+               reset_token_expiration
            FROM users
            WHERE user_id = @UserId
            LIMIT 1;
@@ -35,7 +35,7 @@ public class ResetTokenRepository(MySqlConnectionFactory connectionFactory) : IR
             return new ResetToken(
                 reader.GetGuid("user_id"),
                 reader.GetString("reset_token"),
-                reader.GetDateTime("reset_token_expires_at")
+                reader.GetDateTime("reset_token_expiration")
             );
         }
 
@@ -51,7 +51,7 @@ public class ResetTokenRepository(MySqlConnectionFactory connectionFactory) : IR
            UPDATE users
            SET
                reset_token = @ResetToken,
-               reset_token_expires_at = @ResetToken_ExpiresAt
+               reset_token_expiration = @ResetToken_ExpiresAt
            WHERE 
                user_id = @UserId;
            """;
@@ -64,7 +64,7 @@ public class ResetTokenRepository(MySqlConnectionFactory connectionFactory) : IR
         await using var command = new MySqlCommand(sql, connection);
         command.AddParam("@UserId", resetToken.UserId);
         command.AddParam("@TokenHash", resetToken.TokenHash);
-        command.AddParam("@ExpiresAt", DateTime.Now.AddMinutes(10));
+        command.AddParam("@ExpiresAt", DateTime.UtcNow.AddMinutes(10));
         
         // execute sql
         var affectedRows = await command.ExecuteNonQueryAsync();
