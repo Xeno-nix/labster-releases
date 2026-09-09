@@ -4,11 +4,6 @@ using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-/// <summary>
-/// Port of LoggingService::buildLogQuery()/getLogs(). Queries `attendance_logs` LEFT
-/// JOIN `students` / `guests` — see remarks on LogbookEntryDTO for why there's no
-/// laboratory join/filter (attendance_logs has no lab_id column).
-/// </summary>
 public class LogbookRepository : ILogbookRepository
 {
     private readonly string _connectionString;

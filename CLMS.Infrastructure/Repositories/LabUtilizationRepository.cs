@@ -4,11 +4,6 @@ using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-/// <summary>
-/// Persists against `attendance_logs` (see Initial_Database_Setup.txt). Note this table
-/// has no lab_id column, so LaboratoryUseLog.LaboratoryId/ClassScheduleId are never
-/// written or read here — see remarks on LaboratoryUseLog.
-/// </summary>
 public class LabUtilizationRepository : ILabUtilizationRepository
 {
     private readonly string _connectionString;

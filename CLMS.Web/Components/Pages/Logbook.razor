@@ -6,10 +6,6 @@
 
 <PageTitle>CLMS — Logbook</PageTitle>
 
-@* Static server-rendered page (no @rendermode) — filters/pagination are plain GET
-   query params via <form method="get">/<a>, mirroring the Laravel original's full-page
-   request/response flow rather than a SPA-style interactive rewrite. *@
-
 <div class="space-y-6">
 
     <div>
@@ -18,10 +14,7 @@
             Track laboratory usage and sign-in history
         </p>
     </div>
-
-    @* Flash messages — lightweight query-string equivalent of Laravel's session('success')/
-       session('error'), since nothing currently redirects here with a message, but this
-       keeps the same visual affordance available for whatever eventually does. *@
+    
     @if (!string.IsNullOrEmpty(Success))
     {
         <div class="px-4 py-3 rounded-lg bg-success/10 border border-success/30 text-sm text-success">
@@ -35,11 +28,6 @@
             @Error
         </div>
     }
-
-    @* NOTE: the Laravel source also has a Laboratory column + lab filter. The current
-       attendance_logs table has no lab_id column, so there is no reliable way to show
-       which laboratory a past session happened in — that column/filter is intentionally
-       left out here rather than guessed at. See LogbookEntryDTO's remarks. *@
 
     <div class="bg-white rounded-lg border border-black/10 shadow-sm">
 

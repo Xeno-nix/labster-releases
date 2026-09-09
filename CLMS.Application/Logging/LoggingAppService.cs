@@ -16,15 +16,12 @@ public class LoggingAppService : ILoggingAppService
         _loggingService = loggingService ?? throw new ArgumentNullException(nameof(loggingService));
         _studentRepository = studentRepository ?? throw new ArgumentNullException(nameof(studentRepository));
     }
-
-    // Laravel: StudentTimeInRequest (required + exists:students,student_id) -> LogbookController::studentTimeIn
+    
     public async Task<LoggingResult> StudentTimeInAsync(StudentTimeInRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryValidate(request, out var validationError))
             return LoggingResult.Failed(validationError);
-
-        // Laravel's FormRequest 'exists:students,student_id' rule runs before the controller,
-        // so this is what a user actually sees for an unknown student number.
+        
         var student = await _studentRepository.GetByIdAsync(request.StudentId).ConfigureAwait(false);
         if (student is null)
             return LoggingResult.Failed("No student found with that number.");
@@ -39,8 +36,7 @@ public class LoggingAppService : ILoggingAppService
             return LoggingResult.Failed(ex.Message);
         }
     }
-
-    // Laravel: GuestTimeInRequest -> LogbookController::guestTimeIn
+    
     public async Task<LoggingResult> GuestTimeInAsync(GuestTimeInRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryValidate(request, out var validationError))
@@ -56,8 +52,7 @@ public class LoggingAppService : ILoggingAppService
             return LoggingResult.Failed(ex.Message);
         }
     }
-
-    // Laravel: TimeOutRequest -> LogbookController::timeOut
+    
     public async Task<LoggingResult> TimeOutAsync(TimeOutRequest request, CancellationToken cancellationToken = default)
     {
         if (!TryValidate(request, out var validationError))

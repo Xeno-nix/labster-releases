@@ -6,13 +6,6 @@ namespace CLMS.Infrastructure;
 
 public static class DependencyInjection
 {
-    /// <summary>
-    /// Registers the logging module's data-access repositories against the real
-    /// database, using the same connectionString-constructor pattern as the booking
-    /// module's repositories (see Program.cs) for consistency — no EF Core/DbContext,
-    /// no separate connection-factory abstraction; each repository opens its own
-    /// MySqlConnection per call using MySqlConnector directly.
-    /// </summary>
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, string connectionString)
     {
         services.AddScoped<IStudentRepository>(_ => new StudentRepository(connectionString));

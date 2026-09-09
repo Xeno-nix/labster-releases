@@ -1,4 +1,4 @@
-// CLMS.Infrastructure.Repositories/UserRepository.cs
+
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Users;
 using CLMS.Domain.Enums;
