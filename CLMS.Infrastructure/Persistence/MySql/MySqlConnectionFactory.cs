@@ -1,11 +1,10 @@
-﻿using CLMS.Application.Persistence.Interfaces;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using MySqlConnector;
-using System.Data;
+using System.Data.Common;
 
 namespace CLMS.Infrastructure.Persistence.MySql;
 
-public class MySqlConnectionFactory : IDbConnectionFactory
+public class MySqlConnectionFactory
 {
     private readonly string _connectionString;
 
@@ -15,8 +14,8 @@ public class MySqlConnectionFactory : IDbConnectionFactory
             ?? throw new InvalidOperationException("Connection string 'ClmsDatabase' not found.");
     }
 
-    public IDbConnection CreateConnection()
+    public MySqlConnection CreateConnection()
     {
-        return new MySqlConnection(_connectionString);
+        return new MySqlConnector.MySqlConnection(_connectionString);
     }
 }

@@ -3,12 +3,15 @@ using CLMS.Shared.AuthRequests;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using LoginRequest = CLMS.Shared.AuthRequests.LoginRequest;
+using RefreshRequest = Microsoft.AspNetCore.Identity.Data.RefreshRequest;
 using RegisterRequest = CLMS.Shared.AuthRequests.RegisterRequest;
 
 namespace CLMS.Web.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+// Disable below when pushing to prod
+[IgnoreAntiforgeryToken]
 public class AuthController : ControllerBase
 {
     private readonly LoginUseCase _loginUseCase;
@@ -68,19 +71,19 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] string refreshToken)
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
     {
-        await  _logoutUseCase.ExecuteAsync(refreshToken);
+        await  _logoutUseCase.ExecuteAsync(request.RefreshToken);
         return Ok("Logout successful");
     }
 
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody] string refreshToken)
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
     {
         AuthenticationResponse result;
         try
         {
-            result = await _refreshTokenUseCase.ExecuteAsync(refreshToken);
+            result = await _refreshTokenUseCase.ExecuteAsync(request.RefreshToken);
         }
         catch (UnauthorizedAccessException ex)
         {

@@ -6,8 +6,8 @@ public class RefreshToken
     public  Guid UserId { get; set; }
     public string TokenHash { get; private set; } = null!;
     public DateTime CreatedAt { get; private set; }
-    private DateTime ExpiresAt { get; }
-    private DateTime? RevokedAt { get; set; }
+    public DateTime ExpiresAt { get; }
+    public DateTime? RevokedAt { get; private set; }
     public bool IsRevoked => RevokedAt.HasValue;
     public bool IsExpired =>
         DateTime.UtcNow >= ExpiresAt;

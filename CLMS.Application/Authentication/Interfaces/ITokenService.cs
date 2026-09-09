@@ -6,5 +6,6 @@ namespace CLMS.Application.Authentication.Interfaces
     {
         string GenerateAccessToken(User user);
         string GenerateRefreshToken();
+        TimeSpan RefreshTokenLifetime { get; }
     }
 }

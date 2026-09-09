@@ -6,7 +6,8 @@ public class Student : AuditableEntity
 {
     public Name FirstName { get; set; }
     public Name LastName { get; set; }
-    public Name? MiddleInitial { get; set; }
+    public Name? MiddleName { get; set; }
+    public string? MiddleInitial => MiddleName?.Value.Substring(0, 1).ToUpper();
     public Name? Suffix { get; set; }
     
     public Student(Guid id, Name firstName, Name lastName, Name? middleInitial, Name? suffix)
@@ -14,7 +15,7 @@ public class Student : AuditableEntity
         _id = id;
         FirstName = firstName;
         LastName = lastName;
-        MiddleInitial = middleInitial;
+        MiddleName = middleInitial;
         Suffix = suffix;
     }
 

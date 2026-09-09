@@ -4,16 +4,10 @@ namespace CLMS.Application.Persistence.Interfaces;
 
 public interface IRefreshTokenRepository
 {
-    Task<RefreshToken?> FindByHashAsync(
-        string tokenHash);
+    Task<RefreshToken?> FindByHashAsync(string tokenHash);
 
-    Task<IReadOnlyList<RefreshToken>> FindAllByUserIdAsync(
-        Guid userId);
+    Task<bool> AddAsync(RefreshToken refreshToken);
 
-    Task AddAsync(
-        RefreshToken refreshToken);
-
-    Task UpdateAsync(
-        RefreshToken refreshToken);
+    Task<bool> UpdateAsync(RefreshToken refreshToken);
 }
 

@@ -8,7 +8,9 @@ public class User : AuditableEntity
 {
     public Name FirstName { get; set; }
     public Name LastName { get; set; }
-    public Name? MiddleInitial { get; set; }
+    public Name? MiddleName { get; set; }
+    public string? MiddleInitial => MiddleName?.Value.Substring(0, 1).ToUpper();
+
     public Name? Suffix { get; set; }
     public string Email { get; set; }
     public Role UserRole { get; set; }
@@ -24,12 +26,12 @@ public class User : AuditableEntity
         PasswordHash = passwordHash;
     }
 
-    public User(Guid id, Name firstName, Name lastName, Name? middleInitial, Name? suffix, string email, Role userRole, string passwordHash)
+    public User(Guid id, Name firstName, Name lastName, Name? middleName, Name? suffix, string email, Role userRole, string passwordHash)
     {
         _id = id;
         FirstName = firstName;
         LastName = lastName;
-        MiddleInitial = middleInitial;
+        MiddleName = middleName;
         Suffix = suffix;
         Email = email;
         UserRole = userRole;
@@ -42,9 +44,9 @@ public class User : AuditableEntity
     public string GetFullName()
     {
         string fullName = FirstName.Value;
-        if (MiddleInitial != null)
+        if (MiddleName != null)
         {
-            fullName += $" {MiddleInitial.Value}.";
+            fullName += $" {MiddleInitial}.";
         }
         fullName += $" {LastName.Value}";
         if (Suffix != null)

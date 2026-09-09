@@ -5,15 +5,16 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using Microsoft.Extensions.Options;
 
 namespace CLMS.Infrastructure.Auth;
 
 public class JwtAuthenticationService : ITokenService
 {
     private readonly JwtOptions _config;
-    public JwtAuthenticationService(JwtOptions config)
+    public JwtAuthenticationService(IOptions<JwtOptions> config)
     {
-        _config = config;
+        _config = config.Value;
     }
 
     /// <summary>
@@ -64,4 +65,6 @@ public class JwtAuthenticationService : ITokenService
         var bytes = RandomNumberGenerator.GetBytes(32);
         return Convert.ToBase64String(bytes); 
     }
+
+    public TimeSpan RefreshTokenLifetime => new TimeSpan(_config.RefreshTokenExpirationHours, 0, 0);
 }

@@ -6,6 +6,7 @@ public sealed class JwtOptions
     public string Issuer { get; set; } = string.Empty;
     public string SecretKey { get; set; } = string.Empty;
     public int AccessTokenExpirationMinutes { get; set; }
+    public int RefreshTokenExpirationHours { get; set; }
 
     public bool IsValid()
     {

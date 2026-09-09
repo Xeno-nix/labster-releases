@@ -1,7 +1,7 @@
 ﻿using CLMS.Application.Persistence.Interfaces;
 using CLMS.Domain.Entities.Authentication;
 
-namespace CLMS.Infrastructure.Persistence.Repositories;
+namespace CLMS.Infrastructure.Persistence.MySql.Repositories;
 
 public class ExternalIdentityRepository : IExternalIdentityRepository
 {

@@ -4,7 +4,8 @@ public class Guest
 {      
     public Guid GuestId { get; set; }
     public Name FirstName { get; set; }
-    public Name MiddleInitial { get; set; }
+    public Name? MiddleName { get; set; }
+    public string? MiddleInitial => MiddleName?.Value.Substring(0, 1).ToUpper();
     public Name LastName { get; set; }
     public string Organization { get; set; }
     public string ContactNumber { get; set; }
@@ -14,7 +15,7 @@ public class Guest
     {
         GuestId = guestId;
         FirstName = firstName;
-        MiddleInitial = middleName;
+        MiddleName = middleName;
         LastName = lastName;
         Organization = organization;
         ContactNumber = contactNumber;
@@ -24,9 +25,9 @@ public class Guest
     public string GetFullName()
     {
         string fullname = FirstName.Value;
-        if (string.IsNullOrWhiteSpace(MiddleInitial.Value))
+        if (string.IsNullOrWhiteSpace(MiddleInitial))
         {
-            fullname += $" {MiddleInitial.Value}";
+            fullname += $" {MiddleInitial}";
         }
 
         if(string.IsNullOrWhiteSpace(LastName.Value))

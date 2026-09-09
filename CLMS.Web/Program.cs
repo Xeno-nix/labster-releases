@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using CLMS.Application;
 using CLMS.Web.Components;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
@@ -13,13 +15,27 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services
+    .AddApplication()
     .AddInfrastructure()
     .AddRazorComponents()
         .AddInteractiveServerComponents();
 
-builder.Services.Configure<JwtOptions>(
-    builder.Configuration.GetSection("Jwt"));
+// Api stuff, and JSON string <-> enum converters
+// from http requests
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter());
+    });;
 
+// For JWT Options Configuration (Grabs config from user secrets)
+builder.Services.AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetSection("Jwt"))
+    .ValidateOnStart();
+
+// Stores auth tokens in cookies
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(option =>
@@ -84,8 +100,9 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.UseAntiforgery();
+
+app.MapControllers();
 
 app.MapStaticAssets();
 

@@ -1,6 +1,6 @@
 using CLMS.Application.Persistence.Interfaces;
 using CLMS.Domain.Entities.Authentication;
-tusing CLMS.Domain.Enums;
+using CLMS.Domain.Enums;
 using System.Data;
 
 namespace CLMS.Infrastructure.Persistence.Repositories;

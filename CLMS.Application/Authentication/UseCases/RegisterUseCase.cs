@@ -9,19 +9,10 @@ using System.Threading.Tasks;
 
 namespace CLMS.Application.Authentication.UseCases;
 
-public sealed class RegisterUseCase
+public sealed class RegisterUseCase(
+    IUserRepository userRepository,
+    IPasswordHasher passwordHasher)
 {
-    private readonly IUserRepository _userRepository;
-    private readonly IPasswordHasher _passwordHasher;
-
-    public RegisterUseCase(
-        IUserRepository userRepository,
-        IPasswordHasher passwordHasher)
-    {
-        _userRepository = userRepository;
-        _passwordHasher = passwordHasher;
-    }
-
     /// <summary>
     /// Registers User
     /// </summary>
@@ -30,30 +21,32 @@ public sealed class RegisterUseCase
     public async Task ExecuteAsync(RegisterRequest request)
     {
         // Search if user with same email already exists
-        var existingUser = await _userRepository.FindByEmailAsync(request.Email);
+        var existingUser = await userRepository.FindByEmailAsync(request.Email);
 
         if (existingUser is not null)
             throw new InvalidOperationException("A user with this email already exists.");
 
         // hash password
-        var passwordHash = _passwordHasher.Hash(request.Password);
+        var passwordHash = passwordHasher.Hash(request.Password);
 
+        Console.WriteLine("RegisterUseCase : " + request.Role);
+        
         // generate new user entity
         var user = new User(
             Guid.NewGuid(),
             new Name(request.FirstName),
             new Name(request.LastName),
-            request.MiddleInitial is not null
-                ? new Name(request.MiddleInitial)
+            request.MiddleName is not null
+                ? new Name(request.MiddleName)
                 : null,
             request.Suffix is not null
                 ? new Name(request.Suffix)
                 : null,
             request.Email,
-            Role.Admin,
+            request.Role,
             passwordHash);
 
         // Saves user entity
-        await _userRepository.AddAsync(user);
+        await userRepository.AddAsync(user);
     }
 }

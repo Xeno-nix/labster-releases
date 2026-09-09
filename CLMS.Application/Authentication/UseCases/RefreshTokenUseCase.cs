@@ -29,31 +29,25 @@ public sealed class RefreshTokenUseCase
     {
         // hash refresh token and search if exists or if revoked
         var tokenHash = _refreshTokenHasher.Hash(refreshToken);
-
         var storedToken = await _refreshTokenRepository.FindByHashAsync(tokenHash);
         
         // not logged in
         if (storedToken is null)
-            throw new UnauthorizedAccessException(
-                "Invalid refresh token.");
+            throw new UnauthorizedAccessException("Invalid refresh token.");
         
         // expired or logged out
         if (!storedToken.IsActive)
-            throw new UnauthorizedAccessException(
-                "Refresh token is expired or revoked.");
+            throw new UnauthorizedAccessException("Refresh token is expired or revoked.");
         
         // find user
-        var user =
-            await _userRepository.FindByIdAsync(
-                storedToken.UserId);
+        var user = await _userRepository.FindByIdAsync(storedToken.UserId);
         
         // user does not exist
         // 
         // NOTE : if mahitabo ni, something fcked up or giallow ang delete pag
         //        delete ug user which is NO! NO! NO!
         if (user is null)
-            throw new UnauthorizedAccessException(
-                "User does not exist.");
+            throw new UnauthorizedAccessException("User does not exist.");
 
         // Rotate refresh token (revoke and generate new)
         // Revoke refresh token
@@ -73,13 +67,11 @@ public sealed class RefreshTokenUseCase
         // Includes refresh token hash and metadata.
         //
         // Refresh token lifetime is 1 day
-        //
-        // TODO: Retrieve lifetime from config
         var newRefreshTokenEntity =
             RefreshToken.Create(
                 user.Id,
                 newRefreshTokenHash,
-                DateTime.UtcNow.AddDays(1));
+                DateTime.UtcNow.AddHours(_tokenService.RefreshTokenLifetime.Hours));
         
         // update stored token and store newly generated one
         await _refreshTokenRepository.UpdateAsync(storedToken);

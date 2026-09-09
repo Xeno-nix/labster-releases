@@ -5,7 +5,7 @@ namespace CLMS.Shared.AuthRequests;
 public sealed record RegisterRequest(
     string FirstName,
     string LastName,
-    string? MiddleInitial,
+    string? MiddleName,
     string? Suffix,
     string Email,
     Role Role,
@@ -18,3 +18,9 @@ public sealed record LoginRequest(
 public sealed record AuthenticationResponse(
     string AccessToken,
     string RefreshToken);
+    
+public sealed record LogoutRequest(
+    string RefreshToken);
+    
+public sealed record RefreshRequest(
+    string RefreshToken);   
