@@ -124,9 +124,15 @@
                                 <td class="px-5 py-3 text-sm text-[#2c2c2c]">@(item.CalibrationDone ? "Yes" : "No")</td>
                                 <td class="px-5 py-3">
                                     <div class="flex items-center gap-1">
-                                        <button @onclick="() => OpenQr(item)" title="View / Print QR Code" class="p-1.5 hover:bg-white rounded-lg transition-colors">QR</button>
-                                        <button @onclick="() => OpenEditEquipment(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">Edit</button>
-                                        <button @onclick="() => OpenDeleteEquipment(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">Del</button>
+                                        <button @onclick="() => OpenQr(item)" title="View / Print QR Code" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                            <i data-lucide="qr-code" class="w-4 h-4 text-success"></i>
+                                        </button>
+                                        <button @onclick="() => OpenEditEquipment(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                            <i data-lucide="pencil" class="w-4 h-4 text-muted"></i>
+                                        </button>
+                                        <button @onclick="() => OpenDeleteEquipment(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                            <i data-lucide="trash-2" class="w-4 h-4 text-muted"></i>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -203,8 +209,12 @@
                                 <td class="px-5 py-3 text-sm text-muted max-w-[160px] truncate">@(item.Remarks ?? "—")</td>
                                 <td class="px-5 py-3">
                                     <div class="flex items-center gap-1">
-                                        <button @onclick="() => OpenEditSupply(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">Edit</button>
-                                        <button @onclick="() => OpenDeleteSupply(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">Del</button>
+                                        <button @onclick="() => OpenEditSupply(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                            <i data-lucide="pencil" class="w-4 h-4 text-muted"></i>
+                                        </button>
+                                        <button @onclick="() => OpenDeleteSupply(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                            <i data-lucide="trash-2" class="w-4 h-4 text-muted"></i>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>

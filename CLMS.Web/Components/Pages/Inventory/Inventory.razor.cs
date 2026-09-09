@@ -24,7 +24,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     private List<LabOption> Labs { get; set; } = new();
     private string? FlashSuccess { get; set; }
 
-    private string ActiveTab { get; set; } = "supplies";
+    private string ActiveTab { get; set; } = "equipment";
 
     private string EqSearch { get; set; } = "";
     private string EqTypeFilter { get; set; } = "all";
@@ -105,6 +105,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await JS.InvokeVoidAsync("lucide.createIcons");
         if (_pendingQrRender && ShowQr && SelectedEquipment is not null)
         {
             _pendingQrRender = false;
