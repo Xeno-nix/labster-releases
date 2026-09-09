@@ -1,111 +1,187 @@
-﻿using System.Collections.Concurrent;
+﻿using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.UtilizationLogging;
-using CLMS.Domain.Entities.Users;
-using CLMS.Domain.Repositories;
+using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-/// <summary>
-/// TEMPORARY in-memory implementation — see remarks on InMemoryStudentRepository.
-/// Registered as a singleton so data survives for the lifetime of the app process.
-///
-/// Seeds two pre-existing ACTIVE sessions on startup so the "already has an active
-/// session" error and the Time-Out flow can both be tested immediately, without first
-/// performing a Time-In:
-///   Student 2024-00456 (Maria Santos) — active since ~1 hour ago
-///   Guest   "Pedro Guest"             — active since ~30 minutes ago
-/// Remove this seeding (the constructor body below the field declarations) once real
-/// persistence is in place.
-/// </summary>
-public class InMemoryLabUtilizationRepository : ILabUtilizationRepository
+public class LabUtilizationRepository : ILabUtilizationRepository
 {
-    private readonly ConcurrentDictionary<int, LaboratoryUseLog> _logs = new();
-    private readonly IGuestRepository _guestRepository;
-    private int _nextId;
+    private readonly string _connectionString;
 
-    public InMemoryLabUtilizationRepository(IGuestRepository guestRepository)
+    public LabUtilizationRepository(string connectionString)
     {
-        _guestRepository = guestRepository ?? throw new ArgumentNullException(nameof(guestRepository));
-
-        SeedTestData();
+        _connectionString = connectionString;
     }
 
-    private void SeedTestData()
+    public async Task<int> CreateAsync(LaboratoryUseLog log)
     {
-        // Active student session — Maria Santos (2024-00456).
-        var studentLog = new LaboratoryUseLog
-        {
-            Id = Interlocked.Increment(ref _nextId),
-            StudentId = "2024-00456",
-            Purpose = "Laboratory session",
-            LogDate = DateOnly.FromDateTime(DateTime.Now),
-            TimeIn = DateTime.Now.AddHours(-1),
-            TimeOut = null,
-        };
-        _logs[studentLog.Id] = studentLog;
+        const string sql = """
+            INSERT INTO attendance_logs
+            (
+                student_id,
+                guest_id,
+                purpose_subject,
+                faculty_in_charge,
+                log_date,
+                time_in,
+                time_out
+            )
+            VALUES
+            (
+                @StudentId,
+                @GuestId,
+                @Purpose,
+                @InstructorId,
+                @LogDate,
+                @TimeIn,
+                @TimeOut
+            );
 
-        // Active guest session — "Pedro Guest". AddAsync is async but the in-memory
-        // repo completes synchronously, so blocking here during startup seeding is safe.
-        var guest = new Guest("Pedro Guest", "Visitor (reservation: Sample Reservation)");
-        var savedGuest = _guestRepository.AddAsync(guest).GetAwaiter().GetResult();
+            SELECT LAST_INSERT_ID();
+            """;
 
-        var guestLog = new LaboratoryUseLog
-        {
-            Id = Interlocked.Increment(ref _nextId),
-            GuestLogId = savedGuest.Id,
-            Purpose = guest.Purpose ?? string.Empty,
-            LogDate = DateOnly.FromDateTime(DateTime.Now),
-            TimeIn = DateTime.Now.AddMinutes(-30),
-            TimeOut = null,
-        };
-        _logs[guestLog.Id] = guestLog;
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@StudentId", (object?)log.StudentId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@GuestId", (object?)log.GuestId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Purpose", log.Purpose);
+        command.Parameters.AddWithValue("@InstructorId", log.InstructorId.HasValue ? log.InstructorId.Value.ToString() : (object)DBNull.Value);
+        command.Parameters.AddWithValue("@LogDate", log.LogDate.ToDateTime(TimeOnly.MinValue));
+        command.Parameters.AddWithValue("@TimeIn", log.TimeIn);
+        command.Parameters.AddWithValue("@TimeOut", (object?)log.TimeOut ?? DBNull.Value);
+
+        var result = await command.ExecuteScalarAsync();
+
+        var id = Convert.ToInt32(result);
+        log.Id = id;
+        return id;
     }
 
-    public Task AddAsync(LaboratoryUseLog log, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(LaboratoryUseLog log)
     {
-        if (log == null) throw new ArgumentNullException(nameof(log));
+        const string sql = """
+            UPDATE attendance_logs
+            SET
+                student_id = @StudentId,
+                guest_id = @GuestId,
+                purpose_subject = @Purpose,
+                faculty_in_charge = @InstructorId,
+                log_date = @LogDate,
+                time_in = @TimeIn,
+                time_out = @TimeOut
+            WHERE utilization_log_id = @Id;
+            """;
 
-        log.Id = Interlocked.Increment(ref _nextId);
-        _logs[log.Id] = log;
-        return Task.CompletedTask;
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@Id", log.Id);
+        command.Parameters.AddWithValue("@StudentId", (object?)log.StudentId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@GuestId", (object?)log.GuestId ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Purpose", log.Purpose);
+        command.Parameters.AddWithValue("@InstructorId", log.InstructorId.HasValue ? log.InstructorId.Value.ToString() : (object)DBNull.Value);
+        command.Parameters.AddWithValue("@LogDate", log.LogDate.ToDateTime(TimeOnly.MinValue));
+        command.Parameters.AddWithValue("@TimeIn", log.TimeIn);
+        command.Parameters.AddWithValue("@TimeOut", (object?)log.TimeOut ?? DBNull.Value);
+
+        await command.ExecuteNonQueryAsync();
     }
 
-    public Task UpdateAsync(LaboratoryUseLog log, CancellationToken cancellationToken = default)
+    public async Task<LaboratoryUseLog?> GetActiveSessionForStudentAsync(string studentId)
     {
-        if (log == null) throw new ArgumentNullException(nameof(log));
+        const string sql = """
+            SELECT
+                utilization_log_id,
+                student_id,
+                guest_id,
+                purpose_subject,
+                faculty_in_charge,
+                log_date,
+                time_in,
+                time_out
+            FROM attendance_logs
+            WHERE student_id = @StudentId
+            AND time_out IS NULL
+            ORDER BY time_in DESC
+            LIMIT 1;
+            """;
 
-        _logs[log.Id] = log;
-        return Task.CompletedTask;
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@StudentId", studentId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+            return null;
+
+        return MapLog(reader);
     }
 
-    public Task<LaboratoryUseLog?> GetActiveSessionForStudentAsync(string studentId, CancellationToken cancellationToken = default)
-    {
-        var match = _logs.Values
-            .Where(l => l.StudentId == studentId && l.TimeOut is null)
-            .OrderByDescending(l => l.TimeIn)
-            .FirstOrDefault();
-
-        return Task.FromResult(match);
-    }
-
-    public async Task<List<LaboratoryUseLog>> GetActiveSessionsForGuestNameAsync(string guestName, CancellationToken cancellationToken = default)
+    public async Task<List<LaboratoryUseLog>> GetActiveSessionsForGuestNameAsync(string guestName)
     {
         var results = new List<LaboratoryUseLog>();
 
-        foreach (var log in _logs.Values.Where(l => l.GuestLogId is not null && l.TimeOut is null))
+        const string sql = """
+            SELECT
+                al.utilization_log_id,
+                al.student_id,
+                al.guest_id,
+                al.purpose_subject,
+                al.faculty_in_charge,
+                al.log_date,
+                al.time_in,
+                al.time_out
+            FROM attendance_logs al
+            INNER JOIN guests g
+                ON al.guest_id = g.guest_id
+            WHERE g.guest_name = @GuestName
+            AND al.time_out IS NULL
+            ORDER BY al.time_in DESC;
+            """;
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@GuestName", guestName);
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
         {
-            var guest = await _guestRepository.GetByIdAsync(log.GuestLogId!.Value, cancellationToken).ConfigureAwait(false);
-            if (guest is not null && guest.GuestName == guestName)
-                results.Add(log);
+            results.Add(MapLog(reader));
         }
 
-        return results.OrderByDescending(l => l.TimeIn).ToList();
+        return results;
     }
 
-    // ── TEMP-DEBUG ─────────────────────────────────────────────────
-    // Not part of ILabUtilizationRepository — only used by the temporary browser-console
-    // logger (see CLMS.Web/Debug/TerminalDebugLogger.cs) to dump current state for
-    // testing. Delete this method when that debug logger is removed.
-    public IReadOnlyList<LaboratoryUseLog> GetAllForDebug()
-        => _logs.Values.OrderBy(l => l.Id).ToList();
+    private static LaboratoryUseLog MapLog(MySqlDataReader reader)
+    {
+        var studentIdOrdinal = reader.GetOrdinal("student_id");
+        var guestIdOrdinal = reader.GetOrdinal("guest_id");
+        var instructorOrdinal = reader.GetOrdinal("faculty_in_charge");
+        var timeOutOrdinal = reader.GetOrdinal("time_out");
+
+        return new LaboratoryUseLog
+        {
+            Id = reader.GetInt32("utilization_log_id"),
+            StudentId = reader.IsDBNull(studentIdOrdinal) ? null : reader.GetString(studentIdOrdinal),
+            GuestId = reader.IsDBNull(guestIdOrdinal) ? null : reader.GetInt32(guestIdOrdinal),
+            Purpose = reader.GetString("purpose_subject"),
+            InstructorId = reader.IsDBNull(instructorOrdinal) ? null : Guid.Parse(reader.GetString(instructorOrdinal)),
+            LogDate = DateOnly.FromDateTime(reader.GetDateTime("log_date")),
+            TimeIn = reader.GetDateTime("time_in"),
+            TimeOut = reader.IsDBNull(timeOutOrdinal) ? null : reader.GetDateTime(timeOutOrdinal),
+        };
+    }
 }

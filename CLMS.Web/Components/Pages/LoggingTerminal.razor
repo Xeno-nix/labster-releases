@@ -3,13 +3,9 @@
 @using CLMS.Application.Logging
 @using CLMS.Application.Logging.Dtos
 @inject ILoggingAppService LoggingAppService
-@* TEMP-DEBUG: remove this line + the DebugLogger.LogAsync calls below — see the revert
-   checklist at the top of CLMS.Web/Debug/TerminalDebugLogger.cs *@
-
 
 <PageTitle>CLMS — Logging Terminal</PageTitle>
 
-@* Self-contained public chrome mirroring Laravel's resources/views/layouts/public.blade.php *@
 <div class="bg-surface antialiased min-h-screen flex flex-col">
 
     <header class="bg-white border-b border-black/10">
@@ -229,21 +225,21 @@
     {
         var result = await LoggingAppService.StudentTimeInAsync(StudentModel);
         ApplyResult(result);
-        // TEMP-DEBUG: remove — see CLMS.Web/Debug/TerminalDebugLogger.cs
+        if (result.Success) StudentModel = new();
     });
 
     private Task HandleGuestTimeIn() => RunAsync(async () =>
     {
         var result = await LoggingAppService.GuestTimeInAsync(GuestModel);
         ApplyResult(result);
-    
+        if (result.Success) GuestModel = new();
     });
 
     private Task HandleTimeOut() => RunAsync(async () =>
     {
         var result = await LoggingAppService.TimeOutAsync(TimeOutModel);
         ApplyResult(result);
-        // TEMP-DEBUG: remove — see CLMS.Web/Debug/TerminalDebugLogger.cs
+        if (result.Success) TimeOutModel = new();
     });
 
     private void ApplyResult(LoggingResult result)

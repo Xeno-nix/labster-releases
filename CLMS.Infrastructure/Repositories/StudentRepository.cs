@@ -1,49 +1,66 @@
-﻿using System.Collections.Concurrent;
+﻿using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Users;
-using CLMS.Domain.Repositories;
 using CLMS.Domain.ValueObjects;
+using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-/// <summary>
-/// TEMPORARY in-memory implementation. There's no real database wired up yet — this
-/// exists so the logging terminal can be built, run, and demoed end-to-end without one.
-/// Replace with a real data-access implementation (EF Core or otherwise) once the
-/// database is ready. Registered as a singleton so the seeded/added data survives for
-/// the lifetime of the app process (see DependencyInjection.cs).
-/// </summary>
-public class InMemoryStudentRepository : IStudentRepository
+public class StudentRepository : IStudentRepository
 {
-    private readonly ConcurrentDictionary<string, Student> _students = new();
+    private readonly string _connectionString;
 
-    public InMemoryStudentRepository()
+    public StudentRepository(string connectionString)
     {
-        // Sample students covering the main terminal test scenarios. Names.Value only
-        // allows letters/apostrophes/hyphens (no spaces) — see CLMS.Domain.ValueObjects.Name
-        // — so multi-word surnames aren't usable here yet.
-        //
-        //   2024-00123  Juan Reyes    — no active session; use to test a fresh Time-In
-        //   2024-00456  Maria Santos  — pre-seeded WITH an active session by
-        //                                InMemoryLabUtilizationRepository; use to test
-        //                                "already has an active session" on Time-In, and
-        //                                a normal Time-Out
-        //   2024-00789  Pedro Cruz    — no active session; a second "fresh" student
-        //   0000-00000  (intentionally absent) — use any unseeded id to test "student not found"
-        //
-        // Remove this seeding once real student data is available.
-        Seed(new Student("2024-00123", new Name("Juan"), new Name("Reyes")));
-        Seed(new Student("2024-00456", new Name("Maria"), new Name("Santos")));
-        Seed(new Student("2024-00789", new Name("Pedro"), new Name("Cruz")));
+        _connectionString = connectionString;
     }
 
-    private void Seed(Student student) => _students[student.StudentId] = student;
+    public async Task<Student?> GetByIdAsync(string studentId)
+    {
+        const string sql = """
+            SELECT
+                student_id,
+                first_name,
+                last_name,
+                middle_name,
+                suffix
+            FROM students
+            WHERE student_id = @StudentId;
+            """;
 
-    public Task<Student?> GetByIdAsync(string studentId, CancellationToken cancellationToken = default)
-        => Task.FromResult(_students.TryGetValue(studentId, out var student) ? student : null);
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
 
-    // ── TEMP-DEBUG ─────────────────────────────────────────────────
-    // Not part of IStudentRepository — only used by the temporary browser-console logger
-    // (see CLMS.Web/Debug/TerminalDebugLogger.cs) to dump current state for testing.
-    // Delete this method when that debug logger is removed.
-    public IReadOnlyList<Student> GetAllForDebug() => _students.Values.ToList();
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@StudentId", studentId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+            return null;
+
+        return MapStudent(reader);
+    }
+
+    private static Student MapStudent(MySqlDataReader reader)
+    {
+        // NOTE: CLMS.Domain.ValueObjects.Name only allows letters/apostrophes/hyphens
+        // (no spaces), so a first/last name containing a space in the real `students`
+        // data will throw here. Flagging since this is a pre-existing constraint on
+        // Name, not something introduced by this repository.
+        var student = new Student(
+            reader.GetString("student_id"),
+            new Name(reader.GetString("first_name")),
+            new Name(reader.GetString("last_name")));
+
+        var middleNameOrdinal = reader.GetOrdinal("middle_name");
+        if (!reader.IsDBNull(middleNameOrdinal))
+            student.SetMiddleName(new Name(reader.GetString(middleNameOrdinal)));
+
+        var suffixOrdinal = reader.GetOrdinal("suffix");
+        if (!reader.IsDBNull(suffixOrdinal))
+            student.SetSuffix(reader.GetString(suffixOrdinal));
+
+        return student;
+    }
 }

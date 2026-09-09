@@ -24,6 +24,7 @@ public class ContactNumber
     {
         if (string.IsNullOrEmpty(value))
         {
+            throw new ArgumentException("Contact Number cannot be null or empty",nameof(value));
             throw new ArgumentException("Contact Number cannot be null or empty", nameof(value));
         }
 
@@ -31,5 +32,10 @@ public class ContactNumber
         {
             throw new ArgumentException("Contact Number must be a valid phone number with 10 to 15 digits, optionally starting with a '+'", nameof(value));
         }
+    }
+
+    public override string ToString()
+    {
+        return Value;
     }
 }
