@@ -30,6 +30,11 @@ public class ClassScheduleService : IClassScheduleService
             TimeEnd = dto.TimeEnd
         };
 
+        if (await CheckScheduleConflictAsync(dto))
+        {
+            throw new InvalidOperationException("The Class Schedule conflicts with an existing class schedule.");
+        }
+
         return await _repository.CreateAsync(schedule);
     }
 //delete sched
@@ -51,6 +56,25 @@ public class ClassScheduleService : IClassScheduleService
         return  await _repository.GetByIdAsync(id);
     }
 
+    public async Task<bool> CheckScheduleConflictAsync(UpsertClassScheduleDTO dto, int? excludingClassScheduleId = null)
+    {
+        var allSchedules = await _repository.GetAllAsync();
+
+        return allSchedules
+        .Where(s => s.LaboratoryId == dto.LaboratoryId && s.AcademicTermId == dto.AcademicTermId)
+        .Where(s => s.DayOfWeek == dto.DayOfWeek)
+        .Where(s => excludingClassScheduleId is null || s.Id != excludingClassScheduleId)
+        .Any(s => TimeRangesOverlap(dto.TimeStart, dto.TimeEnd, s.TimeStart, s.TimeEnd));
+    }
+
+    private static bool TimeRangesOverlap(
+    TimeOnly start1,
+    TimeOnly end1,
+    TimeOnly start2,
+    TimeOnly end2)
+    {
+        return start1 < end2 && start2 < end1;
+    }
 //update sched
     public async Task UpdateAsync(
         int id,
@@ -67,6 +91,11 @@ public class ClassScheduleService : IClassScheduleService
             TimeStart = dto.TimeStart,
             TimeEnd = dto.TimeEnd
         };
+
+        if (await CheckScheduleConflictAsync(dto, excludingClassScheduleId: id))
+        {
+            throw new InvalidOperationException("The Class Schedule conflicts with an existing class schedule.");
+        }
 
         await _repository.UpdateAsync(schedule);
     }

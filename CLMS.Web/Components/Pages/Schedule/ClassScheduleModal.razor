@@ -1,0 +1,320 @@
+@inject IClassScheduleService ScheduleService
+@inject ICourseService CourseService
+@inject IUserService InstructorService
+@inject ILaboratoryService LaboratoryService
+@inject IAcademicTermService AcademicTermService
+
+<div class="fixed inset-0 flex justify-center items-start p-12 bg-black/35 z-[1000] overflow-y-auto" @onclick="Close">
+    <div class="w-full max-w-[520px] bg-white border border-gray-200 rounded-xl" @onclick:stopPropagation="true">
+
+        <div class="flex items-center justify-between px-6 pt-5 pb-2">
+            <h5 class="m-0 text-base font-semibold">@(ScheduleId is not null ? "Edit Class Schedule" : "Add Class Schedule")</h5>
+            <button type="button" class="text-gray-400 hover:text-gray-700 text-xl leading-none bg-transparent border-none cursor-pointer" @onclick="Close">&times;</button>
+        </div>
+
+        <div class="px-6 pb-6 pt-2">
+
+            @if (!string.IsNullOrEmpty(generalError))
+            {
+                <div class="bg-red-50 text-red-700 border border-red-200 rounded-md py-2 px-3 mb-3 text-sm">@generalError</div>
+            }
+
+            @if (isLoading)
+            {
+                <p class="text-gray-500 text-sm py-4 text-center">Loading...</p>
+            }
+            else
+            {
+                @if (!courses.Any() || !instructors.Any() || !laboratories.Any() || !terms.Any())
+                {
+                    <div class="bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-md py-2 px-3 mb-3 text-sm">
+                        <strong>Heads up:</strong> Some dropdowns are empty. Make sure you have at least one
+                        @(!courses.Any() ? "course, " : "")
+                        @(!instructors.Any() ? "instructor, " : "")
+                        @(!laboratories.Any() ? "laboratory, " : "")
+                        @(!terms.Any() ? "academic term " : "")
+                        registered in the system before adding a schedule.
+                    </div>
+                }
+
+                <EditForm Model="formModel" OnValidSubmit="Submit">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-gray-600 mb-1.5">Course</label>
+                        <InputSelect @bind-Value="formModel.CourseId" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b]">
+                            <option value="0">Select a course</option>
+                            @foreach (var course in courses)
+                            {
+                                <option value="@course.Id">@course.CourseCode — @course.CourseName</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => formModel.CourseId)" class="text-red-600 text-xs mt-1" />
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div class="flex-1 mb-4">
+                            <label class="block text-xs text-gray-600 mb-1.5">Semester</label>
+                            <InputSelect @bind-Value="selectedSemester" @bind-Value:after="OnSemesterChanged" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b]">
+                                <option value="">Select a semester</option>
+                                @foreach (var semester in AvailableSemesters)
+                                {
+                                    <option value="@semester">@Capitalize(semester) semester</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="flex-1 mb-4">
+                            <label class="block text-xs text-gray-600 mb-1.5">School Year</label>
+                            <InputSelect @bind-Value="selectedYear" @bind-Value:after="OnYearChanged" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b] disabled:bg-gray-100 disabled:text-gray-400" disabled="@(string.IsNullOrEmpty(selectedSemester))">
+                                <option value="">Select a year</option>
+                                @foreach (var year in AvailableYears)
+                                {
+                                    <option value="@year">@year</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <ValidationMessage For="@(() => formModel.AcademicTermId)" class="text-red-600 text-xs mt-1" />
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-gray-600 mb-1.5">Assigned Instructor</label>
+                        <InputSelect @bind-Value="formModel.InstructorId" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b]">
+                            <option value="">Select Instructor</option>
+                            @foreach (var instructor in instructors)
+                            {
+                                <option value="@instructor.Id">@instructor.LastName, @instructor.FirstName</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => formModel.InstructorId)" class="text-red-600 text-xs mt-1" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-gray-600 mb-1.5">Target Laboratory</label>
+                        <InputSelect @bind-Value="formModel.LaboratoryId" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b]">
+                            <option value="0">Select a laboratory</option>
+                            @foreach (var lab in laboratories)
+                            {
+                                <option value="@lab.Id">@lab.Name</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => formModel.LaboratoryId)" class="text-red-600 text-xs mt-1" />
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div class="flex-1 mb-4">
+                            <label class="block text-xs text-gray-600 mb-1.5">Day of Week</label>
+                            <InputSelect @bind-Value="formModel.DayOfWeek" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b]">
+                                <option value="">Select a day</option>
+                                @foreach (var day in daysOfWeek)
+                                {
+                                    <option value="@day">@day</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => formModel.DayOfWeek)" class="text-red-600 text-xs mt-1" />
+                        </div>
+
+                        <div class="flex-1 mb-4">
+                            <label class="block text-xs text-gray-600 mb-1.5">Time Slot</label>
+                            <div class="flex gap-2">
+                                <input type="time" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b]" value="@startTime?.ToString("HH:mm")" @onchange="OnStartTimeChanged" />
+                                <input type="time" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b]" value="@endTime?.ToString("HH:mm")" @onchange="OnEndTimeChanged" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-5">
+                        <button type="button" class="px-5 py-2 border border-gray-300 rounded-md text-gray-700 text-sm bg-white hover:bg-gray-100 cursor-pointer" @onclick="Close">Cancel</button>
+                        <button type="submit" class="px-5 py-2 bg-[#7a1f2b] border-none rounded-md text-white text-sm cursor-pointer hover:bg-[#651923] disabled:opacity-60 disabled:cursor-default" disabled="@isSaving">
+                            @(isSaving ? "Saving..." : ScheduleId is not null ? "Save Changes" : "Add Class Schedule")
+                        </button>
+                    </div>
+
+                </EditForm>
+            }
+
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? ScheduleId { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public DateTime? InitialDate { get; set; }
+
+    private IEnumerable<CourseDTO> courses = Enumerable.Empty<CourseDTO>();
+    private IEnumerable<UserDTO> instructors = Enumerable.Empty<UserDTO>();
+    private IEnumerable<LaboratoryDTO> laboratories = Enumerable.Empty<LaboratoryDTO>();
+    private IEnumerable<AcademicTermDTO> terms = Enumerable.Empty<AcademicTermDTO>();
+
+    private readonly string[] daysOfWeek =
+        { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+
+    private UpsertClassScheduleDTO formModel = new();
+
+    private string selectedSemester = "";
+    private string selectedYear = "";
+
+    private TimeOnly? startTime;
+    private TimeOnly? endTime;
+
+    private bool isLoading = true;
+    private bool isSaving;
+    private string? generalError;
+
+    private IEnumerable<string> AvailableSemesters =>
+        terms.Select(t => t.Semester).Distinct();
+
+    private IEnumerable<string> AvailableYears =>
+        terms.Where(t => t.Semester == selectedSemester)
+             .Select(t => t.AcademicYear)
+             .Distinct();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            courses = await CourseService.GetAllAsync();
+            instructors = await InstructorService.GetFacultyAsync();
+            laboratories = await LaboratoryService.GetAllAsync();
+            terms = await AcademicTermService.GetAllAsync();
+
+            if (ScheduleId is not null)
+            {
+                var schedule = await ScheduleService.GetByIdAsync(ScheduleId.Value);
+
+                if (schedule is null)
+                {
+                    generalError = "Class schedule was not found.";
+                }
+                else
+                {
+                    formModel = new UpsertClassScheduleDTO
+                    {
+                        CourseId = schedule.CourseId,
+                        InstructorId = schedule.InstructorId,
+                        LaboratoryId = schedule.LaboratoryId,
+                        AcademicTermId = schedule.AcademicTermId,
+                        DayOfWeek = schedule.DayOfWeek,
+                        TimeStart = schedule.TimeStart,
+                        TimeEnd = schedule.TimeEnd
+                    };
+
+                    var matchingTerm = terms.FirstOrDefault(t => t.Id == schedule.AcademicTermId);
+                    selectedSemester = matchingTerm?.Semester ?? "";
+                    selectedYear = matchingTerm?.AcademicYear ?? "";
+
+                    startTime = schedule.TimeStart;
+                    endTime = schedule.TimeEnd;
+                }
+            }
+            else if (InitialDate is not null)
+            {
+                formModel.DayOfWeek = InitialDate.Value.DayOfWeek;
+            }
+        }
+        catch (Exception ex)
+        {
+            generalError = "Unable to load class schedule data.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OnSemesterChanged()
+    {
+        selectedYear = "";
+        formModel.AcademicTermId = 0;
+    }
+
+    private void OnYearChanged()
+    {
+        var match = terms.FirstOrDefault(t =>
+            t.Semester == selectedSemester &&
+            t.AcademicYear == selectedYear);
+
+        formModel.AcademicTermId = match?.Id ?? 0;
+    }
+
+    private void OnStartTimeChanged(ChangeEventArgs e)
+    {
+        if (TimeOnly.TryParse(e.Value?.ToString(), out var start))
+        {
+            startTime = start;
+            endTime = start.AddHours(3);
+        }
+        else
+        {
+            startTime = null;
+        }
+    }
+
+    private void OnEndTimeChanged(ChangeEventArgs e)
+    {
+        endTime = TimeOnly.TryParse(e.Value?.ToString(), out var end) ? end : null;
+    }
+
+    private static string Capitalize(string value) =>
+        string.IsNullOrEmpty(value) ? value : char.ToUpper(value[0]) + value[1..];
+
+    private async Task Submit()
+    {
+        generalError = null;
+
+        if (startTime is null)
+        {
+            generalError = "Invalid start time.";
+            return;
+        }
+
+        if (endTime is null)
+        {
+            generalError = "Invalid end time.";
+            return;
+        }
+
+        if (startTime >= endTime)
+        {
+            generalError = "Start time must be earlier than end time.";
+            return;
+        }
+
+        formModel.TimeStart = startTime.Value;
+        formModel.TimeEnd = endTime.Value;
+
+        isSaving = true;
+
+        try
+        {
+            if (ScheduleId is not null)
+            {
+                await ScheduleService.UpdateAsync(ScheduleId.Value, formModel);
+            }
+            else
+            {
+                await ScheduleService.CreateAsync(formModel);
+            }
+
+            await OnSaved.InvokeAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            generalError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            generalError = "Unable to save the schedule.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+}

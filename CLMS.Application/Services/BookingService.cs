@@ -9,11 +9,14 @@ namespace CLMS.Application.Services;
 public class BookingService : IBookingService
 {
     private readonly IBookingRepository _repository;
+    private readonly IClassScheduleRepository _classScheduleRepository;
 
     public BookingService(
-        IBookingRepository repository)
+        IBookingRepository repository,
+        IClassScheduleRepository classScheduleRepository)
     {
         _repository = repository;
+        _classScheduleRepository = classScheduleRepository;
     }
 
     public async Task<int> CreateAsync(UpsertBookingDTO dto)
@@ -35,52 +38,45 @@ public class BookingService : IBookingService
             EndTime = dto.EndTime
         };
 
+        if (await CheckScheduleConflictAsync(dto))
+        {
+            throw new InvalidOperationException("The booking time conflicts with an existing booking or class schedule.");
+        }
+
         return await _repository.CreateAsync(booking);
     }
 
     public async Task<IEnumerable<BookingDTO>> GetAllAsync()
     {
-        var bookings = await _repository.GetAllAsync();
-
-        return bookings.Select(MapToDto);
+        return await _repository.GetAllAsync();
     }
 
     public async Task<BookingDTO?> GetByIdAsync(int id)
     {
-        var booking = await _repository.GetByIdAsync(id);
-
-        if (booking is null)
-            return null;
-
-        return MapToDto(booking);
+        return await _repository.GetByIdAsync(id);
     }
 
     public async Task UpdateAsync(
         int id,
         UpsertBookingDTO dto)
     {
-        if (dto.StartTime >= dto.EndTime)
+       
+        var booking = new Booking
         {
-            throw new ArgumentException(
-                "Start time must be earlier than end time.");
-        }
+            Id = id,
+            LaboratoryId = dto.LaboratoryId,
+            RequestorName = dto.RequestorName,
+            Email = dto.Email,
+            Purpose = dto.Purpose,
+            Date = dto.Date,
+            StartTime = dto.StartTime,
+            EndTime = dto.EndTime
+        };
 
-        var booking = await _repository.GetByIdAsync(id);
-
-        if (booking is null)
+        if (await CheckScheduleConflictAsync(dto, excludingBookingId: id))
         {
-            throw new KeyNotFoundException(
-                $"Booking with ID {id} was not found.");
+            throw new InvalidOperationException("The booking time conflicts with an existing booking or class schedule.");
         }
-
-
-        booking.LaboratoryId = dto.LaboratoryId;
-        booking.RequestorName = dto.RequestorName;
-        booking.Email = dto.Email;
-        booking.Purpose = dto.Purpose;
-        booking.Date = dto.Date;
-        booking.StartTime = dto.StartTime;
-        booking.EndTime = dto.EndTime;
 
         await _repository.UpdateAsync(booking);
     }
@@ -90,19 +86,37 @@ public class BookingService : IBookingService
         await _repository.DeleteAsync(id);
     }
 
-    private static BookingDTO MapToDto(
-        Booking booking)
+    public async Task<bool> CheckScheduleConflictAsync(UpsertBookingDTO dto, int? excludingBookingId = null)
     {
-        return new BookingDTO
+        var allBookings = await _repository.GetAllAsync();
+
+        var bookingConflict = allBookings
+            .Where(b => b.LaboratoryId == dto.LaboratoryId && b.Date == dto.Date)
+            .Where(b => excludingBookingId is null || b.Id != excludingBookingId)
+            .Any(b => TimeRangesOverlap(dto.StartTime, dto.EndTime, b.StartTime, b.EndTime));
+
+        if (bookingConflict)
         {
-            Id = booking.Id,
-            LaboratoryId = booking.LaboratoryId,
-            RequestorName = booking.RequestorName,
-            Email = booking.Email,
-            Purpose = booking.Purpose,
-            Date = booking.Date,
-            StartTime = booking.StartTime,
-            EndTime = booking.EndTime
-        };
+            return true;
+        }
+
+        var allSchedules = await _classScheduleRepository.GetAllAsync();
+        var targetDayOfWeek = dto.Date.ToDateTime(TimeOnly.MinValue).DayOfWeek;
+
+        return allSchedules
+            .Where(s => s.LaboratoryId == dto.LaboratoryId)
+            .Where(s => s.DayOfWeek == targetDayOfWeek)
+            .Any(s => TimeRangesOverlap(dto.StartTime, dto.EndTime, s.TimeStart, s.TimeEnd));
     }
+
+
+    private static bool TimeRangesOverlap(
+        TimeOnly start1,
+        TimeOnly end1,
+        TimeOnly start2,
+        TimeOnly end2)
+    {
+        return start1 < end2 && start2 < end1;
+    }
+
 }

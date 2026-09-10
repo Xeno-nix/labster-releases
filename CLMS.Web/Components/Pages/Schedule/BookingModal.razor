@@ -1,0 +1,248 @@
+@inject IBookingService BookingService
+@inject ILaboratoryService LaboratoryService
+
+<div class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-12" @onclick="Close">
+    <div class="w-full max-w-[520px] rounded-xl border border-gray-200 bg-white" @onclick:stopPropagation="true">
+        <div class="flex items-center justify-between px-6 pb-2 pt-5">
+            <h5 class="m-0 text-base font-semibold">@(BookingId is not null ? "Edit Booking" : "New Booking")</h5>
+            <button type="button"
+                    class="border-none bg-transparent text-xl leading-none text-gray-500 hover:text-gray-800"
+                    @onclick="Close"
+                    aria-label="Close">
+                &times;
+            </button>
+        </div>
+        <div class="px-6 pb-6 pt-2">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+                    @errorMessage
+                </div>
+            }
+
+            @if (isLoading)
+            {
+                <p class="py-4 text-center text-sm text-gray-500">Loading...</p>
+            }
+            else
+            {
+                <EditForm Model="formModel" OnValidSubmit="SaveBooking">
+                    <DataAnnotationsValidator />
+
+                    <div class="flex gap-4">
+                        <div class="mb-4 flex-1">
+                            <label class="mb-1.5 block text-xs text-gray-600">Requestor Name</label>
+                            <InputText @bind-Value="formModel.RequestorName"
+                                       class="w-full rounded-md border border-gray-300 px-2.5 py-2 text-sm focus:border-[#7a1f2b] focus:outline-none" />
+                            <ValidationMessage For="@(() => formModel.RequestorName)" />
+                        </div>
+                        <div class="mb-4 flex-1">
+                            <label class="mb-1.5 block text-xs text-gray-600">Email</label>
+                            <InputText @bind-Value="formModel.Email"
+                                       class="w-full rounded-md border border-gray-300 px-2.5 py-2 text-sm focus:border-[#7a1f2b] focus:outline-none"
+                                       placeholder="email@example.com" />
+                            <ValidationMessage For="@(() => formModel.Email)" />
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="mb-1.5 block text-xs text-gray-600">Laboratory</label>
+                        <InputSelect @bind-Value="formModel.LaboratoryId"
+                                     class="w-full rounded-md border border-gray-300 px-2.5 py-2 text-sm focus:border-[#7a1f2b] focus:outline-none">
+                            <option value="0">-- Select laboratory --</option>
+                            @foreach (var lab in laboratories)
+                            {
+                                <option value="@lab.Id">@lab.Name</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => formModel.LaboratoryId)" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="mb-1.5 block text-xs text-gray-600">Date</label>
+                        <input type="date"
+                               class="w-full rounded-md border border-gray-300 px-2.5 py-2 text-sm focus:border-[#7a1f2b] focus:outline-none"
+                               @bind="formModel.Date" @bind:format="yyyy-MM-dd" />
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div class="mb-4 flex-1">
+                            <label class="mb-1.5 block text-xs text-gray-600">Start Time</label>
+                            <input type="time"
+                                   class="w-full rounded-md border border-gray-300 px-2.5 py-2 text-sm focus:border-[#7a1f2b] focus:outline-none"
+                                   value="@startTime?.ToString("HH:mm")" @onchange="OnStartTimeChanged" />
+                        </div>
+                        <div class="mb-4 flex-1">
+                            <label class="mb-1.5 block text-xs text-gray-600">End Time</label>
+                            <input type="time"
+                                   class="w-full rounded-md border border-gray-300 px-2.5 py-2 text-sm focus:border-[#7a1f2b] focus:outline-none"
+                                   value="@endTime?.ToString("HH:mm")" @onchange="OnEndTimeChanged" />
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="mb-1.5 block text-xs text-gray-600">Purpose</label>
+                        <InputTextArea @bind-Value="formModel.Purpose"
+                                       class="w-full resize-y rounded-md border border-gray-300 px-2.5 py-2 text-sm focus:border-[#7a1f2b] focus:outline-none"
+                                       rows="3" />
+                        <ValidationMessage For="@(() => formModel.Purpose)" />
+                    </div>
+
+                    <div class="mt-5 flex justify-end gap-3">
+                        <button type="button"
+                                class="rounded-md border border-gray-300 bg-white px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                                @onclick="Close">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="rounded-md border-none bg-[#7a1f2b] px-5 py-2.5 text-sm text-white hover:enabled:bg-[#651923] disabled:cursor-default disabled:opacity-60"
+                                disabled="@isSaving">
+                            @(isSaving ? "Saving..." : "Save Booking")
+                        </button>
+                    </div>
+                </EditForm>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? BookingId { get; set; }
+    [Parameter] public DateTime? InitialDate { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private IEnumerable<LaboratoryDTO> laboratories = Enumerable.Empty<LaboratoryDTO>();
+    private UpsertBookingDTO formModel = new();
+
+    private TimeOnly? startTime;
+    private TimeOnly? endTime;
+
+    private bool isLoading = true;
+    private bool isSaving;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            laboratories = await LaboratoryService.GetAllAsync();
+
+            if (BookingId is not null)
+            {
+                var booking = await BookingService.GetByIdAsync(BookingId.Value);
+
+                if (booking is null)
+                {
+                    errorMessage = "Booking was not found.";
+                }
+                else
+                {
+                    formModel = new UpsertBookingDTO
+                    {
+                        LaboratoryId = booking.LaboratoryId,
+                        RequestorName = booking.RequestorName,
+                        Email = booking.Email,
+                        Purpose = booking.Purpose,
+                        Date = booking.Date,
+                        StartTime = booking.StartTime,
+                        EndTime = booking.EndTime
+                    };
+
+                    startTime = booking.StartTime;
+                    endTime = booking.EndTime;
+                }
+            }
+            else
+            {
+                startTime = new TimeOnly(8, 0);
+                endTime = new TimeOnly(10, 0);
+
+                formModel = new UpsertBookingDTO
+                {
+                    Date = InitialDate is not null
+                        ? DateOnly.FromDateTime(InitialDate.Value)
+                        : DateOnly.FromDateTime(DateTime.Today),
+                    StartTime = startTime.Value,
+                    EndTime = endTime.Value
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to load booking data.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OnStartTimeChanged(ChangeEventArgs e)
+    {
+        startTime = TimeOnly.TryParse(e.Value?.ToString(), out var start) ? start : null;
+    }
+
+    private void OnEndTimeChanged(ChangeEventArgs e)
+    {
+        endTime = TimeOnly.TryParse(e.Value?.ToString(), out var end) ? end : null;
+    }
+
+    private async Task SaveBooking()
+    {
+        errorMessage = null;
+
+        if (formModel.LaboratoryId <= 0)
+        {
+            errorMessage = "Please select a laboratory.";
+            return;
+        }
+
+        if (startTime is null || endTime is null)
+        {
+            errorMessage = "Please provide both start and end time.";
+            return;
+        }
+
+        if (startTime >= endTime)
+        {
+            errorMessage = "Start time must be earlier than end time.";
+            return;
+        }
+
+        formModel.StartTime = startTime.Value;
+        formModel.EndTime = endTime.Value;
+
+        isSaving = true;
+
+        try
+        {
+            if (BookingId is not null)
+            {
+                await BookingService.UpdateAsync(BookingId.Value, formModel);
+            }
+            else
+            {
+                await BookingService.CreateAsync(formModel);
+            }
+
+            await OnSaved.InvokeAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to save the booking.";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+}

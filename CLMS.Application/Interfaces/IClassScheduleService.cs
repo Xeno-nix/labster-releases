@@ -13,4 +13,6 @@ public interface IClassScheduleService
     Task UpdateAsync(int id, UpsertClassScheduleDTO dto);
 
     Task DeleteAsync(int id);
+
+    Task<bool> CheckScheduleConflictAsync(UpsertClassScheduleDTO dto, int? excludingClassScheduleId = null);
 }
