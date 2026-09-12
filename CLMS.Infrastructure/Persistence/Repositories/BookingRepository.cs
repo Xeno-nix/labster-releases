@@ -199,7 +199,7 @@ public class BookingRepository : IBookingRepository
 
         while (await reader.ReadAsync())
         {
-            bookings.Add(MapBooking(reader));
+            bookings.Add(MapBookingEntity(reader));
         }
 
         return bookings;
@@ -293,6 +293,25 @@ public class BookingRepository : IBookingRepository
             Id = reader.GetInt32("booking_id"),
             LaboratoryId = reader.GetInt32("lab_id"),
             LaboratoryName = reader.GetString("lab_name"),
+            RequestorName = reader.GetString("requestor_name"),
+            Email = reader.GetString("email"),
+            Purpose = reader.GetString("purpose"),
+            Date = DateOnly.FromDateTime(
+                reader.GetDateTime("booking_date")),
+            StartTime = TimeOnly.FromTimeSpan(
+                reader.GetTimeSpan("start_time")),
+            EndTime = TimeOnly.FromTimeSpan(
+                reader.GetTimeSpan("end_time"))
+        };
+    }
+
+    private static Booking MapBookingEntity(
+        MySqlDataReader reader)
+    {
+        return new Booking
+        {
+            Id = reader.GetInt32("booking_id"),
+            LaboratoryId = reader.GetInt32("lab_id"),
             RequestorName = reader.GetString("requestor_name"),
             Email = reader.GetString("email"),
             Purpose = reader.GetString("purpose"),
