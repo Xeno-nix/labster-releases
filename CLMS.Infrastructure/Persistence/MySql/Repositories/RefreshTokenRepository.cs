@@ -36,11 +36,18 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
 
         while (await reader.ReadAsync())
         {
+            DateTime? revokedAT = reader.IsDBNull(reader.GetOrdinal("revoked_at")) 
+                ? null
+                : reader.GetDateTime("revoked_at");
+            
             refreshTokens.Add(
-                RefreshToken.Create(
+                new RefreshToken(
+                    reader.GetGuid("id"),
                     reader.GetGuid("user_id"),
                     reader.GetString("token_hash"),
-                    reader.GetDateTime("expires_at")
+                    reader.GetDateTime("created_at"),
+                    reader.GetDateTime("expires_at"),
+                    revokedAT
                 )
             );
         }
@@ -72,7 +79,7 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
         
         // execute sql
         var affectedRows = await command.ExecuteNonQueryAsync();
-        return affectedRows == 0;
+        return affectedRows > 1;
     }
 
     public async Task<RefreshToken?> FindByHashAsync(string tokenHash)
@@ -83,6 +90,7 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
                 user_id,
                 token_hash,
                 expires_at,
+                created_at,
                 revoked_at
             FROM refresh_tokens
             WHERE token_hash = @TokenHash
@@ -107,6 +115,7 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
                 reader.GetGuid("id"),
                 reader.GetGuid("user_id"),
                 reader.GetString("token_hash"),
+                reader.GetDateTime("created_at"),
                 reader.GetDateTime("expires_at"),
                 reader.GetDateTime("revoked_at")
             );

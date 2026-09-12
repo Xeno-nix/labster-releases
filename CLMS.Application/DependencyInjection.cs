@@ -1,6 +1,4 @@
-using CLMS.Application.Authentication.Interfaces;
-using CLMS.Application.Authentication.UseCases;
-using CLMS.Application.Persistence.Interfaces;
+using CLMS.Application.Authentication.Services;
 using Microsoft.Extensions.DependencyInjection;
 using CLMS.Application.Logging;
 using CLMS.Application.Interfaces;
@@ -14,9 +12,6 @@ public static class DependencyInjection
     {
         return services
             .AddScoped<LoginUseCase>()
-            .AddScoped<LogoutUseCase>()
-            .AddScoped<RefreshTokenUseCase>()
-            .AddScoped<RegisterUseCase>()
             .AddScoped<ILoggingService, LoggingService>()
             .AddScoped<ILoggingAppService, LoggingAppService>()
             .AddScoped<ILogbookService, LogbookService>()  

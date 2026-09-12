@@ -17,6 +17,7 @@ public static class DependencyInjection
             .AddScoped<IPasswordHasher,PasswordHasher>()
             .AddScoped<IRefreshTokenHasher,RefreshTokenHasher>()
             .AddScoped<IUserRepository,UserRepository>()
+            .AddScoped<IRefreshTokenRepository,RefreshTokenRepository>() 
             .AddScoped<IRefreshTokenRepository,RefreshTokenRepository>()
             .AddScoped<IStudentRepository>(_ => new StudentRepository(connectionString))
             .AddScoped<IGuestRepository>(_ => new GuestRepository(connectionString))

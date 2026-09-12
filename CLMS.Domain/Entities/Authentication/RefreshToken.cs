@@ -21,13 +21,15 @@ public class RefreshToken
         Guid userId,
         string tokenHash,
         DateTime createdAt,
-        DateTime expiresAt)
+        DateTime expiresAt,
+        DateTime? revokedAt)
     {
         Id = id;
         UserId = userId;
         TokenHash = tokenHash;
         CreatedAt = createdAt;
         ExpiresAt = expiresAt;
+        RevokedAt = revokedAt;
     }
 
     public void Revoke()
@@ -74,6 +76,7 @@ public class RefreshToken
             userId,
             tokenHash,
             createdAt,
-            expiresAt);
+            expiresAt,
+            null);
     }
 }

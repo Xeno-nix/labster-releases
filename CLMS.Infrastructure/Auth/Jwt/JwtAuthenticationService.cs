@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using CLMS.Shared.Dtos;
 using Microsoft.Extensions.Options;
 
 namespace CLMS.Infrastructure.Auth;
@@ -29,7 +30,7 @@ public class JwtAuthenticationService : ITokenService
     /// <returns>A base64 encoded JSON token</returns>
     /// <exception cref="ArgumentNullException"></exception>
     /// <exception cref="InvalidOperationException"></exception>
-    public string GenerateAccessToken(User user)
+    public string GenerateAccessToken(UserClaimsDto user)
     {
         
         if (user == null) throw new ArgumentNullException(nameof(user), "user cannot be null.");
@@ -42,15 +43,15 @@ public class JwtAuthenticationService : ITokenService
         // claims
         var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub,user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Sub,user.UserId.ToString()),
             new(ClaimTypes.Email,user.Email),
             new(ClaimTypes.Role,user.UserRole.ToString())
         };
 
         // expiry
-        var expiry = DateTime.UtcNow.AddMinutes(_config.AccessTokenExpirationMinutes);
+        var expiry = DateTime.UtcNow.Add(AccessTokenLifetime);
 
-        JwtSecurityToken token = new JwtSecurityToken(
+        var token = new JwtSecurityToken(
             issuer: _config.Issuer,
             audience: _config.Audience,
             claims:claims, 
@@ -66,6 +67,7 @@ public class JwtAuthenticationService : ITokenService
         var bytes = RandomNumberGenerator.GetBytes(32);
         return Convert.ToBase64String(bytes); 
     }
-
-    public TimeSpan RefreshTokenLifetime => new TimeSpan(_config.RefreshTokenExpirationHours, 0, 0);
+    
+    public TimeSpan AccessTokenLifetime => TimeSpan.FromMinutes(_config.AccessTokenExpirationMinutes);
+    public TimeSpan RefreshTokenLifetime => TimeSpan.FromHours(_config.RefreshTokenExpirationHours);
 }

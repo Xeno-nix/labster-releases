@@ -2,7 +2,7 @@
 
 namespace CLMS.Shared.Dtos;
 
-public sealed record RegisterRequest(
+public sealed record RegisterDto(
     string FirstName,
     string LastName,
     string? MiddleName,
@@ -11,25 +11,16 @@ public sealed record RegisterRequest(
     Role UserRole,
     string Password);
 
-public sealed record AuthenticationRequest(
+public sealed record AuthenticationRequestDto(
     string Email,
     string Password);
 
-public sealed record AuthClaims(
+public sealed record UserClaimsDto(
     Guid UserId,
     string Email,
     Role UserRole
 );
 
-public sealed record CookieLoginResult(
-);
-
 public sealed record AuthTokensDto(
     string AccessToken,
     string RefreshToken);
-    
-public sealed record LogoutRequest(
-    string RefreshToken);
-    
-public sealed record RefreshRequest(
-    string RefreshToken);   
