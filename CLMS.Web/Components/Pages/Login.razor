@@ -1,9 +1,10 @@
 ﻿@page "/login"
-
-@using CLMS.Shared.AuthRequests
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication;
+@using CLMS.Shared.Dtos
 @using CLMS.Web.Models
 
-@inject LoginUseCase LoginUseCase;
+@inject CLMS.Application.Authentication.Services.AuthenticationService authService;
 
 <div class="min-h-screen flex items-center justify-center p-6 bg-[#f8f8f8]">
     <div class="w-full max-w-md">
@@ -67,21 +68,34 @@
 
     private async Task HandleLogin()
     {
-        var loginRequest = new LoginRequest(_loginModel.Email, _loginModel.Password);
-        
-        // checks credential validity
-        AuthenticationResponse result;
-        try
-        {
-            result = await LoginUseCase.ExecuteAsync(loginRequest);
-            Console.WriteLine(result.AccessToken +" : "+ result.RefreshToken);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            // TODO : Validation handling
-        }
-        
-        
+        // var loginRequest = new AuthenticationRequestDto(_loginModel.Email, _loginModel.Password);
+        //
+        // // checks credential validity
+        // UserClaimsDto result;
+        // try
+        // {
+        //     result = await authService.AuthenticateUserAsync(loginRequest);
+        //
+        //     var claims = new List<Claim>
+        //     {
+        //         new(ClaimTypes.NameIdentifier, result.UserId.ToString()),
+        //         new(ClaimTypes.Email, result.Email),
+        //         new(ClaimTypes.Email, result.UserRole.ToString())
+        //     };
+        //
+        //     var identity = new ClaimsIdentity(claims, "cookie");
+        //     
+        //     var principal = new ClaimsPrincipal(identity);
+        //     
+        //     await HttpContext.SignInAsync("cookie",principal);
+        // }
+        // catch (UnauthorizedAccessException ex)
+        // {
+        //     // TODO : Validation handling
+        // }
+
+        throw new NotImplementedException();
+
     }
 
     private void ToggleShowPassword()

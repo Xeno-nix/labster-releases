@@ -1,43 +1,32 @@
-﻿using CLMS.Application.Authentication.UseCases;
-using CLMS.Shared.AuthRequests;
-using Microsoft.AspNetCore.Identity.Data;
+﻿using CLMS.Application.Authentication.Services;
+using CLMS.Shared.Dtos;
 using Microsoft.AspNetCore.Mvc;
-using LoginRequest = CLMS.Shared.AuthRequests.LoginRequest;
-using RefreshRequest = Microsoft.AspNetCore.Identity.Data.RefreshRequest;
-using RegisterRequest = CLMS.Shared.AuthRequests.RegisterRequest;
 
 namespace CLMS.Web.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-// Disable below when pushing to prod
+// TODO : Remember to remove once cookie authentication is yes or when
+//      done testing api
 [IgnoreAntiforgeryToken]
-public class AuthController : ControllerBase
+public class AuthController(
+    AuthenticationService authService)
+    : ControllerBase
 {
-    private readonly LoginUseCase _loginUseCase;
-    private readonly LogoutUseCase _logoutUseCase;
-    private readonly RegisterUseCase _registerUseCase;
-    private readonly RefreshTokenUseCase _refreshTokenUseCase;
-
-    public AuthController(LoginUseCase loginUseCase,
-        RegisterUseCase registerUseCase,
-        RefreshTokenUseCase refreshTokenUseCase,
-        LogoutUseCase logoutUseCase)
-    {
-        _loginUseCase = loginUseCase;
-        _refreshTokenUseCase = refreshTokenUseCase;
-        _logoutUseCase = logoutUseCase;
-        _registerUseCase = registerUseCase;
-    }
-
+    
+    /// <summary>
+    /// Logs in using jwt
+    /// </summary>
+    /// <param name="request"></param>
+    /// <returns></returns>
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] AuthenticationRequestDto request)
     {
         // checks credential validity
-        AuthenticationResponse result;
+        AuthTokensDto result;
         try
         {
-            result = await _loginUseCase.ExecuteAsync(request);
+            result = await authService.JwtLogin(request);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -49,13 +38,13 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Register([FromBody] RegisterDto request)
     {
-        AuthenticationResponse result;
+        AuthTokensDto result;
         try
         {
-            await _registerUseCase.ExecuteAsync(request);
-            result = await _loginUseCase.ExecuteAsync(new(request.Email, request.Password));
+            await authService.RegisterAsync(request);
+            result = await authService.JwtLogin(new(request.Email,request.Password));
         }
         catch (InvalidOperationException ioex)
         {
@@ -71,23 +60,23 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
+    public async Task<IActionResult> Logout([FromBody] string refreshToken)
     {
-        await  _logoutUseCase.ExecuteAsync(request.RefreshToken);
+        await authService.Logout(refreshToken);
         return Ok("Logout successful");
     }
 
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
+    public async Task<IActionResult> Refresh([FromBody] string refreshToken)
     {
-        AuthenticationResponse result;
+        AuthTokensDto result;
         try
         {
-            result = await _refreshTokenUseCase.ExecuteAsync(request.RefreshToken);
+            result = await authService.Refresh(refreshToken);
         }
         catch (UnauthorizedAccessException ex)
         {
-            return BadRequest(ex.Message);
+            return Unauthorized(ex.Message);
         }
         
         return Ok(result);

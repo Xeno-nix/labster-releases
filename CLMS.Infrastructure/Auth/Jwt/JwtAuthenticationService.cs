@@ -36,8 +36,8 @@ public class JwtAuthenticationService : ITokenService
         if (!_config.IsValid()) throw new InvalidOperationException("Invalid JWT Configuration");
         
         // signing credentials
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.SecretKey));
-        var signature = new SigningCredentials(key, _config.HashAlgorithm);
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.Key));
+        var signature = new SigningCredentials(key, _config.SigningAlgorithm);
 
         // claims
         var claims = new List<Claim>
@@ -52,6 +52,7 @@ public class JwtAuthenticationService : ITokenService
 
         JwtSecurityToken token = new JwtSecurityToken(
             issuer: _config.Issuer,
+            audience: _config.Audience,
             claims:claims, 
             signingCredentials:signature,
             expires:expiry 

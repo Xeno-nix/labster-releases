@@ -1,6 +1,6 @@
 ﻿using CLMS.Domain.Enums;
 
-namespace CLMS.Shared.AuthRequests;
+namespace CLMS.Shared.Dtos;
 
 public sealed record RegisterRequest(
     string FirstName,
@@ -8,14 +8,23 @@ public sealed record RegisterRequest(
     string? MiddleName,
     string? Suffix,
     string Email,
-    Role Role,
+    Role UserRole,
     string Password);
 
-public sealed record LoginRequest(
+public sealed record AuthenticationRequest(
     string Email,
     string Password);
 
-public sealed record AuthenticationResponse(
+public sealed record AuthClaims(
+    Guid UserId,
+    string Email,
+    Role UserRole
+);
+
+public sealed record CookieLoginResult(
+);
+
+public sealed record AuthTokensDto(
     string AccessToken,
     string RefreshToken);
     
