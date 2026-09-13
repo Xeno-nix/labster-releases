@@ -3,6 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+# tailwind
+CLMS.Web/wwwroot/app.css
+
 # dotenv files
 .env
 
