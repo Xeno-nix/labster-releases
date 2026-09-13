@@ -1,4 +1,5 @@
 ﻿@page "/logbook"
+@rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components
 @using CLMS.Application.DTOs.Logbook
 @using CLMS.Application.Interfaces
@@ -33,7 +34,7 @@
 
         <div class="p-6 border-b border-black/10 flex items-center gap-3 flex-wrap">
 
-            <form method="get" action="/logbook" class="flex items-center gap-3 flex-wrap flex-1">
+            <div class="flex items-center gap-3 flex-wrap flex-1">
 
                 <div class="relative flex-1 min-w-[200px] max-w-md">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
@@ -43,35 +44,34 @@
                             <path d="m21 21-4.3-4.3" />
                         </svg>
                     </span>
-                    <input type="text" name="search"
-                           value="@Search"
+                    <input type="text"
+                           @bind="Search"
+                           @bind:event="oninput"
+                           @bind:after="OnFiltersChangedAsync"
                            placeholder="Search by Student ID, name, or purpose..."
                            class="w-full pl-10 pr-4 py-2 border border-black/10 rounded-lg bg-surface text-sm
                                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
                 </div>
 
-                <select name="filter"
+                <select @bind="Filter"
+                        @bind:after="OnFiltersChangedAsync"
                         class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm
                                focus:border-primary focus:outline-none cursor-pointer">
-                    <option value="" selected="@(string.IsNullOrEmpty(Filter))">All time</option>
-                    <option value="day" selected="@(Filter == "day")">Today</option>
-                    <option value="week" selected="@(Filter == "week")">This week</option>
-                    <option value="month" selected="@(Filter == "month")">This month</option>
+                    <option value="">All time</option>
+                    <option value="day">Today</option>
+                    <option value="week">This week</option>
+                    <option value="month">This month</option>
                 </select>
-
-                <button type="submit"
-                        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium">
-                    Apply
-                </button>
 
                 @if (!string.IsNullOrEmpty(Search) || !string.IsNullOrEmpty(Filter))
                 {
-                    <a href="/logbook"
+                    <button type="button"
+                            @onclick="ClearFiltersAsync"
                        class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-muted">
                         Clear
-                    </a>
+                    </button>
                 }
-            </form>
+            </div>
 
             <a href="@ExportUrl"
                class="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-lg hover:bg-success-dark transition-colors text-sm font-medium">
@@ -217,16 +217,30 @@
 
     private LogbookPageResultDTO PageResult { get; set; } = new();
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnParametersSetAsync() => LoadLogsAsync();
+
+    private async Task OnFiltersChangedAsync()
     {
-        var query = new LogbookQueryDTO
+        Page = 1;
+        await LoadLogsAsync();
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        Search = null;
+        Filter = null;
+        Page = 1;
+        await LoadLogsAsync();
+    }
+
+    private async Task LoadLogsAsync()
+    {
+        PageResult = await LogbookService.GetLogsAsync(new LogbookQueryDTO
         {
             Search = Search,
             Filter = Filter,
             Page = CurrentPage,
-        };
-
-        PageResult = await LogbookService.GetLogsAsync(query);
+        });
     }
 
     private string PageUrl(int page)
