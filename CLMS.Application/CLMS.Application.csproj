@@ -7,19 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\CLMS.Domain\CLMS.Domain.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\CLMS.Domain\CLMS.Domain.csproj" />
     <ProjectReference Include="..\CLMS.Shared\CLMS.Shared.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\CLMS.Domain\CLMS.Domain.csproj" />
   </ItemGroup>
 
 </Project>
