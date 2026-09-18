@@ -14,6 +14,10 @@ public static class DependencyInjection
         services.AddScoped<ILabUtilizationRepository>(_ => new LabUtilizationRepository(connectionString));
         services.AddScoped<ILogbookRepository>(_ => new LogbookRepository(connectionString));
 
+        services.AddScoped<IEquipmentRepository>(_ => new EquipmentRepository(connectionString));
+        services.AddScoped<ISupplyRepository>(_ => new SupplyRepository(connectionString));
+        services.AddScoped<ILaboratoryRepository>(_ => new LaboratoryRepository(connectionString));
+
         return services;
     }
 }

@@ -11,8 +11,11 @@ public static class DependencyInjection
     {
         services.AddScoped<ILoggingService, LoggingService>();
         services.AddScoped<ILoggingAppService, LoggingAppService>();
-        
         services.AddScoped<ILogbookService, LogbookService>();
+
+        services.AddScoped<IEquipmentService, EquipmentService>();
+        services.AddScoped<ISupplyService, SupplyService>();
+        services.AddScoped<ILaboratoryService, LaboratoryService>();
 
         return services;
     }
