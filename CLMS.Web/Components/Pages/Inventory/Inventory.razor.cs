@@ -1,4 +1,5 @@
-using CLMS.Application.Inventory;
+using CLMS.Application.DTOs.Inventory;
+using CLMS.Application.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using System.Text.RegularExpressions;
@@ -7,7 +8,9 @@ namespace CLMS.Web.Components.Pages.Inventory;
 
 public partial class Inventory : ComponentBase, IAsyncDisposable
 {
-    [Inject] private IInventoryService InventoryService { get; set; } = default!;
+    [Inject] private IEquipmentService EquipmentService { get; set; } = default!;
+    [Inject] private ISupplyService SupplyService { get; set; } = default!;
+    [Inject] private ILaboratoryService LaboratoryService { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
@@ -23,6 +26,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     private List<SupplyItem> Supplies { get; set; } = new();
     private List<LabOption> Labs { get; set; } = new();
     private string? FlashSuccess { get; set; }
+    private string? FlashError { get; set; }
 
     private string ActiveTab { get; set; } = "equipment";
 
@@ -33,7 +37,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
     private List<EquipmentItem> FilteredEquipment => Equipment.Where(e =>
         (EqTypeFilter == "all" || e.EquipmentType == EqTypeFilter) &&
-        (EqLabFilter == "all" || e.LabId.ToString() == EqLabFilter) &&
+        (EqLabFilter == "all" || (e.CurrentLaboratoryId?.ToString() ?? "") == EqLabFilter) &&
         (EqStatusFilter == "all" || e.EquipmentStatus == EqStatusFilter) &&
         (string.IsNullOrWhiteSpace(EqSearch) ||
             (e.SerialNo ?? "").Contains(EqSearch, StringComparison.OrdinalIgnoreCase) ||
@@ -60,14 +64,18 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     private bool ShowDeleteEquipment { get; set; }
     private EquipmentItem? PendingDeleteEquipment { get; set; }
 
-   private bool ShowQr { get; set; }
+    private bool ShowQr { get; set; }
     private bool ShowScanner { get; set; }
     private EquipmentItem? SelectedEquipment { get; set; }
     private string QrEditStatus { get; set; } = "available";
-    private int QrEditLabId { get; set; }
-    private bool QrEditPmDone { get; set; }
-    private bool QrEditCalDone { get; set; }
+    private bool QrEditNeedsPm { get; set; }
+    private bool QrEditNeedsCalibration { get; set; }
     private string QrEditRemarks { get; set; } = "";
+
+    // Reassign-to-lab panel (see LocationLabel on EquipmentItem for the current location display)
+    private int QrReassignLabId { get; set; }
+    private string QrReassignEndReason { get; set; } = "moved";
+
     private string ScannerCode { get; set; } = string.Empty;
     private bool? ScannerHasCamera { get; set; } // null = checking, true = active, false = none found
     private string? ScannerError { get; set; }
@@ -92,16 +100,27 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
             ActiveTab = TabFromQuery;
         }
 
-        var equipmentTask = InventoryService.GetEquipmentAsync();
-        var suppliesTask = InventoryService.GetSuppliesAsync();
-        var labsTask = InventoryService.GetLabsAsync();
+        await ReloadAllAsync();
+    }
+
+    private async Task ReloadAllAsync()
+    {
+        var equipmentTask = EquipmentService.GetAllAsync();
+        var suppliesTask = SupplyService.GetAllAsync();
+        var labsTask = LaboratoryService.GetAllAsync();
 
         await Task.WhenAll(equipmentTask, suppliesTask, labsTask);
 
         Equipment = equipmentTask.Result.Select(MapEquipment).ToList();
         Supplies = suppliesTask.Result.Select(MapSupply).ToList();
-        Labs = labsTask.Result.Select(x => new LabOption(x.LabId, x.LabName)).ToList();
+        Labs = labsTask.Result.Select(x => new LabOption(x.Id, x.Name)).ToList();
     }
+
+    private async Task ReloadEquipmentAsync()
+        => Equipment = (await EquipmentService.GetAllAsync()).Select(MapEquipment).ToList();
+
+    private async Task ReloadSuppliesAsync()
+        => Supplies = (await SupplyService.GetAllAsync()).Select(MapSupply).ToList();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -203,7 +222,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
     private void OpenAddEquipment()
     {
-        EquipmentFormModel = new EquipmentItem { LabId = Labs.FirstOrDefault()?.LabId ?? 0 };
+        EquipmentFormModel = new EquipmentItem();
         EditingEquipment = false;
         ShowEquipmentForm = true;
     }
@@ -219,27 +238,40 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
     private async Task SaveEquipment(EquipmentItem model)
     {
-        var dto = new InventoryEquipmentDto(
-            model.EquipmentId,
-            model.EquipmentNo,
-            model.SerialNo,
-            model.EquipmentName,
-            model.Brand,
-            model.ModelNumber,
-            model.EquipmentType,
-            model.LabId,
-            model.LabName,
-            model.EquipmentStatus,
-            model.Quantity,
-            model.PreventiveMaintenanceDone,
-            model.CalibrationDone,
-            model.Remarks);
+        var dto = new UpsertEquipmentDTO
+        {
+            EquipmentNo = model.EquipmentNo,
+            SerialNumber = model.SerialNo,
+            EquipmentName = model.EquipmentName,
+            Brand = model.Brand,
+            ModelNumber = model.ModelNumber,
+            EquipmentType = model.EquipmentType,
+            Status = model.EquipmentStatus,
+            NeedsPm = model.NeedsPm,
+            NeedsCalibration = model.NeedsCalibration,
+            Remarks = model.Remarks
+        };
 
-        await InventoryService.CreateOrUpdateEquipmentAsync(dto);
-        Equipment = (await InventoryService.GetEquipmentAsync()).Select(MapEquipment).ToList();
-        FlashSuccess = EditingEquipment ? "Equipment updated successfully." : "Equipment added successfully.";
+        try
+        {
+            if (EditingEquipment)
+            {
+                await EquipmentService.UpdateAsync(model.EquipmentId, dto);
+                FlashSuccess = "Equipment updated successfully.";
+            }
+            else
+            {
+                await EquipmentService.CreateAsync(dto);
+                FlashSuccess = "Equipment added successfully. Assign it to a lab from its QR panel.";
+            }
 
-        ShowEquipmentForm = false;
+            await ReloadEquipmentAsync();
+            ShowEquipmentForm = false;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            FlashError = ex.Message;
+        }
     }
 
     private void OpenDeleteEquipment(EquipmentItem item)
@@ -252,8 +284,8 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     {
         if (PendingDeleteEquipment is not null)
         {
-            await InventoryService.DeleteEquipmentAsync(PendingDeleteEquipment.EquipmentId);
-            Equipment = (await InventoryService.GetEquipmentAsync()).Select(MapEquipment).ToList();
+            await EquipmentService.DeleteAsync(PendingDeleteEquipment.EquipmentId);
+            await ReloadEquipmentAsync();
             FlashSuccess = "Equipment deleted.";
         }
 
@@ -272,39 +304,82 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     private void LoadQrEditFields(EquipmentItem item)
     {
         QrEditStatus = item.EquipmentStatus;
-        QrEditLabId = item.LabId;
-        QrEditPmDone = item.PreventiveMaintenanceDone;
-        QrEditCalDone = item.CalibrationDone;
+        QrEditNeedsPm = item.NeedsPm;
+        QrEditNeedsCalibration = item.NeedsCalibration;
         QrEditRemarks = item.Remarks ?? "";
+        QrReassignLabId = item.CurrentLaboratoryId ?? Labs.FirstOrDefault()?.LabId ?? 0;
+        QrReassignEndReason = "moved";
     }
 
     private async Task SaveQrEdit()
     {
         if (SelectedEquipment is null) return;
 
-        var lab = Labs.FirstOrDefault(l => l.LabId == QrEditLabId);
-        var dto = new InventoryEquipmentDto(
-            SelectedEquipment.EquipmentId,
-            SelectedEquipment.EquipmentNo,
-            SelectedEquipment.SerialNo,
-            SelectedEquipment.EquipmentName,
-            SelectedEquipment.Brand,
-            SelectedEquipment.ModelNumber,
-            SelectedEquipment.EquipmentType,
-            QrEditLabId,
-            lab?.LabName ?? SelectedEquipment.LabName,
-            QrEditStatus,
-            SelectedEquipment.Quantity,
-            QrEditPmDone,
-            QrEditCalDone,
-            string.IsNullOrWhiteSpace(QrEditRemarks) ? null : QrEditRemarks);
+        var dto = new UpsertEquipmentDTO
+        {
+            EquipmentNo = SelectedEquipment.EquipmentNo,
+            SerialNumber = SelectedEquipment.SerialNo,
+            EquipmentName = SelectedEquipment.EquipmentName,
+            Brand = SelectedEquipment.Brand,
+            ModelNumber = SelectedEquipment.ModelNumber,
+            EquipmentType = SelectedEquipment.EquipmentType,
+            Status = QrEditStatus,
+            NeedsPm = QrEditNeedsPm,
+            NeedsCalibration = QrEditNeedsCalibration,
+            Remarks = string.IsNullOrWhiteSpace(QrEditRemarks) ? null : QrEditRemarks
+        };
 
-        await InventoryService.CreateOrUpdateEquipmentAsync(dto);
-        Equipment = (await InventoryService.GetEquipmentAsync()).Select(MapEquipment).ToList();
+        try
+        {
+            await EquipmentService.UpdateAsync(SelectedEquipment.EquipmentId, dto);
+            await ReloadEquipmentAsync();
 
-        SelectedEquipment = Equipment.FirstOrDefault(e => e.EquipmentId == SelectedEquipment.EquipmentId);
-        FlashSuccess = "Equipment record updated.";
-        CloseQr();
+            SelectedEquipment = Equipment.FirstOrDefault(e => e.EquipmentId == SelectedEquipment.EquipmentId);
+            FlashSuccess = "Equipment record updated.";
+            CloseQr();
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            FlashError = ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Assigns (or reassigns) the currently-selected equipment to a lab directly.
+    /// If it already has an active assignment somewhere, that assignment is ended
+    /// first with the chosen reason before the new one is created.
+    /// </summary>
+    private async Task ReassignToLab()
+    {
+        if (SelectedEquipment is null) return;
+
+        try
+        {
+            var isCurrentlyAssigned =
+                SelectedEquipment.CurrentComputerUnitId is not null ||
+                SelectedEquipment.CurrentLaboratoryId is not null;
+
+            if (isCurrentlyAssigned)
+            {
+                await EquipmentService.EndCurrentAssignmentAsync(
+                    SelectedEquipment.EquipmentId,
+                    new EndEquipmentAssignmentDTO { EndReason = QrReassignEndReason });
+            }
+
+            await EquipmentService.AssignAsync(new AssignEquipmentDTO
+            {
+                EquipmentId = SelectedEquipment.EquipmentId,
+                LaboratoryId = QrReassignLabId
+            });
+
+            await ReloadEquipmentAsync();
+            SelectedEquipment = Equipment.FirstOrDefault(e => e.EquipmentId == SelectedEquipment.EquipmentId);
+            FlashSuccess = "Equipment reassigned.";
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            FlashError = ex.Message;
+        }
     }
 
     private void CloseQr()
@@ -344,11 +419,14 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
         EquipmentItem? match = null;
 
-        // Camera scans decode our QR payload URL (".../inventory/equipment/{id}") —
+        // Camera scans decode our QR payload URL (".../inventory/equipment/{guid}") —
         // try that first, then fall back to matching raw text (manual entry, or a
         // QR/serial label that just contains the equipment/serial number).
-        var idMatch = Regex.Match(query, @"inventory/equipment/(\d+)");
-        if (idMatch.Success && int.TryParse(idMatch.Groups[1].Value, out var id))
+        var idMatch = Regex.Match(
+            query,
+            @"inventory/equipment/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})");
+
+        if (idMatch.Success && Guid.TryParse(idMatch.Groups[1].Value, out var id))
         {
             match = Equipment.FirstOrDefault(e => e.EquipmentId == id);
         }
@@ -389,16 +467,25 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
     private async Task SaveSupply(SupplyItem model)
     {
-        var dto = new InventorySupplyDto(
-            model.SupplyId,
-            model.SupplyName,
-            model.Category,
-            model.Unit,
-            model.Status,
-            model.Remarks);
+        var dto = new UpsertSupplyDTO
+        {
+            Name = model.SupplyName,
+            Category = model.Category,
+            Unit = model.Unit ?? "",
+            Status = model.Status,
+            Remarks = model.Remarks
+        };
 
-        await InventoryService.CreateOrUpdateSupplyAsync(dto);
-        Supplies = (await InventoryService.GetSuppliesAsync()).Select(MapSupply).ToList();
+        if (EditingSupply)
+        {
+            await SupplyService.UpdateAsync(model.SupplyId, dto);
+        }
+        else
+        {
+            await SupplyService.CreateAsync(dto);
+        }
+
+        await ReloadSuppliesAsync();
         FlashSuccess = EditingSupply ? "Supply updated successfully." : "Supply added successfully.";
 
         ShowSupplyForm = false;
@@ -414,8 +501,8 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     {
         if (PendingDeleteSupply is not null)
         {
-            await InventoryService.DeleteSupplyAsync(PendingDeleteSupply.SupplyId);
-            Supplies = (await InventoryService.GetSuppliesAsync()).Select(MapSupply).ToList();
+            await SupplyService.DeleteAsync(PendingDeleteSupply.SupplyId);
+            await ReloadSuppliesAsync();
             FlashSuccess = "Supply deleted.";
         }
 
@@ -435,7 +522,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     {
         if (PendingStatusSupply is not null && PendingStatusValue is not null)
         {
-            await InventoryService.UpdateSupplyStatusAsync(PendingStatusSupply.SupplyId, PendingStatusValue);
+            await SupplyService.UpdateStatusAsync(PendingStatusSupply.SupplyId, PendingStatusValue);
             PendingStatusSupply.Status = PendingStatusValue;
             FlashSuccess = "Supply status updated.";
         }
@@ -454,13 +541,14 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
         Brand = item.Brand,
         ModelNumber = item.ModelNumber,
         EquipmentType = item.EquipmentType,
-        LabId = item.LabId,
-        LabName = item.LabName,
         EquipmentStatus = item.EquipmentStatus,
-        Quantity = item.Quantity,
-        PreventiveMaintenanceDone = item.PreventiveMaintenanceDone,
-        CalibrationDone = item.CalibrationDone,
-        Remarks = item.Remarks
+        NeedsPm = item.NeedsPm,
+        NeedsCalibration = item.NeedsCalibration,
+        Remarks = item.Remarks,
+        CurrentComputerUnitId = item.CurrentComputerUnitId,
+        CurrentComputerUnitName = item.CurrentComputerUnitName,
+        CurrentLaboratoryId = item.CurrentLaboratoryId,
+        CurrentLaboratoryName = item.CurrentLaboratoryName
     };
 
     private static SupplyItem CloneSupply(SupplyItem item) => new()
@@ -473,28 +561,29 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
         Remarks = item.Remarks
     };
 
-    private static EquipmentItem MapEquipment(InventoryEquipmentDto dto) => new()
+    private static EquipmentItem MapEquipment(EquipmentDTO dto) => new()
     {
-        EquipmentId = dto.EquipmentId,
+        EquipmentId = dto.Id,
         EquipmentNo = dto.EquipmentNo,
-        SerialNo = dto.SerialNo,
+        SerialNo = dto.SerialNumber,
         EquipmentName = dto.EquipmentName,
         Brand = dto.Brand,
         ModelNumber = dto.ModelNumber,
         EquipmentType = dto.EquipmentType,
-        LabId = dto.LabId,
-        LabName = dto.LabName,
-        EquipmentStatus = dto.EquipmentStatus,
-        Quantity = dto.Quantity,
-        PreventiveMaintenanceDone = dto.PreventiveMaintenanceDone,
-        CalibrationDone = dto.CalibrationDone,
-        Remarks = dto.Remarks
+        EquipmentStatus = dto.Status,
+        NeedsPm = dto.NeedsPm,
+        NeedsCalibration = dto.NeedsCalibration,
+        Remarks = dto.Remarks,
+        CurrentComputerUnitId = dto.CurrentComputerUnitId,
+        CurrentComputerUnitName = dto.CurrentComputerUnitName,
+        CurrentLaboratoryId = dto.CurrentLaboratoryId,
+        CurrentLaboratoryName = dto.CurrentLaboratoryName
     };
 
-    private static SupplyItem MapSupply(InventorySupplyDto dto) => new()
+    private static SupplyItem MapSupply(SupplyDTO dto) => new()
     {
-        SupplyId = dto.SupplyId,
-        SupplyName = dto.SupplyName,
+        SupplyId = dto.Id,
+        SupplyName = dto.Name,
         Category = dto.Category,
         Unit = dto.Unit,
         Status = dto.Status,

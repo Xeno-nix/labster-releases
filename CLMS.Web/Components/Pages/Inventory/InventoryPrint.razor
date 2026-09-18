@@ -94,9 +94,9 @@
                     <td>@eq.EquipmentNo</td>
                     <td class="text-left">@eq.EquipmentName</td>
                     <td class="text-left">@BrandModel(eq.Brand, eq.ModelNumber)</td>
-                    <td>@eq.LabName</td>
-                    <td>@(eq.PreventiveMaintenanceDone ? "✔" : "")</td>
-                    <td>@(eq.CalibrationDone ? "✔" : "")</td>
+                    <td>@eq.LocationLabel</td>
+                    <td>@(eq.NeedsPm ? "✔" : "")</td>
+                    <td>@(eq.NeedsCalibration ? "✔" : "")</td>
                     <td>@Capitalize(eq.EquipmentStatus)</td>
                 </tr>
             }
@@ -116,7 +116,7 @@ else
                 <th class="text-left">SUPPLY NAME</th>
                 <th style="width: 120px;">CATEGORY</th>
                 <th style="width: 80px;">UNIT</th>
-                <th style="width: 120px;">STATUS</th>
+                <th style="width: 100px;">STATUS</th>
                 <th class="text-left" style="width: 200px;">REMARKS</th>
             </tr>
         </thead>
@@ -129,7 +129,7 @@ else
                     <td class="text-left">@sup.SupplyName</td>
                     <td>@sup.Category</td>
                     <td>@(sup.Unit ?? "—")</td>
-                    <td>@StatusLabel(sup.Status)</td>
+                    <td>@SupplyStatusLabel(sup.Status)</td>
                     <td class="text-left">@(sup.Remarks ?? "—")</td>
                 </tr>
             }

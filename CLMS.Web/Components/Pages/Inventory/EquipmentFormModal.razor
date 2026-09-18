@@ -15,6 +15,13 @@
             <EditForm Model="Model" OnValidSubmit="Submit" class="p-6 space-y-4">
                 <DataAnnotationsValidator />
 
+                @if (!IsEdit)
+                {
+                    <div class="px-3 py-2 rounded-lg bg-surface border border-black/10 text-xs text-muted">
+                        New equipment starts unassigned. Assign it to a laboratory from its QR panel after saving.
+                    </div>
+                }
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">Equipment No. <span class="text-primary">*</span></label>
@@ -24,7 +31,7 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">Serial No.</label>
-                        <InputText @bind-Value="Model.SerialNo" placeholder="e.g., SN-20240001"
+                        <InputText @bind-Value="Model.SerialNo" placeholder="e.g., SN-20240001 (leave blank if none)"
                                    class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
                     </div>
                 </div>
@@ -65,7 +72,7 @@
                         <InputSelect @bind-Value="Model.EquipmentStatus"
                                      class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
                             <option value="available">Available</option>
-                            <option value="in-use">In Use</option>
+                            <option value="in_use">In Use</option>
                             <option value="maintenance">Maintenance</option>
                             <option value="damaged">Damaged</option>
                         </InputSelect>
@@ -73,31 +80,13 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">Laboratory <span class="text-primary">*</span></label>
-                        <InputSelect @bind-Value="Model.LabId"
-                                     class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
-                            @foreach (var lab in Labs)
-                            {
-                                <option value="@lab.LabId">@lab.LabName</option>
-                            }
-                        </InputSelect>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">Quantity <span class="text-primary">*</span></label>
-                        <InputNumber @bind-Value="Model.Quantity" min="1"
-                                     class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <InputCheckbox @bind-Value="Model.PreventiveMaintenanceDone" class="w-4 h-4 text-primary focus:ring-primary/20 border-black/20 rounded" />
-                        <span class="text-sm font-medium text-[#2c2c2c]">PM Done</span>
+                        <InputCheckbox @bind-Value="Model.NeedsPm" class="w-4 h-4 text-primary focus:ring-primary/20 border-black/20 rounded" />
+                        <span class="text-sm font-medium text-[#2c2c2c]">Needs PM</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <InputCheckbox @bind-Value="Model.CalibrationDone" class="w-4 h-4 text-primary focus:ring-primary/20 border-black/20 rounded" />
-                        <span class="text-sm font-medium text-[#2c2c2c]">CAL Done</span>
+                        <InputCheckbox @bind-Value="Model.NeedsCalibration" class="w-4 h-4 text-primary focus:ring-primary/20 border-black/20 rounded" />
+                        <span class="text-sm font-medium text-[#2c2c2c]">Needs Calibration</span>
                     </label>
                 </div>
 
@@ -124,7 +113,6 @@
     [Parameter] public bool Show { get; set; }
     [Parameter] public bool IsEdit { get; set; }
     [Parameter, EditorRequired] public EquipmentItem Model { get; set; } = new();
-    [Parameter, EditorRequired] public List<LabOption> Labs { get; set; } = new();
     [Parameter] public EventCallback OnCancel { get; set; }
     [Parameter] public EventCallback<EquipmentItem> OnSave { get; set; }
 

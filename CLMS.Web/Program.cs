@@ -1,10 +1,10 @@
-using CLMS.Application;
 using CLMS.Web.Components;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Application.Services;
 using CLMS.Infrastructure.Repositories;
 using CLMS.Infrastructure;
+using CLMS.Application;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -1,4 +1,5 @@
-using CLMS.Application.Inventory;
+using CLMS.Application.DTOs.Inventory;
+using CLMS.Application.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
@@ -6,7 +7,8 @@ namespace CLMS.Web.Components.Pages.Inventory;
 
 public partial class InventoryPrint : ComponentBase
 {
-    [Inject] private IInventoryService InventoryService { get; set; } = default!;
+    [Inject] private IEquipmentService EquipmentService { get; set; } = default!;
+    [Inject] private ISupplyService SupplyService { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
@@ -18,7 +20,7 @@ public partial class InventoryPrint : ComponentBase
     private List<EquipmentItem> EquipmentRows { get; set; } = new();
     private List<SupplyItem> SuppliesRows { get; set; } = new();
 
-    private static readonly Dictionary<string, string> StatusLabels = new()
+    private static readonly Dictionary<string, string> SupplyStatusLabels = new()
     {
         ["fully_stocked"] = "Fully Stocked",
         ["in_stock"] = "In Stock",
@@ -28,8 +30,8 @@ public partial class InventoryPrint : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
-        var equipment = await InventoryService.GetEquipmentAsync();
-        var supplies = await InventoryService.GetSuppliesAsync();
+        var equipment = await EquipmentService.GetAllAsync();
+        var supplies = await SupplyService.GetAllAsync();
 
         EquipmentRows = equipment.Select(MapEquipment).ToList();
         SuppliesRows = supplies.Select(MapSupply).ToList();
@@ -53,32 +55,34 @@ public partial class InventoryPrint : ComponentBase
     }
 
     private static string Capitalize(string s) =>
-        string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..].Replace('-', ' ');
+        string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s[1..].Replace('_', ' ');
 
-    private static string StatusLabel(string s) => StatusLabels.GetValueOrDefault(s, s);
+    private static string SupplyStatusLabel(string status) =>
+        SupplyStatusLabels.GetValueOrDefault(status, Capitalize(status));
 
-    private static EquipmentItem MapEquipment(InventoryEquipmentDto dto) => new()
+    private static EquipmentItem MapEquipment(EquipmentDTO dto) => new()
     {
-        EquipmentId = dto.EquipmentId,
+        EquipmentId = dto.Id,
         EquipmentNo = dto.EquipmentNo,
-        SerialNo = dto.SerialNo,
+        SerialNo = dto.SerialNumber,
         EquipmentName = dto.EquipmentName,
         Brand = dto.Brand,
         ModelNumber = dto.ModelNumber,
         EquipmentType = dto.EquipmentType,
-        LabId = dto.LabId,
-        LabName = dto.LabName,
-        EquipmentStatus = dto.EquipmentStatus,
-        Quantity = dto.Quantity,
-        PreventiveMaintenanceDone = dto.PreventiveMaintenanceDone,
-        CalibrationDone = dto.CalibrationDone,
-        Remarks = dto.Remarks
+        EquipmentStatus = dto.Status,
+        NeedsPm = dto.NeedsPm,
+        NeedsCalibration = dto.NeedsCalibration,
+        Remarks = dto.Remarks,
+        CurrentComputerUnitId = dto.CurrentComputerUnitId,
+        CurrentComputerUnitName = dto.CurrentComputerUnitName,
+        CurrentLaboratoryId = dto.CurrentLaboratoryId,
+        CurrentLaboratoryName = dto.CurrentLaboratoryName
     };
 
-    private static SupplyItem MapSupply(InventorySupplyDto dto) => new()
+    private static SupplyItem MapSupply(SupplyDTO dto) => new()
     {
-        SupplyId = dto.SupplyId,
-        SupplyName = dto.SupplyName,
+        SupplyId = dto.Id,
+        SupplyName = dto.Name,
         Category = dto.Category,
         Unit = dto.Unit,
         Status = dto.Status,
