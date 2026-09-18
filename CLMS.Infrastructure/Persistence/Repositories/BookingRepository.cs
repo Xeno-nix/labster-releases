@@ -304,4 +304,23 @@ public class BookingRepository : IBookingRepository
                 reader.GetTimeSpan("end_time"))
         };
     }
+
+    private static Booking MapBookingEntity(
+        MySqlDataReader reader)
+    {
+        return new Booking
+        {
+            Id = reader.GetInt32("booking_id"),
+            LaboratoryId = reader.GetInt32("lab_id"),
+            RequestorName = reader.GetString("requestor_name"),
+            Email = reader.GetString("email"),
+            Purpose = reader.GetString("purpose"),
+            Date = DateOnly.FromDateTime(
+                reader.GetDateTime("booking_date")),
+            StartTime = TimeOnly.FromTimeSpan(
+                reader.GetTimeSpan("start_time")),
+            EndTime = TimeOnly.FromTimeSpan(
+                reader.GetTimeSpan("end_time"))
+        };
+    }
 }
