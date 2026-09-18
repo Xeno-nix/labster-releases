@@ -246,11 +246,11 @@ public class EquipmentRepository : IEquipmentRepository
             return null;
 
         return new EquipmentAssignment(
-            id: Guid.Parse(reader.GetString("assignment_id")),
-            equipmentId: Guid.Parse(reader.GetString("equipment_id")),
+            id: ReadGuid(reader, "assignment_id"),
+            equipmentId: ReadGuid(reader, "equipment_id"),
             computerUnitId: reader.IsDBNull(reader.GetOrdinal("computer_unit_id"))
                 ? null
-                : Guid.Parse(reader.GetString("computer_unit_id")),
+                : ReadGuid(reader, "computer_unit_id"),
             laboratoryId: reader.IsDBNull(reader.GetOrdinal("laboratory_id"))
                 ? null
                 : reader.GetInt32("laboratory_id"),
@@ -293,11 +293,11 @@ public class EquipmentRepository : IEquipmentRepository
         // The constructor always sets Status to Active, so rehydrate the real
         // persisted state (which may already be Ended) via the public setters.
         var assignment = new EquipmentAssignment(
-            id: Guid.Parse(reader.GetString("assignment_id")),
-            equipmentId: Guid.Parse(reader.GetString("equipment_id")),
+            id: ReadGuid(reader, "assignment_id"),
+            equipmentId: ReadGuid(reader, "equipment_id"),
             computerUnitId: reader.IsDBNull(reader.GetOrdinal("computer_unit_id"))
                 ? null
-                : Guid.Parse(reader.GetString("computer_unit_id")),
+                : ReadGuid(reader, "computer_unit_id"),
             laboratoryId: reader.IsDBNull(reader.GetOrdinal("laboratory_id"))
                 ? null
                 : reader.GetInt32("laboratory_id"),
@@ -488,11 +488,17 @@ public class EquipmentRepository : IEquipmentRepository
         command.Parameters.AddWithValue("@Remarks", (object?)equipment.Remarks ?? DBNull.Value);
     }
 
+    private static Guid ReadGuid(MySqlDataReader reader, string columnName)
+    {
+        var value = reader.GetValue(reader.GetOrdinal(columnName));
+        return value is Guid guid ? guid : Guid.Parse((string)value);
+    }
+
     private static EquipmentDTO MapEquipment(MySqlDataReader reader)
     {
         return new EquipmentDTO
         {
-            Id = Guid.Parse(reader.GetString("equipment_id")),
+            Id = ReadGuid(reader, "equipment_id"),
             EquipmentNo = reader.GetString("equipment_no"),
             SerialNumber = reader.IsDBNull(reader.GetOrdinal("serial_number")) ? null : reader.GetString("serial_number"),
             EquipmentName = reader.GetString("equipment_name"),
@@ -505,7 +511,7 @@ public class EquipmentRepository : IEquipmentRepository
             Remarks = reader.IsDBNull(reader.GetOrdinal("remarks")) ? null : reader.GetString("remarks"),
             CurrentComputerUnitId = reader.IsDBNull(reader.GetOrdinal("current_computer_unit_id"))
                 ? null
-                : Guid.Parse(reader.GetString("current_computer_unit_id")),
+                : ReadGuid(reader, "current_computer_unit_id"),
             CurrentComputerUnitName = reader.IsDBNull(reader.GetOrdinal("current_computer_unit_name"))
                 ? null
                 : reader.GetString("current_computer_unit_name"),
@@ -532,12 +538,12 @@ public class EquipmentRepository : IEquipmentRepository
 
         return new EquipmentAssignmentDTO
         {
-            Id = Guid.Parse(reader.GetString("assignment_id")),
-            EquipmentId = Guid.Parse(reader.GetString("equipment_id")),
+            Id = ReadGuid(reader, "assignment_id"),
+            EquipmentId = ReadGuid(reader, "equipment_id"),
             EquipmentName = reader.GetString("equipment_name"),
             ComputerUnitId = reader.IsDBNull(reader.GetOrdinal("computer_unit_id"))
                 ? null
-                : Guid.Parse(reader.GetString("computer_unit_id")),
+                : ReadGuid(reader, "computer_unit_id"),
             ComputerUnitName = reader.IsDBNull(reader.GetOrdinal("computer_unit_name"))
                 ? null
                 : reader.GetString("computer_unit_name"),
