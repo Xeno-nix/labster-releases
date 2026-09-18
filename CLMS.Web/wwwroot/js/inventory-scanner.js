@@ -1,0 +1,78 @@
+// Inventory camera QR scanner — powered by nimiq/qr-scanner
+// https://github.com/nimiq/qr-scanner
+//
+// Called from CLMS.Web/Components/Pages/Inventory/Inventory.razor.cs via IJSRuntime.
+
+window.clmsInventoryScanner = {
+    _instance: null,
+
+    /**
+     * Checks whether the device exposes any camera at all.
+     * Does NOT prompt for permission — just enumerates devices.
+     * @returns {Promise<boolean>}
+     */
+    hasCamera: async function () {
+        if (typeof QrScanner === "undefined") {
+            return false;
+        }
+        try {
+            return await QrScanner.hasCamera();
+        } catch {
+            return false;
+        }
+    },
+
+    /**
+     * Starts the live camera scanner against the given <video> element.
+     * Calls back into Blazor via dotNetRef.OnQrScanned(text) on every decode.
+     * @param {string} videoElementId
+     * @param {any} dotNetRef - a DotNetObjectReference from Blazor
+     * @returns {Promise<{ok: boolean, error?: string}>}
+     */
+    start: async function (videoElementId, dotNetRef) {
+        if (typeof QrScanner === "undefined") {
+            return { ok: false, error: "Scanner library failed to load." };
+        }
+
+        const video = document.getElementById(videoElementId);
+        if (!video) {
+            return { ok: false, error: "Video element not found." };
+        }
+
+        this.stop();
+
+        try {
+            this._instance = new QrScanner(
+                video,
+                (result) => dotNetRef.invokeMethodAsync("OnQrScanned", result.data ?? result),
+                {
+                    highlightScanRegion: true,
+                    highlightCodeOutline: true,
+                    maxScansPerSecond: 5
+                }
+            );
+            await this._instance.start();
+            return { ok: true };
+        } catch (e) {
+            console.error("QR scanner start failed:", e);
+            this.stop();
+            // Most commonly: permission denied, or camera in use by another app/tab.
+            return { ok: false, error: "Could not access the camera. Check camera permissions." };
+        }
+    },
+
+    /**
+     * Stops and releases the camera stream.
+     */
+    stop: function () {
+        if (this._instance) {
+            try {
+                this._instance.stop();
+                this._instance.destroy();
+            } catch {
+                // ignore
+            }
+            this._instance = null;
+        }
+    }
+};

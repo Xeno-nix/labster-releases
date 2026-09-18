@@ -2,15 +2,17 @@
 
 namespace CLMS.Domain.Entities.Inventory;
 
-public class ComputerUnit : AuditableEntity , IEquipment
+public class ComputerUnit : AuditableEntity
 {
-    public string SerialNumber { get; set; }
-    public string EquipmentName { get; set; }
+    public string UnitName { get; set; }
     public byte UnitNumber { get; set; }
-    public int LaboratoryId { get; set; }
-    
-    public ComputerUnit(Guid id)
+    public readonly int LaboratoryId;
+
+    public ComputerUnit(Guid id, string unitName, byte unitNumber, int laboratoryId)
     {
         _id = id;
+        UnitName = unitName;
+        UnitNumber = unitNumber;
+        LaboratoryId = laboratoryId;
     }
 }

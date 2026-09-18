@@ -199,7 +199,7 @@ public class BookingRepository : IBookingRepository
 
         while (await reader.ReadAsync())
         {
-            bookings.Add(MapBookingEntity(reader));
+            //bookings.Add(MapBooking(reader));
         }
 
         return bookings;

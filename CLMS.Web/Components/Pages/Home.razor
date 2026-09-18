@@ -1,7 +1,16 @@
 ﻿@page "/"
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Inventory</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="p-8 text-center">
+    <p class="text-sm uppercase tracking-[0.2em] text-muted">Redirecting</p>
+    <h1 class="mt-3 text-2xl font-semibold text-[#2c2c2c]">Opening Inventory Dashboard...</h1>
+</div>
 
-Welcome to your new app.
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("/inventory", forceLoad: true);
+    }
+}
