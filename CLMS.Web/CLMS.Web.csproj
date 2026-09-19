@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
-    <UserSecretsId>cmlslms-web</UserSecretsId>
+    <UserSecretsId>9943bc97-70c5-4636-9266-e1ead8eca095</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
