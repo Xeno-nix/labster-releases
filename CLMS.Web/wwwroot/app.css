@@ -3,11 +3,11 @@
 @layer theme, base, components, utilities;
 @layer theme {
   :root, :host {
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-      "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-      "Segoe UI Symbol", "Noto Color Emoji";
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
+<<<<<<< HEAD
     --color-blue-100: oklch(93.2% 0.032 255.585);
     --color-blue-800: oklch(42.4% 0.199 265.638);
     --color-black: #000;
@@ -17,6 +17,33 @@
     --container-md: 28rem;
     --container-xl: 36rem;
     --container-2xl: 42rem;
+=======
+    --color-red-50: oklch(97.1% 0.013 17.38);
+    --color-red-200: oklch(88.5% 0.062 18.334);
+    --color-red-500: oklch(63.7% 0.237 25.331);
+    --color-red-600: oklch(57.7% 0.245 27.325);
+    --color-red-700: oklch(50.5% 0.213 27.518);
+    --color-yellow-50: oklch(98.7% 0.026 102.212);
+    --color-yellow-200: oklch(94.5% 0.129 101.54);
+    --color-yellow-800: oklch(47.6% 0.114 61.907);
+    --color-green-700: oklch(52.7% 0.154 150.069);
+    --color-blue-900: oklch(37.9% 0.146 265.522);
+    --color-gray-50: oklch(98.5% 0.002 247.839);
+    --color-gray-100: oklch(96.7% 0.003 264.542);
+    --color-gray-200: oklch(92.8% 0.006 264.531);
+    --color-gray-300: oklch(87.2% 0.01 258.338);
+    --color-gray-400: oklch(70.7% 0.022 261.325);
+    --color-gray-500: oklch(55.1% 0.027 264.364);
+    --color-gray-600: oklch(44.6% 0.03 256.802);
+    --color-gray-700: oklch(37.3% 0.034 259.733);
+    --color-gray-800: oklch(27.8% 0.033 256.848);
+    --color-black: #000;
+    --color-white: #fff;
+    --spacing: 0.25rem;
+    --container-md: 28rem;
+    --container-2xl: 42rem;
+    --container-4xl: 56rem;
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
     --text-xs: 0.75rem;
     --text-xs--line-height: calc(1 / 0.75);
     --text-sm: 0.875rem;
@@ -28,12 +55,25 @@
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
     --tracking-wide: 0.025em;
+<<<<<<< HEAD
+=======
+    --leading-tight: 1.25;
+    --leading-relaxed: 1.625;
+    --radius-md: 0.375rem;
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
     --radius-lg: 0.5rem;
     --radius-xl: 0.75rem;
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
     --default-mono-font-family: var(--font-mono);
+    --font-heading: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+    --color-primary: #8b1538;
+    --color-primary-dark: #6d1028;
+    --color-success: #1b5e20;
+    --color-success-dark: #145018;
+    --color-surface: #f8f9fa;
+    --color-muted: #6c757d;
   }
 }
 
@@ -243,8 +283,14 @@
   }
 }
 @layer utilities {
+  .pointer-events-none {
+    pointer-events: none;
+  }
   .visible {
     visibility: visible;
+  }
+  .absolute {
+    position: absolute;
   }
   .fixed {
     position: fixed;
@@ -258,14 +304,33 @@
   .inset-0 {
     inset: 0px;
   }
+<<<<<<< HEAD
   .top-0 {
     top: 0px;
+=======
+  .top-1\/2 {
+    top: calc(1 / 2 * 100%);
+  }
+  .top-6 {
+    top: calc(var(--spacing) * 6);
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   }
   .z-10 {
     z-index: 10;
   }
+<<<<<<< HEAD
   .z-50 {
     z-index: 50;
+=======
+  .left-3 {
+    left: calc(var(--spacing) * 3);
+  }
+  .z-\[1000\] {
+    z-index: 1000;
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
+  }
+  .mx-auto {
+    margin-inline: auto;
   }
   .mx-auto {
     margin-inline: auto;
@@ -282,8 +347,19 @@
   .mt-5 {
     margin-top: calc(var(--spacing) * 5);
   }
+<<<<<<< HEAD
   .-mb-px {
     margin-bottom: -1px;
+=======
+  .mt-6 {
+    margin-top: calc(var(--spacing) * 6);
+  }
+  .mt-auto {
+    margin-top: auto;
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
+  }
+  .mb-1 {
+    margin-bottom: var(--spacing);
   }
   .mb-1 {
     margin-bottom: var(--spacing);
@@ -293,10 +369,34 @@
   }
   .mb-2 {
     margin-bottom: calc(var(--spacing) * 2);
+<<<<<<< HEAD
+=======
+  }
+  .mb-3 {
+    margin-bottom: calc(var(--spacing) * 3);
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   }
   .mb-4 {
     margin-bottom: calc(var(--spacing) * 4);
   }
+<<<<<<< HEAD
+=======
+  .mb-5 {
+    margin-bottom: calc(var(--spacing) * 5);
+  }
+  .mb-6 {
+    margin-bottom: calc(var(--spacing) * 6);
+  }
+  .mb-8 {
+    margin-bottom: calc(var(--spacing) * 8);
+  }
+  .ml-2 {
+    margin-left: calc(var(--spacing) * 2);
+  }
+  .box-border {
+    box-sizing: border-box;
+  }
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   .block {
     display: block;
   }
@@ -315,6 +415,7 @@
   .h-12 {
     height: calc(var(--spacing) * 12);
   }
+<<<<<<< HEAD
   .max-h-\[90vh\] {
     max-height: 90vh;
   }
@@ -326,18 +427,97 @@
   }
   .w-12 {
     width: calc(var(--spacing) * 12);
+=======
+  .h-4 {
+    height: calc(var(--spacing) * 4);
+  }
+  .h-4\.5 {
+    height: calc(var(--spacing) * 4.5);
+  }
+  .h-5 {
+    height: calc(var(--spacing) * 5);
+  }
+  .h-6 {
+    height: calc(var(--spacing) * 6);
+  }
+  .h-9\.5 {
+    height: calc(var(--spacing) * 9.5);
+  }
+  .h-10 {
+    height: calc(var(--spacing) * 10);
+  }
+  .h-\[18px\] {
+    height: 18px;
+  }
+  .h-\[30px\] {
+    height: 30px;
+  }
+  .min-h-\[100px\] {
+    min-height: 100px;
+  }
+  .min-h-screen {
+    min-height: 100vh;
+  }
+  .w-1\.5 {
+    width: calc(var(--spacing) * 1.5);
+  }
+  .w-4 {
+    width: calc(var(--spacing) * 4);
+  }
+  .w-4\.5 {
+    width: calc(var(--spacing) * 4.5);
+  }
+  .w-5 {
+    width: calc(var(--spacing) * 5);
+  }
+  .w-6 {
+    width: calc(var(--spacing) * 6);
+  }
+  .w-9\.5 {
+    width: calc(var(--spacing) * 9.5);
+  }
+  .w-10 {
+    width: calc(var(--spacing) * 10);
+  }
+  .w-\[18px\] {
+    width: 18px;
+  }
+  .w-\[30px\] {
+    width: 30px;
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   }
   .w-full {
     width: 100%;
   }
   .max-w-2xl {
     max-width: var(--container-2xl);
+<<<<<<< HEAD
   }
   .max-w-\[160px\] {
     max-width: 160px;
   }
   .max-w-md {
     max-width: var(--container-md);
+=======
+  }
+  .max-w-4xl {
+    max-width: var(--container-4xl);
+  }
+  .max-w-\[520px\] {
+    max-width: 520px;
+  }
+  .max-w-md {
+    max-width: var(--container-md);
+  }
+  .min-w-\[190px\] {
+    min-width: 190px;
+  }
+  .min-w-\[200px\] {
+    min-width: 200px;
+  }
+  .min-w-\[650px\] {
+    min-width: 650px;
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   }
   .max-w-sm {
     max-width: var(--container-sm);
@@ -354,6 +534,19 @@
   .border-collapse {
     border-collapse: collapse;
   }
+<<<<<<< HEAD
+=======
+  .-translate-y-1\/2 {
+    --tw-translate-y: calc(calc(1 / 2 * 100%) * -1);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+  .transform {
+    transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) var(--tw-skew-x,) var(--tw-skew-y,);
+  }
+  .animate-\[toast-in_0\.2s_ease-out\] {
+    animation: toast-in 0.2s ease-out;
+  }
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   .cursor-pointer {
     cursor: pointer;
   }
@@ -398,10 +591,37 @@
     margin-block-start: calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));
     margin-block-end: calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-y-reverse)));
   }
+<<<<<<< HEAD
+=======
+  :where(.space-y-4 > :not(:last-child)) {
+    --tw-space-y-reverse: 0;
+    margin-block-start: calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));
+    margin-block-end: calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-y-reverse)));
+  }
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   :where(.space-y-6 > :not(:last-child)) {
     --tw-space-y-reverse: 0;
     margin-block-start: calc(calc(var(--spacing) * 6) * var(--tw-space-y-reverse));
     margin-block-end: calc(calc(var(--spacing) * 6) * calc(1 - var(--tw-space-y-reverse)));
+<<<<<<< HEAD
+=======
+  }
+  :where(.divide-y > :not(:last-child)) {
+    --tw-divide-y-reverse: 0;
+    border-bottom-style: var(--tw-border-style);
+    border-top-style: var(--tw-border-style);
+    border-top-width: calc(1px * var(--tw-divide-y-reverse));
+    border-bottom-width: calc(1px * calc(1 - var(--tw-divide-y-reverse)));
+  }
+  :where(.divide-black\/5 > :not(:last-child)) {
+    border-color: color-mix(in srgb, #000 5%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-black) 5%, transparent);
+    }
+  }
+  .self-start {
+    align-self: flex-start;
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   }
   :where(.divide-y > :not(:last-child)) {
     --tw-divide-y-reverse: 0;
@@ -451,12 +671,82 @@
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 1px;
   }
+<<<<<<< HEAD
   .border-b-2 {
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 2px;
   }
   .border-black\/10 {
     border-color: color-mix(in srgb, #000 10%, transparent);
+=======
+  .border-l {
+    border-left-style: var(--tw-border-style);
+    border-left-width: 1px;
+  }
+  .border-none {
+    --tw-border-style: none;
+    border-style: none;
+  }
+  .border-\[\#7a1f2b\] {
+    border-color: #7a1f2b;
+  }
+  .border-\[\#f5c2c0\] {
+    border-color: #f5c2c0;
+  }
+  .border-black\/10 {
+    border-color: color-mix(in srgb, #000 10%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-black) 10%, transparent);
+    }
+  }
+  .border-gray-100 {
+    border-color: var(--color-gray-100);
+  }
+  .border-gray-200 {
+    border-color: var(--color-gray-200);
+  }
+  .border-gray-300 {
+    border-color: var(--color-gray-300);
+  }
+  .border-red-200 {
+    border-color: var(--color-red-200);
+  }
+  .border-success\/30 {
+    border-color: color-mix(in srgb, #1b5e20 30%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-success) 30%, transparent);
+    }
+  }
+  .border-yellow-200 {
+    border-color: var(--color-yellow-200);
+  }
+  .bg-\[\#1f7a3f\] {
+    background-color: #1f7a3f;
+  }
+  .bg-\[\#2a4d8f\] {
+    background-color: #2a4d8f;
+  }
+  .bg-\[\#7a1f2b\] {
+    background-color: #7a1f2b;
+  }
+  .bg-\[\#eef3fb\] {
+    background-color: #eef3fb;
+  }
+  .bg-\[\#f4f7fc\] {
+    background-color: #f4f7fc;
+  }
+  .bg-\[\#f7e9eb\] {
+    background-color: #f7e9eb;
+  }
+  .bg-\[\#fdecea\] {
+    background-color: #fdecea;
+  }
+  .bg-\[\#fff8f8\] {
+    background-color: #fff8f8;
+  }
+  .bg-black\/35 {
+    background-color: color-mix(in srgb, #000 35%, transparent);
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
     @supports (color: color-mix(in lab, red, red)) {
       border-color: color-mix(in oklab, var(--color-black) 10%, transparent);
     }
@@ -473,8 +763,34 @@
       background-color: color-mix(in oklab, var(--color-black) 50%, transparent);
     }
   }
+<<<<<<< HEAD
   .bg-blue-100 {
     background-color: var(--color-blue-100);
+=======
+  .bg-green-700 {
+    background-color: var(--color-green-700);
+  }
+  .bg-primary {
+    background-color: var(--color-primary);
+  }
+  .bg-red-50 {
+    background-color: var(--color-red-50);
+  }
+  .bg-success {
+    background-color: var(--color-success);
+  }
+  .bg-success\/10 {
+    background-color: color-mix(in srgb, #1b5e20 10%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-success) 10%, transparent);
+    }
+  }
+  .bg-surface {
+    background-color: var(--color-surface);
+  }
+  .bg-transparent {
+    background-color: transparent;
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   }
   .bg-white {
     background-color: var(--color-white);
@@ -524,20 +840,70 @@
   .py-3 {
     padding-block: calc(var(--spacing) * 3);
   }
+<<<<<<< HEAD
+=======
+  .py-3\.5 {
+    padding-block: calc(var(--spacing) * 3.5);
+  }
+  .py-4 {
+    padding-block: calc(var(--spacing) * 4);
+  }
+  .py-10 {
+    padding-block: calc(var(--spacing) * 10);
+  }
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   .py-12 {
     padding-block: calc(var(--spacing) * 12);
   }
   .pt-2 {
     padding-top: calc(var(--spacing) * 2);
   }
+<<<<<<< HEAD
+=======
+  .pt-2\.5 {
+    padding-top: calc(var(--spacing) * 2.5);
+  }
+  .pt-5 {
+    padding-top: calc(var(--spacing) * 5);
+  }
+  .pr-4 {
+    padding-right: calc(var(--spacing) * 4);
+  }
+  .pb-2 {
+    padding-bottom: calc(var(--spacing) * 2);
+  }
+  .pb-6 {
+    padding-bottom: calc(var(--spacing) * 6);
+  }
+  .pl-10 {
+    padding-left: calc(var(--spacing) * 10);
+  }
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   .text-center {
     text-align: center;
   }
   .text-left {
     text-align: left;
   }
+<<<<<<< HEAD
   .font-mono {
     font-family: var(--font-mono);
+=======
+  .text-right {
+    text-align: right;
+  }
+  .align-middle {
+    vertical-align: middle;
+  }
+  .font-heading {
+    font-family: var(--font-heading);
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+  .font-sans {
+    font-family: var(--font-sans);
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   }
   .text-2xl {
     font-size: var(--text-2xl);
@@ -555,6 +921,52 @@
     font-size: var(--text-xs);
     line-height: var(--tw-leading, var(--text-xs--line-height));
   }
+<<<<<<< HEAD
+=======
+  .text-\[0\.7rem\] {
+    font-size: 0.7rem;
+  }
+  .text-\[0\.8rem\] {
+    font-size: 0.8rem;
+  }
+  .text-\[0\.65rem\] {
+    font-size: 0.65rem;
+  }
+  .text-\[0\.68rem\] {
+    font-size: 0.68rem;
+  }
+  .text-\[0\.72rem\] {
+    font-size: 0.72rem;
+  }
+  .text-\[0\.75rem\] {
+    font-size: 0.75rem;
+  }
+  .text-\[0\.85rem\] {
+    font-size: 0.85rem;
+  }
+  .text-\[0\.95rem\] {
+    font-size: 0.95rem;
+  }
+  .text-\[1\.05rem\] {
+    font-size: 1.05rem;
+  }
+  .leading-none {
+    --tw-leading: 1;
+    line-height: 1;
+  }
+  .leading-relaxed {
+    --tw-leading: var(--leading-relaxed);
+    line-height: var(--leading-relaxed);
+  }
+  .leading-tight {
+    --tw-leading: var(--leading-tight);
+    line-height: var(--leading-tight);
+  }
+  .font-bold {
+    --tw-font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-bold);
+  }
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   .font-medium {
     --tw-font-weight: var(--font-weight-medium);
     font-weight: var(--font-weight-medium);
@@ -571,11 +983,64 @@
     --tw-tracking: var(--tracking-wide);
     letter-spacing: var(--tracking-wide);
   }
+<<<<<<< HEAD
   .text-\[\#2c2c2c\] {
     color: #2c2c2c;
   }
   .text-blue-800 {
     color: var(--color-blue-800);
+=======
+  .whitespace-nowrap {
+    white-space: nowrap;
+  }
+  .text-\[\#2a4d8f\] {
+    color: #2a4d8f;
+  }
+  .text-\[\#2c2c2c\] {
+    color: #2c2c2c;
+  }
+  .text-\[\#7a1f2b\] {
+    color: #7a1f2b;
+  }
+  .text-\[\#b3261e\] {
+    color: #b3261e;
+  }
+  .text-blue-900 {
+    color: var(--color-blue-900);
+  }
+  .text-gray-400 {
+    color: var(--color-gray-400);
+  }
+  .text-gray-500 {
+    color: var(--color-gray-500);
+  }
+  .text-gray-600 {
+    color: var(--color-gray-600);
+  }
+  .text-gray-700 {
+    color: var(--color-gray-700);
+  }
+  .text-gray-800 {
+    color: var(--color-gray-800);
+  }
+  .text-muted {
+    color: var(--color-muted);
+  }
+  .text-primary {
+    color: var(--color-primary);
+  }
+  .text-red-500 {
+    color: var(--color-red-500);
+  }
+  .text-red-600 {
+    color: var(--color-red-600);
+  }
+  .text-red-700 {
+    color: var(--color-red-700);
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
+  }
+  .text-success {
+    color: var(--color-success);
   }
   .text-white {
     color: var(--color-white);
@@ -583,14 +1048,39 @@
   .uppercase {
     text-transform: uppercase;
   }
+<<<<<<< HEAD
   .shadow-2xl {
     --tw-shadow: 0 25px 50px -12px var(--tw-shadow-color, rgb(0 0 0 / 0.25));
+=======
+  .underline {
+    text-decoration-line: underline;
+  }
+  .antialiased {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .opacity-35 {
+    opacity: 35%;
+  }
+  .shadow-\[inset_0_0_0_2px_\#7a1f2b\] {
+    --tw-shadow: inset 0 0 0 2px var(--tw-shadow-color, #7a1f2b);
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
   .shadow-sm {
     --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
+<<<<<<< HEAD
+=======
+  .shadow-sm {
+    --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .filter {
+    filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+  }
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
   .transition-all {
     transition-property: all;
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
@@ -605,13 +1095,84 @@
     .hover\:bg-white:hover {
       background-color: var(--color-white);
     }
+<<<<<<< HEAD
     .hover\:text-\[\#2c2c2c\]:hover {
       color: #2c2c2c;
+=======
+    .hover\:border-\[\#b7c8e8\]:hover {
+      border-color: #b7c8e8;
+    }
+    .hover\:border-\[\#b3261e\]:hover {
+      border-color: #b3261e;
+    }
+    .hover\:border-\[\#d3b0b5\]:hover {
+      border-color: #d3b0b5;
+    }
+    .hover\:border-red-700:hover {
+      border-color: var(--color-red-700);
+    }
+    .hover\:bg-\[\#651923\]:hover {
+      background-color: #651923;
+    }
+    .hover\:bg-\[\#fdecea\]:hover {
+      background-color: #fdecea;
+    }
+    .hover\:bg-\[\#fff8f8\]:hover {
+      background-color: #fff8f8;
+    }
+    .hover\:bg-gray-50:hover {
+      background-color: var(--color-gray-50);
+    }
+    .hover\:bg-gray-100:hover {
+      background-color: var(--color-gray-100);
+    }
+    .hover\:bg-gray-200:hover {
+      background-color: var(--color-gray-200);
+    }
+    .hover\:bg-primary-dark:hover {
+      background-color: var(--color-primary-dark);
+    }
+    .hover\:bg-red-50:hover {
+      background-color: var(--color-red-50);
+    }
+    .hover\:bg-red-50\/40:hover {
+      background-color: color-mix(in srgb, oklch(97.1% 0.013 17.38) 40%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-red-50\/40:hover {
+        background-color: color-mix(in oklab, var(--color-red-50) 40%, transparent);
+      }
+    }
+    .hover\:bg-success-dark:hover {
+      background-color: var(--color-success-dark);
+    }
+    .hover\:bg-surface:hover {
+      background-color: var(--color-surface);
+    }
+    .hover\:text-gray-700:hover {
+      color: var(--color-gray-700);
+    }
+    .hover\:text-gray-800:hover {
+      color: var(--color-gray-800);
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
     }
   }
   .focus\:ring-2:focus {
     --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .focus\:border-primary:focus {
+    border-color: var(--color-primary);
+  }
+  .focus\:ring-2:focus {
+    --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .focus\:ring-primary\/20:focus {
+    --tw-ring-color: color-mix(in srgb, #8b1538 20%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      --tw-ring-color: color-mix(in oklab, var(--color-primary) 20%, transparent);
+    }
   }
   .focus\:outline-none:focus {
     --tw-outline-style: none;
@@ -631,6 +1192,41 @@
       gap: calc(var(--spacing) * 3);
     }
   }
+}
+<<<<<<< HEAD
+@property --tw-space-y-reverse {
+=======
+@layer base {
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+  }
+}
+@property --tw-translate-x {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-translate-y {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-translate-z {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-rotate-x {
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
+}
+@property --tw-divide-y-reverse {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0;
 }
 @property --tw-space-y-reverse {
   syntax: "*";
@@ -720,9 +1316,73 @@
   inherits: false;
   initial-value: 0 0 #0000;
 }
+@property --tw-blur {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-brightness {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-contrast {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-grayscale {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-hue-rotate {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-invert {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-opacity {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-saturate {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-sepia {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-drop-shadow {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-drop-shadow-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-drop-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+@property --tw-drop-shadow-size {
+  syntax: "*";
+  inherits: false;
+}
 @layer properties {
   @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
     *, ::before, ::after, ::backdrop {
+<<<<<<< HEAD
+=======
+      --tw-translate-x: 0;
+      --tw-translate-y: 0;
+      --tw-translate-z: 0;
+      --tw-rotate-x: initial;
+      --tw-rotate-y: initial;
+      --tw-rotate-z: initial;
+      --tw-skew-x: initial;
+      --tw-skew-y: initial;
+>>>>>>> 866bc1e (feat: send booking details/updates via email)
       --tw-space-y-reverse: 0;
       --tw-divide-y-reverse: 0;
       --tw-border-style: solid;
@@ -742,6 +1402,19 @@
       --tw-ring-offset-width: 0px;
       --tw-ring-offset-color: #fff;
       --tw-ring-offset-shadow: 0 0 #0000;
+      --tw-blur: initial;
+      --tw-brightness: initial;
+      --tw-contrast: initial;
+      --tw-grayscale: initial;
+      --tw-hue-rotate: initial;
+      --tw-invert: initial;
+      --tw-opacity: initial;
+      --tw-saturate: initial;
+      --tw-sepia: initial;
+      --tw-drop-shadow: initial;
+      --tw-drop-shadow-color: initial;
+      --tw-drop-shadow-alpha: 100%;
+      --tw-drop-shadow-size: initial;
     }
   }
 }

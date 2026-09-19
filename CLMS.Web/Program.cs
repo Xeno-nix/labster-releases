@@ -3,6 +3,7 @@ using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Application.Services;
 using CLMS.Infrastructure.Repositories;
+using CLMS.Infrastructure.Services;
 using CLMS.Infrastructure;
 using CLMS.Application;
 
@@ -30,6 +31,7 @@ builder.Services.AddScoped<ILaboratoryService, LaboratoryService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IAcademicTermService, AcademicTermService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddHttpClient<IEmailService, EmailService>();
 
 // Booking module — Repositories
 builder.Services.AddScoped<IClassScheduleRepository>(
