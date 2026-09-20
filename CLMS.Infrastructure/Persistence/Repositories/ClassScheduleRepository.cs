@@ -167,6 +167,9 @@ public class ClassScheduleRepository : IClassScheduleRepository
             AND cs.day_of_week = @DayOfWeek
             AND cs.time_start <= @CurrentTime
             AND cs.time_end >= @CurrentTime
+            AND cs.deleted_at IS NULL
+            AND (at.start_date IS NULL OR at.start_date <= CURDATE())
+            AND (at.end_date IS NULL OR at.end_date >= CURDATE())
             AND u.role_type = 'Faculty'
 
             LIMIT 1;

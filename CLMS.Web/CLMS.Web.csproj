@@ -13,4 +13,8 @@
     <ProjectReference Include="..\CLMS.Infrastructure\CLMS.Infrastructure.csproj" />
     <ProjectReference Include="..\CLMS.Domain\CLMS.Domain.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Blazicons.Lucide" Version="3.0.8" />
+  </ItemGroup>
 </Project>
