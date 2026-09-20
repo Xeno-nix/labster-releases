@@ -9,6 +9,8 @@ public class UpsertClassScheduleDTO
 
     public int AcademicTermId { get; set; }
 
+    public string YearLevel { get; set; } = string.Empty;
+
     public DayOfWeek DayOfWeek { get; set; }
 
     public TimeOnly TimeStart { get; set; }

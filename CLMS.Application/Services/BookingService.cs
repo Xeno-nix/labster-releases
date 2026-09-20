@@ -10,13 +10,19 @@ public class BookingService : IBookingService
 {
     private readonly IBookingRepository _repository;
     private readonly IClassScheduleRepository _classScheduleRepository;
+    private readonly IEmailService _emailService;
+    private readonly ILaboratoryRepository _laboratoryRepository;
 
     public BookingService(
         IBookingRepository repository,
-        IClassScheduleRepository classScheduleRepository)
+        IClassScheduleRepository classScheduleRepository,
+        IEmailService emailService,
+        ILaboratoryRepository laboratoryRepository)
     {
+        _emailService = emailService;
         _repository = repository;
         _classScheduleRepository = classScheduleRepository;
+        _laboratoryRepository = laboratoryRepository;
     }
 
     public async Task<int> CreateAsync(UpsertBookingDTO dto)
@@ -43,7 +49,86 @@ public class BookingService : IBookingService
             throw new InvalidOperationException("The booking time conflicts with an existing booking or class schedule.");
         }
 
+        var laboratory = await _laboratoryRepository.GetByIdAsync(dto.LaboratoryId);
+    
+        await _emailService.SendEmailAsync(
+            dto.Email,
+            "CLMS - Booking Confirmation",
+            $"""
+            <html>
+            <body>
+                <h2>Laboratory Booking Confirmed</h2>
+
+                <p>Hello <strong>{booking.RequestorName}</strong>,</p>
+
+                <p>
+                    Your laboratory booking has been successfully created.
+                    Here is a summary of your booking:
+                </p>
+
+                <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            <strong>Laboratory</strong>
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            Laboratory ID: {laboratory.Name}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            <strong>Requestor</strong>
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            {booking.RequestorName}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            <strong>Date</strong>
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            {booking.Date:MMMM dd, yyyy}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            <strong>Time</strong>
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            {booking.StartTime:hh:mm tt}
+                            -
+                            {booking.EndTime:hh:mm tt}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            <strong>Purpose</strong>
+                        </td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">
+                            {booking.Purpose}
+                        </td>
+                    </tr>
+                </table>
+
+                <p>
+                    Please keep this email for your records.
+                </p>
+
+                <p>
+                    Thank you,<br>
+                    <strong>CLMS Laboratory Management System</strong>
+                </p>
+            </body>
+            </html>
+            """
+        );
         return await _repository.CreateAsync(booking);
+        
     }
 
     public async Task<IEnumerable<BookingDTO>> GetAllAsync()
