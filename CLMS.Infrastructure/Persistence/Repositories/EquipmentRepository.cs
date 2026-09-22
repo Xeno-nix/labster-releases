@@ -62,7 +62,14 @@ public class EquipmentRepository : IEquipmentRepository
 
         AddEquipmentParameters(command, equipment);
 
-        await command.ExecuteNonQueryAsync();
+        try
+        {
+            await command.ExecuteNonQueryAsync();
+        }
+        catch (MySqlException ex) when (ex.Number == 1062)
+        {
+            throw new InvalidOperationException("EQUIPMENT_NO_CONFLICT");
+        }
     }
 
     public async Task<IEnumerable<EquipmentDTO>> GetAllAsync()
@@ -115,7 +122,6 @@ public class EquipmentRepository : IEquipmentRepository
         const string sql = """
             UPDATE equipment
             SET
-                equipment_no = @EquipmentNo,
                 serial_number = @SerialNumber,
                 equipment_name = @EquipmentName,
                 brand = @Brand,
@@ -140,6 +146,24 @@ public class EquipmentRepository : IEquipmentRepository
         AddEquipmentParameters(command, equipment);
 
         await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task<string> GetNextEquipmentNoAsync()
+    {
+        const string sql = """
+            SELECT COALESCE(MAX(CAST(SUBSTRING(equipment_no, 4) AS UNSIGNED)), 0) + 1
+            FROM equipment
+            WHERE equipment_no REGEXP '^EQ-[0-9]+$';
+            """;
+
+        await using var connection = new MySqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+        var result = await command.ExecuteScalarAsync();
+        var nextNumber = Convert.ToInt32(result);
+
+        return $"EQ-{nextNumber:D3}";
     }
 
     public async Task DeleteAsync(Guid id)

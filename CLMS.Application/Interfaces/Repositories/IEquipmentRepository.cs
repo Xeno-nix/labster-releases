@@ -30,4 +30,7 @@ public interface IEquipmentRepository
 
     /// <summary>Equipment currently assigned to a given computer unit.</summary>
     Task<IEnumerable<EquipmentAssignmentDTO>> GetAssignmentsForComputerUnitAsync(Guid computerUnitId);
+
+    // method to compute the next number
+    Task<string> GetNextEquipmentNoAsync();
 }
