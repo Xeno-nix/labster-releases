@@ -31,7 +31,7 @@ public class Name
             throw new ArgumentException("Name cannot be null or empty.", nameof(value));
         }
 
-        if (!Regex.IsMatch(value,@"^[\p{L}'\-]+$"))
+        if (!Regex.IsMatch(value, @"^[\p{L}'\-]+(\s[\p{L}'\-]+)*$"))
         {
             throw new ArgumentException("Name can only contain letters, apostrophes, and hyphens.", nameof(value));
         }

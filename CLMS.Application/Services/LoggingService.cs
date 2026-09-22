@@ -132,6 +132,7 @@ public class LoggingService : ILoggingService
             .ConfigureAwait(false))
             .ToList();
 
+        Console.WriteLine($"Found {todaysBookings.Count} bookings for '{bookedUnder}' on {today:yyyy-MM-dd}.");
         var matches = todaysBookings
             .Where(b => b.StartTime <= currentTime && b.EndTime >= currentTime)
             .ToList();
