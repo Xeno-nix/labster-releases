@@ -240,7 +240,6 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     {
         var dto = new UpsertEquipmentDTO
         {
-            EquipmentNo = model.EquipmentNo,
             SerialNumber = model.SerialNo,
             EquipmentName = model.EquipmentName,
             Brand = model.Brand,
@@ -317,7 +316,6 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
         var dto = new UpsertEquipmentDTO
         {
-            EquipmentNo = SelectedEquipment.EquipmentNo,
             SerialNumber = SelectedEquipment.SerialNo,
             EquipmentName = SelectedEquipment.EquipmentName,
             Brand = SelectedEquipment.Brand,
