@@ -21,24 +21,38 @@ public class EquipmentService : IEquipmentService
 
     public async Task<Guid> CreateAsync(UpsertEquipmentDTO dto)
     {
-        var equipment = new Equipment(
-            Guid.NewGuid(),
-            dto.EquipmentNo,
-            dto.SerialNumber,
-            dto.EquipmentName,
-            dto.Brand,
-            dto.ModelNumber,
-            dto.EquipmentType,
-            ParseStatus(dto.Status),
-            dto.NeedsPm,
-            dto.NeedsCalibration,
-            dto.Remarks);
+        const int maxAttempts = 3;
 
-        await _repository.CreateAsync(equipment);
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var equipmentNo = await _repository.GetNextEquipmentNoAsync();
 
-        return equipment.Id;
+            var equipment = new Equipment(
+                Guid.NewGuid(),
+                equipmentNo,
+                dto.SerialNumber,
+                dto.EquipmentName,
+                dto.Brand,
+                dto.ModelNumber,
+                dto.EquipmentType,
+                ParseStatus(dto.Status),
+                dto.NeedsPm,
+                dto.NeedsCalibration,
+                dto.Remarks);
+
+            try
+            {
+                await _repository.CreateAsync(equipment);
+                return equipment.Id;
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "EQUIPMENT_NO_CONFLICT" && attempt < maxAttempts)
+            {
+                // Someone else's save grabbed this number first — retry with a fresh one.
+            }
+        }
+
+        throw new InvalidOperationException("Could not generate a unique equipment number. Please try again.");
     }
-
     public Task<IEnumerable<EquipmentDTO>> GetAllAsync()
         => _repository.GetAllAsync();
 
@@ -47,9 +61,12 @@ public class EquipmentService : IEquipmentService
 
     public async Task UpdateAsync(Guid id, UpsertEquipmentDTO dto)
     {
+        var existing = await _repository.GetByIdAsync(id)
+            ?? throw new InvalidOperationException("Equipment not found.");
+
         var equipment = new Equipment(
             id,
-            dto.EquipmentNo,
+            existing.EquipmentNo,
             dto.SerialNumber,
             dto.EquipmentName,
             dto.Brand,

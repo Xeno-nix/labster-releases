@@ -2,7 +2,6 @@ namespace CLMS.Application.DTOs.Inventory;
 
 public class UpsertEquipmentDTO
 {
-    public string EquipmentNo { get; set; } = string.Empty;
     public string? SerialNumber { get; set; }
     public string EquipmentName { get; set; } = string.Empty;
     public string? Brand { get; set; }

@@ -20,5 +20,8 @@
   "homepage": "https://github.com/5kr1mp/CLMS#readme",
   "devDependencies": {
     "tailwindcss": "^4.3.3"
+  },
+  "dependencies": {
+    "lucide": "^1.47.0"
   }
 }
