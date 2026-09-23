@@ -1,4 +1,4 @@
-﻿using CLMS.Domain.Entities.Authentication;
+﻿using CLMS.Domain.Entities.Identity;
 
 namespace CLMS.Application.Persistence.Interfaces;
 

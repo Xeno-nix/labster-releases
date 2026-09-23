@@ -1,10 +1,10 @@
-﻿using CLMS.Application.Authentication.Interfaces;
+﻿using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Persistence.Interfaces;
-using CLMS.Domain.Entities.Authentication;
+using CLMS.Domain.Entities.Identity;
 using CLMS.Domain.ValueObjects;
 using CLMS.Shared.Dtos;
 
-namespace CLMS.Application.Authentication.Services;
+namespace CLMS.Application.Identity.Services;
 
 public sealed class AuthenticationService(
     IUserRepository userRepository,

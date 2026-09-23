@@ -1,4 +1,4 @@
-﻿namespace CLMS.Domain.Entities.Authentication;
+﻿namespace CLMS.Domain.Entities.Identity;
 
 public class RefreshToken
 {

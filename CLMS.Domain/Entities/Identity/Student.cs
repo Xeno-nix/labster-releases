@@ -1,6 +1,7 @@
 ﻿using CLMS.Domain.Common;
 using CLMS.Domain.ValueObjects;
-namespace CLMS.Domain.Entities.Authentication;
+
+namespace CLMS.Domain.Entities.Identity;
 
 public class Student : AuditableEntity
 {
@@ -12,7 +13,7 @@ public class Student : AuditableEntity
     
     public Student(Guid id, Name firstName, Name lastName, Name? middleInitial, Name? suffix)
     {
-        _id = id;
+        Id = id;
         FirstName = firstName;
         LastName = lastName;
         MiddleName = middleInitial;

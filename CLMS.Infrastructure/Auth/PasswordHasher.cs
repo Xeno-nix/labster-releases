@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
-using CLMS.Application.Authentication.Interfaces;
 using Konscious.Security.Cryptography;
 using System.Text;
+using CLMS.Application.Identity.Interfaces;
 
 namespace CLMS.Infrastructure.Auth;
 

@@ -1,4 +1,4 @@
-using CLMS.Application.Authentication.Interfaces;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Persistence.Interfaces;
 using CLMS.Infrastructure.Auth;
 using CLMS.Infrastructure.Persistence.MySql;

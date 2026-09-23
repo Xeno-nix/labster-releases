@@ -1,6 +1,6 @@
-﻿using CLMS.Application.Authentication.Interfaces;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
+using CLMS.Application.Identity.Interfaces;
 
 namespace CLMS.Infrastructure.Auth;
 

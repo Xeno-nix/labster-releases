@@ -1,4 +1,4 @@
-﻿namespace CLMS.Application.Authentication.Interfaces;
+﻿namespace CLMS.Application.Identity.Interfaces;
 
 public interface IPasswordHasher
 {

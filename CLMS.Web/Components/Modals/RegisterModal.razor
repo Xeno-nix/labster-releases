@@ -1,0 +1,371 @@
+﻿@rendermode InteractiveServer
+
+@using System.ComponentModel.DataAnnotations
+@using CLMS.Shared.Dtos
+@using CLMS.Application.Identity.Services
+@using CLMS.Domain.Enums
+
+@inject AuthenticationService AuthService;
+@inject NavigationManager Navigation;
+
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+
+        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            <div class="flex items-center justify-between
+                        border-b border-gray-200 px-6 py-4">
+                <h2 class="text-xl text-gray-900">Register User</h2>
+                <button
+                    type="button"
+                    @onclick="Close"
+                    class="text-2xl text-gray-400 hover:text-gray-600">
+                    &times;
+                </button>
+            </div>
+            
+            <EditForm Model="Model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                <div class="space-y-5 px-6 py-6">
+                    <!-- Personal Information -->
+                    <div>
+                        <h3 class="mb-3 text-sm font-semibold text-gray-900">Personal Information</h3>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">First Name</label>
+
+                                <InputText
+                                    @bind-Value="Model.FirstName"
+                                    class="w-full rounded-lg border border-gray-300
+                                           px-3 py-2 text-sm outline-none
+                                           focus:border-primary
+                                           focus:ring-2 focus:ring-primary/20" />
+
+                                <ValidationMessage
+                                    For="() => Model.FirstName"
+                                    class="mt-1 text-xs text-error" />
+                            </div>
+
+
+                            <!-- Last Name -->
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">
+                                    Last Name
+                                </label>
+
+                                <InputText
+                                    @bind-Value="Model.LastName"
+                                    class="w-full rounded-lg border border-gray-300
+                                           px-3 py-2 text-sm outline-none
+                                           focus:border-primary
+                                           focus:ring-2 focus:ring-primary/20" />
+
+                                <ValidationMessage
+                                    For="() => Model.LastName"
+                                    class="mt-1 text-xs text-error" />
+                            </div>
+
+
+                            <!-- Middle Name -->
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">
+                                    Middle Name
+                                    <span class="font-normal text-muted">
+                                        (Optional)
+                                    </span>
+                                </label>
+
+                                <InputText
+                                    @bind-Value="Model.MiddleName"
+                                    class="w-full rounded-lg border border-gray-300
+                                           px-3 py-2 text-sm outline-none
+                                           focus:border-primary
+                                           focus:ring-2 focus:ring-primary/20" />
+                            </div>
+
+
+                            <!-- Suffix -->
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">
+                                    Suffix
+                                    <span class="font-normal text-muted">
+                                        (Optional)
+                                    </span>
+                                </label>
+
+                                <InputText
+                                    @bind-Value="Model.Suffix"
+                                    placeholder="Jr., Sr., III"
+                                    class="w-full rounded-lg border border-gray-300
+                                           px-3 py-2 text-sm outline-none
+                                           focus:border-primary
+                                           focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Account Information -->
+                    <div>
+
+                        <h3 class="mb-3 text-sm font-semibold text-gray-900">
+                            Account Information
+                        </h3>
+
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                            <!-- Email -->
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">
+                                    Email
+                                </label>
+
+                                <InputText
+                                    type="email"
+                                    @bind-Value="Model.Email"
+                                    class="w-full rounded-lg border border-gray-300
+                                           px-3 py-2 text-sm outline-none
+                                           focus:border-primary
+                                           focus:ring-2 focus:ring-primary/20" />
+
+                                <ValidationMessage
+                                    For="() => Model.Email"
+                                    class="mt-1 text-xs text-error" />
+                            </div>
+
+
+                            <!-- Role -->
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700">
+                                    Role
+                                </label>
+
+                                <InputSelect
+                                    @bind-Value="Model.UserRole"
+                                    class="w-full rounded-lg border border-gray-300
+                                           bg-white px-3 py-2 text-sm outline-none
+                                           focus:border-primary
+                                           focus:ring-2 focus:ring-primary/20">
+
+                                    @foreach (var role in Enum.GetValues<Role>())
+                                    {
+                                        <option value="@role">
+                                            @role
+                                        </option>
+                                    }
+
+                                </InputSelect>
+
+                            </div>
+
+
+                            <!-- Password -->
+                            <div class="sm:col-span-2">
+                                <label class="mb-1 block text-sm font-medium text-gray-700">
+                                    Password
+                                </label>
+
+                                <InputText
+                                    type="password"
+                                    @bind-Value="Model.Password"
+                                    class="w-full rounded-lg border border-gray-300
+                                           px-3 py-2 text-sm outline-none
+                                           focus:border-primary
+                                           focus:ring-2 focus:ring-primary/20" />
+
+                                <ValidationMessage
+                                    For="() => Model.Password"
+                                    class="mt-1 text-xs text-error" />
+                            </div>
+                            
+                            <!-- Confirm Password -->
+                            <div class="sm:col-span-2">
+                                <label class="mb-1 block text-sm font-medium text-gray-700">
+                                    Confirm Password
+                                </label>
+
+                                <InputText
+                                    type="password"
+                                    @bind-Value="Model.ConfirmPassword"
+                                    class="w-full rounded-lg border border-gray-300
+                                           px-3 py-2 text-sm outline-none
+                                           focus:border-primary
+                                           focus:ring-2 focus:ring-primary/20" />
+
+                                <ValidationMessage
+                                    For="() => Model.ConfirmPassword"
+                                    class="mt-1 text-xs text-error" />
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =================================================
+                         APPLICATION ERROR
+                         ================================================= -->
+                    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+                    {
+                        <div class="rounded-lg border border-error/20
+                                    bg-error/10 px-4 py-3 text-sm text-error">
+
+                            @ErrorMessage
+
+                        </div>
+                    }
+
+                </div>
+
+
+                <!-- =================================================
+                     FOOTER
+                     ================================================= -->
+                <div class="flex justify-end gap-3
+                            border-t border-gray-200 px-6 py-4">
+
+                    <button
+                        type="button"
+                        @onclick="Close"
+                        class="rounded-lg border border-gray-300
+                               px-4 py-2.5 text-sm font-medium
+                               text-gray-700 hover:bg-gray-50">
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        disabled="@IsSubmitting"
+                        class="rounded-lg bg-primary px-4 py-2.5
+                               text-sm font-medium text-white
+                               hover:bg-primary-dark
+                               disabled:cursor-not-allowed
+                               disabled:opacity-50">
+
+                        @(IsSubmitting ? "Registering..." : "Register User")
+
+                    </button>
+
+                </div>
+
+            </EditForm>
+
+        </div>
+
+    </div>
+}
+
+
+@code {
+
+    // =============================================================
+    // COMPONENT PARAMETERS
+    // =============================================================
+
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> IsOpenChanged { get; set; }
+
+    // Parent gets notified after successful registration.
+    [Parameter]
+    public EventCallback OnRegistered { get; set; }
+
+
+    // =============================================================
+    // FORM STATE
+    // =============================================================
+
+    private RegisterFormModel Model = new();
+    private string? ErrorMessage;
+    private bool IsSubmitting;
+
+
+    // =============================================================
+    // SUBMIT
+    // =============================================================
+    
+    private async Task HandleSubmit()
+    {
+        if (IsSubmitting)
+            return;
+
+        IsSubmitting = true;
+        ErrorMessage = null;
+
+        try
+        {
+            var request = new RegisterDto(
+                Model.FirstName,
+                Model.LastName,
+                Model.MiddleName,
+                Model.Suffix,
+                Model.Email,
+                Model.UserRole,
+                Model.Password
+            );
+
+            await AuthService.RegisterAsync(request);
+
+            // Tell parent that registration succeeded.
+            await OnRegistered.InvokeAsync();
+
+            // Close modal.
+            await Close();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // For example:
+            // "A user with this email already exists."
+
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+    private sealed class RegisterFormModel
+    {
+        [Required(ErrorMessage = "First name is required.")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Last name is required.")]
+        public string LastName { get; set; } = string.Empty;
+
+        public string? MiddleName { get; set; }
+
+        public string? Suffix { get; set; }
+
+        [Required(ErrorMessage = "Email is required.")]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        public Role UserRole { get; set; }
+
+        [Required(ErrorMessage = "Password is required.")]
+        [MinLength(8)]
+        public string Password { get; set; } = string.Empty;
+    
+        [Required(ErrorMessage = "Enter your password.")]
+        [Compare(nameof(Password), ErrorMessage = "The password and confirmation password do not match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
+    // =============================================================
+    // CLOSE
+    // =============================================================
+
+    private async Task Close()
+    {
+        Navigation.NavigateTo("/admin/users");
+        Model = new();
+        ErrorMessage = null;
+
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    
+
+}

@@ -1,4 +1,4 @@
-using CLMS.Application.Authentication.Interfaces;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Shared.Contracts;
 
 namespace CLMS.Infrastructure.Auth;

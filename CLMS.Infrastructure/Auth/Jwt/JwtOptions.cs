@@ -11,6 +11,17 @@ public sealed class JwtOptions
 
     public bool IsValid()
     {
+        Console.WriteLine(
+        $"""
+         SigningAlg : {SigningAlgorithm}
+         Issuer : {Issuer}
+         Audience : {Audience}
+         Key : {Key}
+         RefreshTokenExpirationHours : {RefreshTokenExpirationHours}
+         AccessTokenExpirationMinutes : {AccessTokenExpirationMinutes}
+         """
+            );
+        
         return !string.IsNullOrWhiteSpace(Issuer) &&
                !string.IsNullOrWhiteSpace(SigningAlgorithm) &&
                !string.IsNullOrWhiteSpace(Key) &&

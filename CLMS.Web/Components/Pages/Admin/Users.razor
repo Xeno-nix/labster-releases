@@ -1,0 +1,233 @@
+﻿@page "/admin/users"
+@page "/admin/users/register"
+@page "/admin/users/view"
+
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using CLMS.Application.Identity.Services
+@using CLMS.Web.Components.Modals;
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.WebUtilities;
+
+@inject AuthenticationStateProvider AuthenticationStateProvider;
+@inject UserManagementService UserMgmtService;
+@inject NavigationManager Navigation;
+
+<PageTitle>User Management</PageTitle>
+
+<div class="min-h-screen bg-surface font-sans text-gray-800">
+    
+    <header class="border-b border-gray-200 bg-white">
+        <div class="mx-auto max-w-7xl px-6 py-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-primary text-2xl mb-1">User Management</h1>
+                </div>
+
+                <!-- Register User -->
+                <button
+                    @onclick="OpenRegisterModal"
+                    class="rounded-lg bg-primary px-4 py-2.5
+                           text-sm font-medium text-white
+                           hover:bg-primary-dark">
+                    Register User
+                </button>
+            </div>
+        </div>
+    </header>
+    
+
+    <RegisterModal
+        @bind-IsOpen="_showRegisterModal"
+        OnRegistered="LoadUsersAsync"/>
+    
+    <ViewUserModal
+        @bind-IsOpen="_showViewUserModal"
+        @bind-UserId="SelectedUserId"
+        />
+
+    
+    <main class="mx-auto max-w-7xl px-6 py-6">
+        <div class="overflow-hidden rounded-lgborder border-gray-200 bg-white">
+            
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 text-xs
+                                   uppercase text-muted">
+                    <tr>
+                        <th class="w-1/3 px-5 py-3">Name</th>
+                        <th class="w-1/3 px-5 py-3">Email</th>
+                        <th class="px-5 py-3">Role</th>
+                        <th class="px-5 py-3 text-center"></th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                    @if (_users.Count <= 0)
+                    {
+                        <tr>
+                            <td class="px-5 py-4 text-gray-500">There are currently no registered users...</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var user in _users)
+                        {
+                            <tr class="hover:bg-gray-50">
+                                <!-- Name -->
+                                <td class="px-5 py-4">
+                                    <span class="font-medium text-gray-900">@user.FullName</span>
+                                </td>
+                                <!-- Email -->
+                                <td class="px-5 py-4 text-muted">@user.Email</td>
+                                <!-- Role -->
+                                <td class="px-5 py-4">
+                                    @user.Role
+                                </td>
+                                <!-- Actions -->
+                                <td class="px-5 py-4">
+                                    <div class="flex justify-center gap-2">
+                                        <button
+                                            @onclick="() => ViewUser(user.Id)"
+                                            class="rounded-md px-3 py-1.5
+                                                       text-xs font-medium
+                                                       text-primary
+                                                       hover:bg-primary/10">
+                                            View
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+
+@code {
+
+    private List<UserRow> _users = new List<UserRow>();
+    private bool _showRegisterModal;
+    private bool _showViewUserModal;
+    private Guid? _currentUserId;
+    
+    [Parameter]
+    public Guid? SelectedUserId { get; set; }
+
+    private void Test()
+    {
+        Console.WriteLine("test");
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier);
+
+        if (userIdClaim != null &&
+            Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            _currentUserId = userId;
+        }
+        
+        ReadUrlState();
+        await LoadUsersAsync();
+    }
+
+    // ============================================================
+    // ACTIONS
+    //
+    // These are intentionally empty for the MVP UI.
+    // Later they can navigate to pages or invoke use cases.
+    // ============================================================
+
+    private async Task LoadUsersAsync()
+    {
+        _users = (await UserMgmtService.GetUsers())
+            .Where(user => user.Id != _currentUserId)
+            .Select(user => new UserRow(
+                user.Id,
+                user.GetFullName(),
+                user.Email,
+                user.UserRole.ToString()))
+            .ToList();
+    }
+
+    private void OpenRegisterModal()
+    {
+        Navigation.NavigateTo("/admin/users/register");
+    }
+
+    private void ViewUser(Guid userId)
+    {
+        Console.WriteLine("viewing user " + userId);
+        Navigation.NavigateTo($"/admin/users/view?id={userId}");
+    }
+
+    private void ReadUrlState()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        
+        var path = uri.AbsolutePath.Split("/", StringSplitOptions.RemoveEmptyEntries);
+
+        // /admin/users/view?id={userId}
+        // TODO : Error modals for invalid uri state
+        if (
+            path is ["admin", "users", "view"]
+        )
+        {
+            var query = QueryHelpers.ParseQuery(uri.Query);
+
+            if (
+                query.TryGetValue("id", out var idQuery) && 
+                Guid.TryParse(idQuery, out var userId)
+            )
+            {
+                _showViewUserModal = true;
+                SelectedUserId = userId;
+                _showRegisterModal = false;
+                return;
+            }
+        }
+        
+        // /admin/users/register
+        if (path is ["admin", "users","register"])
+        {
+            _showRegisterModal = true;
+            _showViewUserModal = false;
+            SelectedUserId = null;
+            return;
+        }
+
+        SelectedUserId = null;
+        _showViewUserModal = false;
+        _showRegisterModal = false;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        ReadUrlState();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+    
+    private sealed record UserRow(
+        Guid Id,
+        string FullName,
+        string Email,
+        string Role
+    );
+}

@@ -9,6 +9,7 @@ using CLMS.Infrastructure.Services;
 using CLMS.Infrastructure;
 using CLMS.Infrastructure.Auth;
 using System.Text;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -31,7 +32,7 @@ builder.Services
     {
         options.JsonSerializerOptions.Converters.Add(
             new JsonStringEnumConverter());
-    });;
+    });
 
 // For JWT Options Configuration (Grabs config from user secrets)
 builder.Services.AddOptions<JwtOptions>()
@@ -40,7 +41,18 @@ builder.Services.AddOptions<JwtOptions>()
 
 // authentication && authorization
 builder.Services
-    .AddAuthentication()
+    .AddAuthentication(options =>
+    {
+        // Used by Blazor/UI
+        options.DefaultAuthenticateScheme =
+            CookieAuthenticationDefaults.AuthenticationScheme;
+
+        options.DefaultSignInScheme =
+            CookieAuthenticationDefaults.AuthenticationScheme;
+
+        options.DefaultChallengeScheme =
+            CookieAuthenticationDefaults.AuthenticationScheme;
+    })
     .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, o =>
     {
         
@@ -61,7 +73,7 @@ builder.Services
             )
         };
     })
-    .AddCookie("cookie", options =>
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
         options.Cookie.Name = "CLMS.Auth";
         options.LoginPath = "/login";

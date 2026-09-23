@@ -10,6 +10,7 @@ public class MySqlConnectionFactory
 
     public MySqlConnectionFactory(IConfiguration configuration)
     {
+        // NOTE : Change connection string base sa imong gamiton jud didto sa app settings or user secrets
         _connectionString = configuration.GetConnectionString("ClmsDatabase")
             ?? throw new InvalidOperationException("Connection string 'ClmsDatabase' not found.");
     }

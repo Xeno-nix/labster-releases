@@ -1,10 +1,9 @@
-﻿using CLMS.Application.Authentication.Interfaces;
-using CLMS.Domain.Entities.Authentication;
-using System.Text;
+﻿using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Shared.Dtos;
 using Microsoft.Extensions.Options;
 

@@ -1,17 +1,15 @@
 ﻿using System.Security.Claims;
-using CLMS.Application.Authentication.Services;
 using CLMS.Shared.Dtos;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using AuthenticationService = CLMS.Application.Identity.Services.AuthenticationService;
 
 namespace CLMS.Web.Controllers;
 
 [ApiController]
-// TODO : Remember to remove once cookie authentication is yes or when
-//      done testing api
-[IgnoreAntiforgeryToken]
 public class AuthController(
-    CLMS.Application.Authentication.Services.AuthenticationService authService)
+    AuthenticationService authService)
     : ControllerBase
 {
     [HttpPost("/auth/cookie-login")]
@@ -29,11 +27,11 @@ public class AuthController(
                 new(ClaimTypes.Role, result.UserRole.ToString())
             };
         
-            var identity = new ClaimsIdentity(claims, "cookie");
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             
             var principal = new ClaimsPrincipal(identity);
             
-            await HttpContext.SignInAsync("cookie",principal);
+            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,principal);
 
             return Redirect("/");
         }
@@ -44,7 +42,12 @@ public class AuthController(
     }
     
     [HttpPost("/auth/cookie-logout")]
-    
+    public async Task<IActionResult> Logout()
+    {
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        return Redirect("/");
+    }
     
     
     /// <summary>
@@ -52,6 +55,7 @@ public class AuthController(
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
+    [IgnoreAntiforgeryToken]
     [HttpPost("api/auth/login")]
     public async Task<IActionResult> Login([FromBody] AuthenticationRequestDto request)
     {
@@ -70,6 +74,7 @@ public class AuthController(
         return Ok(result);
     }
 
+    [IgnoreAntiforgeryToken]
     [HttpPost("api/auth/register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto request)
     {
@@ -92,6 +97,7 @@ public class AuthController(
         return Ok(result);
     }
 
+    [IgnoreAntiforgeryToken]
     [HttpPost("api/auth/logout")]
     public async Task<IActionResult> Logout([FromBody] string refreshToken)
     {
@@ -99,6 +105,7 @@ public class AuthController(
         return Ok("Logout successful");
     }
 
+    [IgnoreAntiforgeryToken]
     [HttpPost("api/auth/refresh")]
     public async Task<IActionResult> Refresh([FromBody] string refreshToken)
     {

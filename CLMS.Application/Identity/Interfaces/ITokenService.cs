@@ -1,7 +1,6 @@
-﻿using CLMS.Domain.Entities.Authentication;
-using CLMS.Shared.Dtos;
+﻿using CLMS.Shared.Dtos;
 
-namespace CLMS.Application.Authentication.Interfaces
+namespace CLMS.Application.Identity.Interfaces
 {
     public interface ITokenService
     {

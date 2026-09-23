@@ -1,4 +1,4 @@
-using CLMS.Application.Authentication.Services;
+using CLMS.Application.Identity.Services;
 using Microsoft.Extensions.DependencyInjection;
 using CLMS.Application.Logging;
 using CLMS.Application.Interfaces;
@@ -11,6 +11,8 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         return services
+            .AddScoped<AuthenticationService>()
+            .AddScoped<UserManagementService>()
             .AddScoped<LoginUseCase>()
             .AddScoped<ILoggingService, LoggingService>()
             .AddScoped<ILoggingAppService, LoggingAppService>()

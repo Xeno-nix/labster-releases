@@ -12,4 +12,24 @@ public class Booking : AuditableEntity
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
 
+    public Booking (
+        Guid id,
+        int labId,
+        string requestorName,
+        ContactNumber contactNumber,
+        string purpose,
+        DateOnly date,
+        TimeOnly startTime,
+        TimeOnly endTime
+    )
+    {
+        Id = id;
+        LaboratoryId = labId;
+        RequestorName = requestorName;
+        ContactNumber = contactNumber;
+        Purpose = purpose;
+        Date = date;
+        StartTime = startTime;
+        EndTime = endTime;
+    }
 }

@@ -3,7 +3,7 @@
 public enum Role
 {
     Admin = 0,
-    Faculty = 1,    
+    Faculty = 1,
 }
             
 

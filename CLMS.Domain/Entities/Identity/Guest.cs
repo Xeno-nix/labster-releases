@@ -1,5 +1,6 @@
 ﻿using CLMS.Domain.ValueObjects;
-namespace CLMS.Domain.Entities.Authentication;
+
+namespace CLMS.Domain.Entities.Identity;
 public class Guest
 {      
     public Guid GuestId { get; set; }

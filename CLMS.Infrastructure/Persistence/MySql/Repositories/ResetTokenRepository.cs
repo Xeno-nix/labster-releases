@@ -1,6 +1,6 @@
 ﻿using CLMS.Infrastructure.Persistence.MySql.Utils;
 using CLMS.Application.Persistence.Interfaces;
-using CLMS.Domain.Entities.Authentication;
+using CLMS.Domain.Entities.Identity;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Persistence.MySql.Repositories;

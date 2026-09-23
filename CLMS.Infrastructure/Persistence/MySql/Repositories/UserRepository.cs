@@ -1,5 +1,5 @@
 using CLMS.Application.Persistence.Interfaces;
-using CLMS.Domain.Entities.Authentication;
+using CLMS.Domain.Entities.Identity;
 using CLMS.Infrastructure.Persistence.MySql;
 using CLMS.Domain.Enums;
 using CLMS.Domain.ValueObjects;
@@ -90,7 +90,8 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                 suffix,
                 email,
                 role_type,
-                password_hash
+                password_hash,
+                deleted_at
             FROM users;
             """;
 
@@ -102,23 +103,28 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
 
         while (await reader.ReadAsync())
         {
-            string? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
+            Name? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
                 ? null : 
-                reader.GetString("middle_name");
+                new Name(reader.GetString("middle_name"));
             
-            string? suffix = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
+            Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
                 ? null : 
-                reader.GetString("middle_name");
+                new Name(reader.GetString("suffix"));
+
+            DateTime? deletedAt = reader.IsDBNull(reader.GetOrdinal("deleted_at"))
+                ? null :
+                reader.GetDateTime("deleted_at");
             
             users.Add(new(
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
                 new Name(reader.GetString("last_name")),
-                middleName is null ? null : new Name(middleName),
-                suffix is null ? null : new Name(suffix),
+                middleName,
+                suffix,
                 reader.GetString("email"),
                 Enum.Parse<Role>(reader.GetString("role_type"),true),
-                reader.GetString("password_hash")
+                reader.GetString("password_hash"),
+                deletedAt 
             ));
         }
 
@@ -153,20 +159,20 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
 
         while (await reader.ReadAsync())
         {
-            string? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
+            Name? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
                 ? null : 
-                reader.GetString("middle_name");
+                new Name(reader.GetString("middle_name"));
             
-            string? suffix = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
+            Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
                 ? null : 
-                reader.GetString("middle_name");
+                new Name(reader.GetString("suffix"));
             
             users.Add(new(
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
                 new Name(reader.GetString("last_name")),
-                middleName is null ? null : new Name(middleName),
-                suffix is null ? null : new Name(suffix),
+                middleName,
+                suffix,
                 reader.GetString("email"),
                 Enum.Parse<Role>(reader.GetString("role_type"),true),
                 reader.GetString("password_hash")
@@ -205,13 +211,13 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
 
         if (await reader.ReadAsync())
         {
-            string? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
+            Name? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
                 ? null : 
-                reader.GetString("middle_name");
+                new Name(reader.GetString("middle_name"));
             
-            string? suffix = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
+            Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
                 ? null : 
-                reader.GetString("middle_name");
+                new Name(reader.GetString("suffix"));
             
             Console.WriteLine("UserRepository.FindByEmailAsync() : " + reader.GetString("role_type"));
             
@@ -219,8 +225,8 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
                 new Name(reader.GetString("last_name")),
-                middleName is null ? null : new Name(middleName),
-                suffix is null ? null : new Name(suffix),
+                middleName,
+                suffix,
                 reader.GetString("email"),
                 Enum.Parse<Role>(reader.GetString("role_type"),true),
                 reader.GetString("password_hash")
@@ -243,7 +249,9 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                suffix,
                email,
                role_type,
-               password_hash
+               password_hash,
+               created_at,
+               last_modified_at
            FROM users
            WHERE user_id = @UserId
            LIMIT 1;
@@ -259,23 +267,25 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
 
         if (await reader.ReadAsync())
         {
-            string? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
+            Name? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
                 ? null : 
-                reader.GetString("middle_name");
+                new Name(reader.GetString("middle_name"));
             
-            string? suffix = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
+            Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
                 ? null : 
-                reader.GetString("middle_name");
+                new Name(reader.GetString("suffix"));
             
             return new(
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
                 new Name(reader.GetString("last_name")),
-                middleName is null ? null : new Name(middleName),
-                suffix is null ? null : new Name(suffix),
+                middleName,
+                suffix,
                 reader.GetString("email"),
                 Enum.Parse<Role>(reader.GetString("role_type"),true),
-                reader.GetString("password_hash")
+                reader.GetString("password_hash"),
+                reader.GetDateTime("created_at"),
+                reader.GetDateTime("last_modified_at")
             );
         }
 
@@ -309,7 +319,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
         command.AddParam("@Suffix", user.Suffix?.Value);
         command.AddParam("@Email", user.Email);
         command.AddParam("@PasswordHash", user.PasswordHash);
-        command.AddParam("@RoleType", user.UserRole);
+        command.AddParam("@RoleType", user.UserRole.ToLowerCaseString());
         
         var rowsAffected = await command.ExecuteNonQueryAsync();
         return rowsAffected == 1;

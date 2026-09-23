@@ -1,6 +1,6 @@
 ﻿using CLMS.Shared.Contracts;
 
-namespace CLMS.Application.Authentication.Interfaces;
+namespace CLMS.Application.Identity.Interfaces;
 public interface IOAuthService
 {
     Task<ExternalUserInfo> AuthenticateAsync(string authorizationCode);
