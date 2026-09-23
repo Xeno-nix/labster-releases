@@ -1,16 +1,10 @@
 @inject IBookingService BookingService
 @inject ILaboratoryService LaboratoryService
 
-<div class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-12" @onclick="Close">
+<div class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-12">
     <div class="w-full max-w-[520px] rounded-xl border border-gray-200 bg-white" @onclick:stopPropagation="true">
         <div class="flex items-center justify-between px-6 pb-2 pt-5">
             <h5 class="m-0 text-base font-semibold">@(BookingId is not null ? "Edit Booking" : "New Booking")</h5>
-            <button type="button"
-                    class="border-none bg-transparent text-xl leading-none text-gray-500 hover:text-gray-800"
-                    @onclick="Close"
-                    aria-label="Close">
-                &times;
-            </button>
         </div>
         <div class="px-6 pb-6 pt-2">
             @if (!string.IsNullOrEmpty(errorMessage))
