@@ -5,7 +5,7 @@ using CLMS.Domain.Entities.Booking;
 
 namespace CLMS.Application.Services;
 
-public class ClassScheduleService : IClassScheduleService
+public class ClassScheduleService 
 {
     private readonly IClassScheduleRepository _repository;
     

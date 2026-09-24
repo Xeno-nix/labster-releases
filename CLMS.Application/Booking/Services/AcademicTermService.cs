@@ -6,7 +6,7 @@ using CLMS.Domain.Entities.Booking;
 
 namespace CLMS.Application.Services;
 
-public class AcademicTermService : IAcademicTermService
+public class AcademicTermService
 {
     private readonly IAcademicTermRepository _repository;
 

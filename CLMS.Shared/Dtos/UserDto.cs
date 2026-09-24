@@ -1,7 +1,7 @@
 namespace CLMS.Application.DTOs;
 using CLMS.Domain.Enums;
 
-public class UserDTO
+public class UserDto
 {
     public Guid Id { get; set; }
     public string FirstName { get; set; } = string.Empty;

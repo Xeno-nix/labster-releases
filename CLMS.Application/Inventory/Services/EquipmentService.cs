@@ -6,7 +6,7 @@ using CLMS.Domain.Enums;
 
 namespace CLMS.Application.Services;
 
-public class EquipmentService : IEquipmentService
+public class EquipmentService
 {
     private readonly IEquipmentRepository _repository;
 

@@ -13,12 +13,17 @@ public static class DependencyInjection
         return services
             .AddScoped<AuthenticationService>()
             .AddScoped<UserManagementService>()
-            .AddScoped<LoginUseCase>()
-            .AddScoped<ILoggingService, LoggingService>()
-            .AddScoped<ILoggingAppService, LoggingAppService>()
-            .AddScoped<ILogbookService, LogbookService>()  
-            .AddScoped<IEquipmentService, EquipmentService>()
-            .AddScoped<ISupplyService, SupplyService>()
-            .AddScoped<ILaboratoryService, LaboratoryService>();
+            .AddScoped<LoggingService>()
+            .AddScoped<LoggingAppService>()
+            .AddScoped<LogbookService>()  
+            .AddScoped<EquipmentService>()
+            .AddScoped<SupplyService>()
+            .AddScoped<LaboratoryService>()
+            .AddScoped<ClassScheduleService>()
+            .AddScoped<BookingService>()
+            .AddScoped<LaboratoryService>()
+            .AddScoped<CourseService>()
+            .AddScoped<AcademicTermService>()
+            ;
     }
 }

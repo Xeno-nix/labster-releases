@@ -1,18 +1,12 @@
 using CLMS.Application.DTOs.Logbook;
 using CLMS.Application.Interfaces.Repositories;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class LogbookRepository : ILogbookRepository
+public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogbookRepository
 {
-    private readonly string _connectionString;
-
-    public LogbookRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
     public async Task<(List<LogbookEntryDTO> Entries, int TotalCount)> GetPagedAsync(LogbookQueryDTO query)
     {
         var (whereClause, parameters) = BuildWhereClause(query);
@@ -45,7 +39,7 @@ public class LogbookRepository : ILogbookRepository
             {whereClause};
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         int totalCount;
@@ -94,7 +88,7 @@ public class LogbookRepository : ILogbookRepository
             ORDER BY al.time_in DESC;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);

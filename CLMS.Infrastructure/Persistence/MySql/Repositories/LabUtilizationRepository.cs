@@ -1,18 +1,12 @@
 ﻿using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.UtilizationLogging;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class LabUtilizationRepository : ILabUtilizationRepository
+public class LabUtilizationRepository(MySqlConnectionFactory connectionFactory) : ILabUtilizationRepository
 {
-    private readonly string _connectionString;
-
-    public LabUtilizationRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
     public async Task<int> CreateAsync(LaboratoryUseLog log)
     {
         const string sql = """
@@ -40,7 +34,7 @@ public class LabUtilizationRepository : ILabUtilizationRepository
             SELECT LAST_INSERT_ID();
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
@@ -75,7 +69,7 @@ public class LabUtilizationRepository : ILabUtilizationRepository
             WHERE utilization_log_id = @Id;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
@@ -111,7 +105,7 @@ public class LabUtilizationRepository : ILabUtilizationRepository
             LIMIT 1;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
@@ -148,7 +142,7 @@ public class LabUtilizationRepository : ILabUtilizationRepository
             ORDER BY al.time_in DESC;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);

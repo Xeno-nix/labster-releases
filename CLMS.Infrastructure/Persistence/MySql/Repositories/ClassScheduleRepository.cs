@@ -1,19 +1,13 @@
 using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Booking;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class ClassScheduleRepository : IClassScheduleRepository
+public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) : IClassScheduleRepository
 {
-    private readonly string _connectionString;
-
-    public ClassScheduleRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
     public async Task<IEnumerable<ClassScheduleDTO>> GetAllAsync()
     {
         var schedules = new List<ClassScheduleDTO>();
@@ -51,7 +45,7 @@ public class ClassScheduleRepository : IClassScheduleRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -102,7 +96,7 @@ public class ClassScheduleRepository : IClassScheduleRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -175,7 +169,7 @@ public class ClassScheduleRepository : IClassScheduleRepository
             LIMIT 1;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
@@ -220,7 +214,7 @@ public class ClassScheduleRepository : IClassScheduleRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -277,7 +271,7 @@ public class ClassScheduleRepository : IClassScheduleRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -330,7 +324,7 @@ public class ClassScheduleRepository : IClassScheduleRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 

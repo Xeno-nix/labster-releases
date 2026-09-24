@@ -28,14 +28,4 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Security\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="Persistence\Database\**" />
-    <EmbeddedResource Remove="Persistence\Database\**" />
-    <None Remove="Persistence\Database\**" />
-  </ItemGroup>
-
 </Project>

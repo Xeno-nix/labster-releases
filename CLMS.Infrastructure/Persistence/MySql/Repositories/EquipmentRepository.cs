@@ -2,19 +2,13 @@ using CLMS.Application.DTOs.Inventory;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Inventory;
 using CLMS.Domain.Enums;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class EquipmentRepository : IEquipmentRepository
+public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEquipmentRepository
 {
-    private readonly string _connectionString;
-
-    public EquipmentRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
     // ---------------------------------------------------------------
     // Equipment CRUD
     // ---------------------------------------------------------------
@@ -53,7 +47,7 @@ public class EquipmentRepository : IEquipmentRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -77,7 +71,7 @@ public class EquipmentRepository : IEquipmentRepository
         var equipment = new List<EquipmentDTO>();
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -98,7 +92,7 @@ public class EquipmentRepository : IEquipmentRepository
     public async Task<EquipmentDTO?> GetByIdAsync(Guid id)
     {
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -136,7 +130,7 @@ public class EquipmentRepository : IEquipmentRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -156,7 +150,7 @@ public class EquipmentRepository : IEquipmentRepository
             WHERE equipment_no REGEXP '^EQ-[0-9]+$';
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
@@ -177,7 +171,7 @@ public class EquipmentRepository : IEquipmentRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -217,7 +211,7 @@ public class EquipmentRepository : IEquipmentRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -254,7 +248,7 @@ public class EquipmentRepository : IEquipmentRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -299,7 +293,7 @@ public class EquipmentRepository : IEquipmentRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -352,7 +346,7 @@ public class EquipmentRepository : IEquipmentRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -384,7 +378,7 @@ public class EquipmentRepository : IEquipmentRepository
         var assignments = new List<EquipmentAssignmentDTO>();
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -415,7 +409,7 @@ public class EquipmentRepository : IEquipmentRepository
         var assignments = new List<EquipmentAssignmentDTO>();
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 

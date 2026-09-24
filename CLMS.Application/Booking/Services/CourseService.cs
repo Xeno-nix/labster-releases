@@ -6,7 +6,7 @@ using CLMS.Domain.Entities.Booking;
 
 namespace CLMS.Application.Services;
 
-public class CourseService : ICourseService
+public class CourseService 
 {
     private readonly ICourseRepository _repository;
 

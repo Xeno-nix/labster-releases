@@ -13,7 +13,7 @@ namespace CLMS.Application.Services;
 /// current `bookings` schema allows — see remarks on ILoggingService.GuestTimeInAsync
 /// re: the missing approval-status column.
 /// </summary>
-public class LoggingService : ILoggingService
+public class LoggingService 
 {
     private readonly ILabUtilizationRepository _labUtilizationRepository;
     private readonly IStudentRepository _studentRepository;

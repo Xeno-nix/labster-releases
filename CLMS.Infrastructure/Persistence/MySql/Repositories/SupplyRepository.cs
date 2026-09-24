@@ -2,19 +2,13 @@ using CLMS.Application.DTOs.Inventory;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Inventory;
 using CLMS.Domain.Enums;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class SupplyRepository : ISupplyRepository
+public class SupplyRepository(MySqlConnectionFactory connectionFactory) : ISupplyRepository
 {
-    private readonly string _connectionString;
-
-    public SupplyRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
     public async Task<int> CreateAsync(Supply supply)
     {
         const string sql = """
@@ -39,7 +33,7 @@ public class SupplyRepository : ISupplyRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -74,7 +68,7 @@ public class SupplyRepository : ISupplyRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -107,7 +101,7 @@ public class SupplyRepository : ISupplyRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -139,7 +133,7 @@ public class SupplyRepository : ISupplyRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -166,7 +160,7 @@ public class SupplyRepository : ISupplyRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -187,7 +181,7 @@ public class SupplyRepository : ISupplyRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 

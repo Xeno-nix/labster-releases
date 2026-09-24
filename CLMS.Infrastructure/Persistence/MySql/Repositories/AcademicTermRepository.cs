@@ -1,18 +1,13 @@
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Booking;
 using CLMS.Domain.Enums;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class AcademicTermRepository : IAcademicTermRepository
+public class AcademicTermRepository(MySqlConnectionFactory connectionFactory) : IAcademicTermRepository
 {
-    private readonly string _connectionString;
-
-    public AcademicTermRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
 
     public async Task<IEnumerable<AcademicTerm>> GetAllAsync()
     {
@@ -29,7 +24,7 @@ public class AcademicTermRepository : IAcademicTermRepository
             ORDER BY academic_year, semester;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);

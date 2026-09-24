@@ -1,10 +1,7 @@
 using System.Text.Json.Serialization;
 using CLMS.Application;
 using CLMS.Web.Components;
-using CLMS.Application.Interfaces;
-using CLMS.Application.Interfaces.Repositories;
 using CLMS.Application.Services;
-using CLMS.Infrastructure.Repositories;
 using CLMS.Infrastructure.Services;
 using CLMS.Infrastructure;
 using CLMS.Infrastructure.Auth;
@@ -12,8 +9,8 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using CLMS.Application;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -105,39 +102,8 @@ builder.Services
         
     });
 
-// Database connection — shared by every repository below (booking + logging), each of
-// which opens its own MySqlConnection per call rather than going through a shared
-// DbContext or connection factory.
-var connectionString =
-    builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-
-// Register infrastructure and application services
-builder.Services.AddInfrastructureServices(connectionString);
-builder.Services.AddApplication();
-
-// Booking module — Application Services
-builder.Services.AddScoped<IClassScheduleService, ClassScheduleService>();
-builder.Services.AddScoped<IBookingService, BookingService>();
-builder.Services.AddScoped<ILaboratoryService, LaboratoryService>();
-builder.Services.AddScoped<ICourseService, CourseService>();
-builder.Services.AddScoped<IAcademicTermService, AcademicTermService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddHttpClient<IEmailService, EmailService>();
-
-// Booking module — Repositories
-builder.Services.AddScoped<IClassScheduleRepository>(
-    _ => new ClassScheduleRepository(connectionString));
-builder.Services.AddScoped<IBookingRepository>(
-    _ => new BookingRepository(connectionString));
-builder.Services.AddScoped<ILaboratoryRepository>(
-    _ => new LaboratoryRepository(connectionString));
-builder.Services.AddScoped<ICourseRepository>(
-    _ => new CourseRepository(connectionString));
-builder.Services.AddScoped<IAcademicTermRepository>(
-    _ => new AcademicTermRepository(connectionString));
-builder.Services.AddScoped<IUserRepository>(
-    _ => new UserRepository(connectionString));
+// booking daw
+builder.Services.AddHttpClient<EmailService>();
 
 var app = builder.Build();
 

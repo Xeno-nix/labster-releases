@@ -6,7 +6,7 @@ using CLMS.Application.Interfaces.Repositories;
 namespace CLMS.Application.Services;
 
 /// <summary>Port of the admin logbook half of Laravel's LogbookController/LoggingService.</summary>
-public class LogbookService : ILogbookService
+public class LogbookService 
 {
     private readonly ILogbookRepository _repository;
 

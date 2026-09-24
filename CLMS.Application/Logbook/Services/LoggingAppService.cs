@@ -2,16 +2,17 @@
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Application.Logging.Dtos;
+using CLMS.Application.Services;
 using CLMS.Domain.Common;
 
 namespace CLMS.Application.Logging;
 
-public class LoggingAppService : ILoggingAppService
+public class LoggingAppService
 {
-    private readonly ILoggingService _loggingService;
+    private readonly LoggingService _loggingService;
     private readonly IStudentRepository _studentRepository;
 
-    public LoggingAppService(ILoggingService loggingService, IStudentRepository studentRepository)
+    public LoggingAppService(LoggingService loggingService, IStudentRepository studentRepository)
     {
         _loggingService = loggingService ?? throw new ArgumentNullException(nameof(loggingService));
         _studentRepository = studentRepository ?? throw new ArgumentNullException(nameof(studentRepository));

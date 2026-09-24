@@ -1,18 +1,12 @@
 ﻿using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Users;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class GuestRepository : IGuestRepository
+public class GuestRepository(MySqlConnectionFactory connectionFactory) : IGuestRepository
 {
-    private readonly string _connectionString;
-
-    public GuestRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
     public async Task<int> CreateAsync(Guest guest)
     {
         const string sql = """
@@ -34,7 +28,7 @@ public class GuestRepository : IGuestRepository
             SELECT LAST_INSERT_ID();
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
@@ -64,7 +58,7 @@ public class GuestRepository : IGuestRepository
             WHERE guest_id = @Id;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);

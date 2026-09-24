@@ -1,10 +1,11 @@
 @page "/schedule/calendar-view"
+@using CLMS.Application.Services
 @rendermode InteractiveServer
-
-@inject IClassScheduleService ScheduleService
-@inject IAcademicTermService AcademicTermService
-@inject IBookingService BookingService
-@inject ILaboratoryService LaboratoryService
+@attribute [Authorize]
+@inject ClassScheduleService ScheduleService
+@inject AcademicTermService AcademicTermService
+@inject BookingService BookingService
+@inject LaboratoryService LaboratoryService
 @inject NavigationManager Navigation
 
 <PageTitle>Class Schedules</PageTitle>

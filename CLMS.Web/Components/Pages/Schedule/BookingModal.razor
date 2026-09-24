@@ -1,5 +1,6 @@
-@inject IBookingService BookingService
-@inject ILaboratoryService LaboratoryService
+@using CLMS.Application.Services
+@inject BookingService BookingService
+@inject LaboratoryService LaboratoryService
 
 <div class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-12">
     <div class="w-full max-w-[520px] rounded-xl border border-gray-200 bg-white" @onclick:stopPropagation="true">

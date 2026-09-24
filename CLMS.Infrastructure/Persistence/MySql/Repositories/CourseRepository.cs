@@ -1,18 +1,12 @@
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Booking;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class CourseRepository : ICourseRepository
+public class CourseRepository(MySqlConnectionFactory connectionFactory) : ICourseRepository
 {
-    private readonly string _connectionString;
-
-    public CourseRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
     public async Task<IEnumerable<Course>> GetAllAsync()
     {
         var courses = new List<Course>();
@@ -26,7 +20,7 @@ public class CourseRepository : ICourseRepository
             ORDER BY course_name;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
@@ -52,7 +46,7 @@ public class CourseRepository : ICourseRepository
             WHERE course_id = @Id;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);

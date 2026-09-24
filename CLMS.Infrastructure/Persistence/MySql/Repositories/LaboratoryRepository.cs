@@ -1,19 +1,12 @@
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Booking;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class LaboratoryRepository : ILaboratoryRepository
+public class LaboratoryRepository(MySqlConnectionFactory connectionFactory ) : ILaboratoryRepository
 {
-    private readonly string _connectionString;
-
-    public LaboratoryRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
-  
     public async Task<IEnumerable<Laboratory>> GetAllAsync()
     {
         var laboratories = new List<Laboratory>();
@@ -26,7 +19,7 @@ public class LaboratoryRepository : ILaboratoryRepository
             ORDER BY lab_name;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
@@ -51,7 +44,7 @@ public class LaboratoryRepository : ILaboratoryRepository
             WHERE lab_id = @Id;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);

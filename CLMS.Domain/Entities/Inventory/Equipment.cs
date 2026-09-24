@@ -29,7 +29,7 @@ public class Equipment : AuditableEntity, IEquipment
         bool needsCalibration,
         string? remarks)
     {
-        _id = id;
+        Id = id;
         EquipmentNo = equipmentNo;
         SerialNumber = serialNumber;
         EquipmentName = equipmentName;

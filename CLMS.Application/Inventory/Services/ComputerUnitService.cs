@@ -5,7 +5,7 @@ using CLMS.Domain.Entities.Inventory;
 
 namespace CLMS.Application.Services;
 
-public class ComputerUnitService : IComputerUnitService
+public class ComputerUnitService
 {
     private readonly IComputerUnitRepository _repository;
 

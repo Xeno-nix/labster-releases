@@ -1,18 +1,13 @@
 using CLMS.Application.DTOs.Inventory;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Inventory;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class ComputerUnitRepository : IComputerUnitRepository
+public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : IComputerUnitRepository
 {
-    private readonly string _connectionString;
-
-    public ComputerUnitRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
 
     public async Task CreateAsync(ComputerUnit computerUnit)
     {
@@ -34,7 +29,7 @@ public class ComputerUnitRepository : IComputerUnitRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -68,7 +63,7 @@ public class ComputerUnitRepository : IComputerUnitRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -103,7 +98,7 @@ public class ComputerUnitRepository : IComputerUnitRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -136,7 +131,7 @@ public class ComputerUnitRepository : IComputerUnitRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -167,7 +162,7 @@ public class ComputerUnitRepository : IComputerUnitRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -193,7 +188,7 @@ public class ComputerUnitRepository : IComputerUnitRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 

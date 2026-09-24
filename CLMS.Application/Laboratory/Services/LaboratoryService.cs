@@ -6,7 +6,7 @@ using CLMS.Domain.Entities.Booking;
 
 namespace CLMS.Application.Services;
 
-public class LaboratoryService : ILaboratoryService
+public class LaboratoryService 
 {
     private readonly ILaboratoryRepository _repository;
 

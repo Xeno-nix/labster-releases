@@ -13,10 +13,10 @@ public class Booking : AuditableEntity
     public TimeOnly EndTime { get; set; }
 
     public Booking (
-        Guid id,
+        int id,
         int labId,
         string requestorName,
-        ContactNumber contactNumber,
+        string email,
         string purpose,
         DateOnly date,
         TimeOnly startTime,
@@ -26,10 +26,15 @@ public class Booking : AuditableEntity
         Id = id;
         LaboratoryId = labId;
         RequestorName = requestorName;
-        ContactNumber = contactNumber;
+        Email = email;
         Purpose = purpose;
         Date = date;
         StartTime = startTime;
         EndTime = endTime;
+    }
+
+    public Booking()
+    {
+        
     }
 }

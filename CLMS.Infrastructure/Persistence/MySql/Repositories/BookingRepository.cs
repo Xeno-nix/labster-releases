@@ -1,19 +1,13 @@
 using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Booking;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class BookingRepository : IBookingRepository
+public class BookingRepository(MySqlConnectionFactory connectionFactory) : IBookingRepository
 {
-    private readonly string _connectionString;
-
-    public BookingRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
     public async Task<IEnumerable<BookingDTO>> GetAllAsync()
     {
         var bookings = new List<BookingDTO>();
@@ -37,7 +31,7 @@ public class BookingRepository : IBookingRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -76,7 +70,7 @@ public class BookingRepository : IBookingRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -122,7 +116,7 @@ public class BookingRepository : IBookingRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -184,7 +178,7 @@ public class BookingRepository : IBookingRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -222,7 +216,7 @@ public class BookingRepository : IBookingRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 
@@ -273,7 +267,7 @@ public class BookingRepository : IBookingRepository
             """;
 
         await using var connection =
-            new MySqlConnection(_connectionString);
+            connectionFactory.CreateConnection();
 
         await connection.OpenAsync();
 

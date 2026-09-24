@@ -1,19 +1,13 @@
 ﻿using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Users;
 using CLMS.Domain.ValueObjects;
+using CLMS.Infrastructure.Persistence.MySql;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Repositories;
 
-public class StudentRepository : IStudentRepository
+public class StudentRepository(MySqlConnectionFactory connectionFactory) : IStudentRepository
 {
-    private readonly string _connectionString;
-
-    public StudentRepository(string connectionString)
-    {
-        _connectionString = connectionString;
-    }
-
     public async Task<Student?> GetByIdAsync(string studentId)
     {
         const string sql = """
@@ -27,7 +21,7 @@ public class StudentRepository : IStudentRepository
             WHERE student_id = @StudentId;
             """;
 
-        await using var connection = new MySqlConnection(_connectionString);
+        await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);

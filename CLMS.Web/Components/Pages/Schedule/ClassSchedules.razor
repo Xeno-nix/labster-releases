@@ -1,6 +1,8 @@
 @page "/schedules"
+@attribute [Authorize]
+@using CLMS.Application.Services
 @rendermode InteractiveServer
-@inject IClassScheduleService ScheduleService
+@inject ClassScheduleService ScheduleService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 

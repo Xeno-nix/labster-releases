@@ -6,7 +6,7 @@ using CLMS.Domain.ValueObjects;
 
 namespace CLMS.Application.Services;
 
-public class BookingService : IBookingService
+public class BookingService
 {
     private readonly IBookingRepository _repository;
     private readonly IClassScheduleRepository _classScheduleRepository;
