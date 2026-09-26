@@ -5,6 +5,8 @@
 
 window.clmsInventoryScanner = {
     _instance: null,
+    _video: null,
+    _unmirrorVideo: null,
 
     /**
      * Checks whether the device exposes any camera at all.
@@ -42,6 +44,13 @@ window.clmsInventoryScanner = {
         this.stop();
 
         try {
+            this._video = video;
+            this._unmirrorVideo = () => {
+                video.style.setProperty("transform", "none", "important");
+                video.style.setProperty("-webkit-transform", "none", "important");
+            };
+            video.addEventListener("playing", this._unmirrorVideo);
+
             this._instance = new QrScanner(
                 video,
                 (result) => dotNetRef.invokeMethodAsync("OnQrScanned", result.data ?? result),
@@ -52,6 +61,7 @@ window.clmsInventoryScanner = {
                 }
             );
             await this._instance.start();
+            this._unmirrorVideo();
             return { ok: true };
         } catch (e) {
             console.error("QR scanner start failed:", e);
@@ -65,6 +75,10 @@ window.clmsInventoryScanner = {
      * Stops and releases the camera stream.
      */
     stop: function () {
+        if (this._video && this._unmirrorVideo) {
+            this._video.removeEventListener("playing", this._unmirrorVideo);
+        }
+
         if (this._instance) {
             try {
                 this._instance.stop();
@@ -74,5 +88,8 @@ window.clmsInventoryScanner = {
             }
             this._instance = null;
         }
+
+        this._video = null;
+        this._unmirrorVideo = null;
     }
 };
