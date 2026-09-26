@@ -3,14 +3,15 @@ using CLMS.Application.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using System.Text.RegularExpressions;
+using CLMS.Application.Services;
 
 namespace CLMS.Web.Components.Pages.Inventory;
 
 public partial class Inventory : ComponentBase, IAsyncDisposable
 {
-    [Inject] private IEquipmentService EquipmentService { get; set; } = default!;
-    [Inject] private ISupplyService SupplyService { get; set; } = default!;
-    [Inject] private ILaboratoryService LaboratoryService { get; set; } = default!;
+    [Inject] private EquipmentService EquipmentService { get; set; } = default!;
+    [Inject] private SupplyService SupplyService { get; set; } = default!;
+    [Inject] private LaboratoryService LaboratoryService { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 

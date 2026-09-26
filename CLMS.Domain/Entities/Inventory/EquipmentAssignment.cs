@@ -26,7 +26,7 @@ public class EquipmentAssignment : AuditableEntity
             throw new ArgumentException("Exactly one of computerUnitId or laboratoryId must be set.");
         }
 
-        _id = id;
+        Id = id;
         EquipmentId = equipmentId;
         ComputerUnitId = computerUnitId;
         LaboratoryId = laboratoryId;

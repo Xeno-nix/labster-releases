@@ -1,0 +1,114 @@
+﻿@page "/login"
+@layout PublicLayout
+
+@rendermode InteractiveServer
+
+@using CLMS.Application.Identity.Services
+@using CLMS.Web.Models
+
+@inject AuthenticationService authService;
+@inject NavigationManager Navigation;
+
+<PageTitle>CLMS - Login</PageTitle>
+
+<div class="min-h-screen flex items-center justify-center p-6 bg-[#f8f8f8]">
+    <div class="w-full max-w-md">
+        
+        <div class="text-center mb-8">
+            <h1 class="text-3xl text-primary font-medium mb-2">CLMS Login</h1>
+            <p class="text-gray-600">Computer Laboratory Management System</p>
+            <p class="text-gray-600">USeP TMC - Tagum Unit</p>
+        </div>
+        
+        @* card *@
+        <div class="border-[#d5d5d5] border px-6 mb-8 py-8 w-full rounded-xl bg-white shadow-lg">
+            <form
+                method="post"
+                action="/auth/cookie-login"
+                class="space-y-2">
+                <div>
+                    <label class="block mb-2">Email Address</label>
+                    <input
+                        value="@Model.Email"
+                        type="email"
+                        name="Email"
+                        required
+                        placeholder="Enter your email"
+                        class="w-full px-4 py-3 border border-[#d5d5d5] rounded-lg bg-gray-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"/>
+                </div>
+                <div>
+                    <label class="block mb-2">Password</label>
+                    <div class="relative">
+                        <input
+                            id="passwordFld"
+                            value="@Model.Password"
+                            type="password"
+                            name="Password"
+                            required
+                            minlength="8"
+                            placeholder="Enter your password"
+                            class="overflow-clip w-full pl-4 pr-12 py-3 border border-[#d5d5d5] rounded-lg bg-gray-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"/>
+                        <button
+                            id="toggleShowPasswordBtn"
+                            type="button"
+                            onclick="toggleShowPassword()"
+                            class="absolute right-4 top-1/2 -translate-y-1/2 hover:cursor-pointer  z-10">
+                            <svg height="24" width="24" viewBox="0 0 24 24" color="#777777">
+                                <use id="toggleShowPasswordBtnIcon" href="/svg/eye-on.svg"></use>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button
+                    type="submit"
+                    class="bg-primary w-full px-4 py-3 rounded-lg text-white font-bold hover:bg-primary-dark duration-75">
+                    Login
+                </button>
+                <div class="w-full text-center">
+                    <a href="#" class="text-primary hover:underline">
+                        Forgot Password?
+                    </a>
+                </div>
+            </form>
+        </div>
+        
+        @if (Error is "invalid")
+        {
+            <div class="rounded-lg px-2 py-4 w-full bg-error/80 shadow-lg pl-15 relative">
+                <svg height="24" width="24" viewBox="0 0 24 24" color="#ffffff" class="inline-block absolute left-5">
+                    <use href="@Assets["/svg/info.svg"]"></use>
+                </svg>
+                <p class="inline-block text-white">email or password is incorrect!</p>
+            </div>
+        }
+        
+    </div>
+</div>
+<script>
+    function toggleShowPassword()
+    {
+        const toggleShowPasswordBtn = document.getElementById("toggleShowPasswordBtn");
+        const toggleShowPasswordBtnIcon = document.getElementById("toggleShowPasswordBtnIcon");
+        const passwordFld = document.getElementById("passwordFld");
+        
+        let showPassword = passwordFld.getAttribute('type') === "password";
+        
+        console.log(passwordFld);
+        toggleShowPasswordBtnIcon.setAttribute('href',showPassword ? "/svg/eye-on.svg" : "/svg/eye-off.svg");
+        passwordFld.setAttribute('type', showPassword ? "text" : "password") ;
+        showPassword = !showPassword;
+    }
+</script>
+
+@code {
+    [SupplyParameterFromForm(FormName = "LoginForm")]
+    private LoginFormModel Model { get; set; } =  new ();
+    
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+    
+    private async Task HandleSubmit()
+    {
+        Navigation.NavigateTo("/auth/cookie-login");
+    }
+}

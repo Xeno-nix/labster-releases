@@ -1,3 +1,4 @@
+using CLMS.Application.Identity.Services;
 using Microsoft.Extensions.DependencyInjection;
 using CLMS.Application.Logging;
 using CLMS.Application.Interfaces;
@@ -9,14 +10,20 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        services.AddScoped<ILoggingService, LoggingService>();
-        services.AddScoped<ILoggingAppService, LoggingAppService>();
-        services.AddScoped<ILogbookService, LogbookService>();
-
-        services.AddScoped<IEquipmentService, EquipmentService>();
-        services.AddScoped<ISupplyService, SupplyService>();
-        services.AddScoped<ILaboratoryService, LaboratoryService>();
-
-        return services;
+        return services
+            .AddScoped<AuthenticationService>()
+            .AddScoped<UserManagementService>()
+            .AddScoped<LoggingService>()
+            .AddScoped<LoggingAppService>()
+            .AddScoped<LogbookService>()  
+            .AddScoped<EquipmentService>()
+            .AddScoped<SupplyService>()
+            .AddScoped<LaboratoryService>()
+            .AddScoped<ClassScheduleService>()
+            .AddScoped<BookingService>()
+            .AddScoped<UserService>()
+            .AddScoped<CourseService>()
+            .AddScoped<AcademicTermService>()
+            ;
     }
 }

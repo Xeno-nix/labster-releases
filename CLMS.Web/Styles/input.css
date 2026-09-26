@@ -1,12 +1,8 @@
 @import "tailwindcss";
 
-@source "../Components/**/*.razor";
-@source "../Components/**/*.razor.cs";
-@source "../**/*.razor";
-
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    'Segoe UI Symbol', 'Noto Color Emoji';
     --font-heading: 'Poppins', ui-sans-serif, system-ui, sans-serif;
 
     --color-primary: #8b1538;
@@ -15,6 +11,8 @@
     --color-accent-dark: #e0ac00;
     --color-success: #1b5e20;
     --color-success-dark: #145018;
+    --color-error: #d53830;
+    --color-error-dark: #86322b;
     --color-warning: #ffc107;
     --color-surface: #f8f9fa;
     --color-muted: #6c757d;
@@ -25,5 +23,18 @@
         font-family: var(--font-heading);
         font-weight: 600;
     }
+
+    [x-cloak] {
+        display: none !important;
+    }
 }
 
+@layer components {
+    #dotnet-compile-error {
+        all: revert;
+    }
+
+    #dotnet-compile-error:not(:has(*)) {
+        display: none !important;
+    }
+}

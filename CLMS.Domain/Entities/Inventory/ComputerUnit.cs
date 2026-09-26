@@ -10,9 +10,9 @@ public class ComputerUnit : AuditableEntity
 
     public ComputerUnit(Guid id, string unitName, byte unitNumber, int laboratoryId)
     {
-        _id = id;
         UnitName = unitName;
         UnitNumber = unitNumber;
         LaboratoryId = laboratoryId;
+        Id = id;
     }
 }

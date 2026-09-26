@@ -1,5 +1,6 @@
 using CLMS.Application.DTOs.Inventory;
 using CLMS.Application.Interfaces;
+using CLMS.Application.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
@@ -7,8 +8,8 @@ namespace CLMS.Web.Components.Pages.Inventory;
 
 public partial class InventoryPrint : ComponentBase
 {
-    [Inject] private IEquipmentService EquipmentService { get; set; } = default!;
-    [Inject] private ISupplyService SupplyService { get; set; } = default!;
+    [Inject] private EquipmentService EquipmentService { get; set; } = default!;
+    [Inject] private SupplyService SupplyService { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
 
