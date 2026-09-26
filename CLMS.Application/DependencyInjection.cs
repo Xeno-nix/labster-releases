@@ -21,7 +21,7 @@ public static class DependencyInjection
             .AddScoped<LaboratoryService>()
             .AddScoped<ClassScheduleService>()
             .AddScoped<BookingService>()
-            .AddScoped<LaboratoryService>()
+            .AddScoped<UserService>()
             .AddScoped<CourseService>()
             .AddScoped<AcademicTermService>()
             ;

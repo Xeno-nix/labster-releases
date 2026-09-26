@@ -153,7 +153,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
         await connection.OpenAsync();
         
         await using var command = new MySqlCommand(sql, connection);
-        command.AddParam("@RoleType", role);
+        command.AddParam("@RoleType", role.ToLowerCaseString());
         
         await using var reader = await command.ExecuteReaderAsync();
 
