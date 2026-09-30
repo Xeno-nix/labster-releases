@@ -142,29 +142,114 @@ public class BookingService
     }
 
     public async Task UpdateAsync(
-        int id,
-        UpsertBookingDTO dto)
+    int id,
+    UpsertBookingDTO dto)
+{
+    if (dto.StartTime >= dto.EndTime)
     {
-       
-        var booking = new Booking
-        {
-            Id = id,
-            LaboratoryId = dto.LaboratoryId,
-            RequestorName = dto.RequestorName,
-            Email = dto.Email,
-            Purpose = dto.Purpose,
-            Date = dto.Date,
-            StartTime = dto.StartTime,
-            EndTime = dto.EndTime
-        };
-
-        if (await CheckScheduleConflictAsync(dto, excludingBookingId: id))
-        {
-            throw new InvalidOperationException("The booking time conflicts with an existing booking or class schedule.");
-        }
-
-        await _repository.UpdateAsync(booking);
+        throw new ArgumentException(
+            "Start time must be earlier than end time.");
     }
+
+    var booking = new Booking
+    {
+        Id = id,
+        LaboratoryId = dto.LaboratoryId,
+        RequestorName = dto.RequestorName,
+        Email = dto.Email,
+        Purpose = dto.Purpose,
+        Date = dto.Date,
+        StartTime = dto.StartTime,
+        EndTime = dto.EndTime
+    };
+
+    if (await CheckScheduleConflictAsync(dto, excludingBookingId: id))
+    {
+        throw new InvalidOperationException(
+            "The booking time conflicts with an existing booking or class schedule.");
+    }
+
+    var laboratory = await _laboratoryRepository.GetByIdAsync(dto.LaboratoryId);
+
+    await _repository.UpdateAsync(booking);
+
+    await _emailService.SendEmailAsync(
+        dto.Email,
+        "CLMS - Booking Updated",
+        $"""
+        <html>
+        <body>
+            <h2>Laboratory Booking Updated</h2>
+
+            <p>Hello <strong>{booking.RequestorName}</strong>,</p>
+
+            <p>
+                Your laboratory booking has been successfully updated.
+                Here is the updated summary of your booking:
+            </p>
+
+            <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <strong>Laboratory</strong>
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        {laboratory.Name}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <strong>Requestor</strong>
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        {booking.RequestorName}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <strong>Date</strong>
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        {booking.Date:MMMM dd, yyyy}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <strong>Time</strong>
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        {booking.StartTime:hh:mm tt}
+                        -
+                        {booking.EndTime:hh:mm tt}
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        <strong>Purpose</strong>
+                    </td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">
+                        {booking.Purpose}
+                    </td>
+                </tr>
+            </table>
+
+            <p>
+                Please keep this email for your records.
+            </p>
+
+            <p>
+                Thank you,<br>
+                <strong>CLMS Laboratory Management System</strong>
+            </p>
+        </body>
+        </html>
+        """
+    );
+}
 
     public async Task DeleteAsync(int id)
     {
