@@ -263,7 +263,59 @@
                 else if (ScannerHasCamera == true)
                 {
                     <div class="relative aspect-square bg-black rounded-lg overflow-hidden mb-4">
-                        <video id="@ScannerVideoElementId" class="w-full h-full object-cover" autoplay muted playsinline></video>
+                        <video id="@ScannerVideoElementId" class="w-full h-full object-cover"></video>
+                        <!-- Giingonani ra nako kay di mugana ang sa library na frame hehe -->
+                        <div class="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                            <div style="
+                                width: 75%;
+                                height: 75%;
+                                position: relative;
+                            ">
+                                <!-- Top Left -->
+                                <div style="
+                                    position: absolute;
+                                    top: 0;
+                                    left: 0;
+                                    width: 45px;
+                                    height: 45px;
+                                    border-top: 4px solid #facc15;
+                                    border-left: 4px solid #facc15;
+                                "></div>
+
+                                <!-- Top Right -->
+                                <div style="
+                                    position: absolute;
+                                    top: 0;
+                                    right: 0;
+                                    width: 45px;
+                                    height: 45px;
+                                    border-top: 4px solid #facc15;
+                                    border-right: 4px solid #facc15;
+                                "></div>
+
+                                <!-- Bottom Left -->
+                                <div style="
+                                    position: absolute;
+                                    bottom: 0;
+                                    left: 0;
+                                    width: 45px;
+                                    height: 45px;
+                                    border-bottom: 4px solid #facc15;
+                                    border-left: 4px solid #facc15;
+                                "></div>
+
+                                <!-- Bottom Right -->
+                                <div style="
+                                    position: absolute;
+                                    bottom: 0;
+                                    right: 0;
+                                    width: 45px;
+                                    height: 45px;
+                                    border-bottom: 4px solid #facc15;
+                                    border-right: 4px solid #facc15;
+                                "></div>
+                            </div>
+                        </div>
                     </div>
                     <p class="text-xs text-muted mb-4">Point the camera at an equipment QR code.</p>
                 }
