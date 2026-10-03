@@ -209,10 +209,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
     private string BuildEquipmentQrPayload(EquipmentItem item)
     {
-        // Encodes a URL so scanning opens the equipment record directly.
-        // Add a matching "/inventory/equipment/{id}" route/page later if you
-        // want the scan to deep-link straight to a detail view.
-        return $"{Navigation.BaseUri}inventory/equipment/{item.EquipmentId}";
+        return item.EquipmentNo;
     }
 
     private async Task DownloadQr()
