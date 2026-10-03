@@ -19,11 +19,11 @@ window.clmsInventoryQr = {
 
         new QRCode(el, {
             text: text,
-            width: 180,
-            height: 180,
+            width: 280,
+            height: 280,
             colorDark: "#000000",
             colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
+            correctLevel: QRCode.CorrectLevel.M
         });
     },
 
