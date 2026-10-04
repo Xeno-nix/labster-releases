@@ -1,0 +1,28 @@
+﻿@page "/test"
+@using CLMS.Web.Components.Notification
+@using CLMS.Web.Services
+@inject ToastService Toasts
+
+<button @onclick="AddToast">Add Toast</button>
+@code {
+    /// <summary>
+    /// This page is for testing components
+    /// </summary>
+    
+    int cycle = 0;
+    
+    public void AddToast()
+    {
+        var type = cycle switch
+        {
+            0 => ToastService.ToastType.Info,
+            1 => ToastService.ToastType.Success,
+            2 => ToastService.ToastType.Error,
+            3 => ToastService.ToastType.Warning,
+        };
+        
+        Toasts.Show("Hi",type);
+
+        cycle = ++cycle % 4;
+    }
+}

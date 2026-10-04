@@ -6,6 +6,7 @@ using CLMS.Infrastructure.Services;
 using CLMS.Infrastructure;
 using CLMS.Infrastructure.Auth;
 using System.Text;
+using CLMS.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -104,6 +105,9 @@ builder.Services
 
 // booking daw
 builder.Services.AddHttpClient<EmailService>();
+
+// web stuff
+builder.Services.AddScoped<ToastService>();
 
 var app = builder.Build();
 
