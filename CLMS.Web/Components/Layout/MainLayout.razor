@@ -1,9 +1,11 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider;
+@using CLMS.Web.Components.Notification
 @using Microsoft.AspNetCore.Components.Authorization
 @implements IDisposable
 
+<ToastContainer/>
 
 <div class="flex h-screen overflow-hidden">
 

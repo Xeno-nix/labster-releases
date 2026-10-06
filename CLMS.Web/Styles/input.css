@@ -16,6 +16,7 @@
     --color-warning: #ffc107;
     --color-surface: #f8f9fa;
     --color-muted: #6c757d;
+    --color-info: #3495d2;
 }
 
 @layer base {
@@ -36,5 +37,29 @@
 
     #dotnet-compile-error:not(:has(*)) {
         display: none !important;
+    }
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes toast-out {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(100%);
     }
 }

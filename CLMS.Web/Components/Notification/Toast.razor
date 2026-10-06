@@ -1,0 +1,110 @@
+﻿@using CLMS.Web.Services
+@implements IDisposable
+
+@if (_isOpen){
+    <div class="z-[2000] flex items-start gap-2.5 rounded-sm
+                px-4 py-3 text-white shadow-lg relative
+                max-w-70 min-w-55 flex-col @_background
+                @(_isClosing ? "animate-[toast-out_0.1s_ease-in_forwards]" : "animate-[toast-in_0.1s_ease-out]")">
+        <span class="flex h-[18px] w-[18px] items-center justify-start gap-3 rounded-full 
+                     font-bold text-lg">
+            <i class="fa-solid @_toastIcon text-2xl"></i>
+            <h2>@_title</h2>
+        </span>
+        <span class="font-normal text-sm">@Message</span>
+        <button @onclick="Close" class="absolute top-1 right-3"><i class="fa-solid fa-close"></i></button>
+    </div>
+}
+
+@code {
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public ToastService.ToastType? Type { get; set; }
+    private readonly TimeSpan _duration = TimeSpan.FromSeconds(4);
+    private string _toastIcon;
+    private string _background;
+    private string _title;
+    private bool _isClosing;
+    private bool _isClosed;
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    private string _currentTime = DateTime.Now.ToString("HH:mm:ss");
+    private readonly CancellationTokenSource _closeTokenSource = new();
+    
+    private bool _isOpen = true;
+
+    private async Task Close()
+    {
+        if (_isClosing || _isClosed) return;
+
+        _isClosing = true;
+        
+        // mu update ang class
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            // 200ms naka define sa toast animation
+            // !IMPORTANT NOTE, hardcoded ni nga value, if ichange nimo
+            // and duration sa animation, ichange pud ni
+            await Task.Delay(TimeSpan.FromMilliseconds(100), _closeTokenSource.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        
+        _isOpen = false;
+        _isClosed = true;
+        await InvokeAsync(StateHasChanged);
+        await OnClosed.InvokeAsync();
+    }
+    
+    protected override void OnInitialized()
+    {
+        _toastIcon = Type switch
+        {
+            ToastService.ToastType.Error => "fa-exclamation-circle",
+            ToastService.ToastType.Warning => "fa-warning",
+            ToastService.ToastType.Success => "fa-check-circle",
+            ToastService.ToastType.Info => "fa-info-circle"
+        };
+
+        _title = Type switch
+        {
+            ToastService.ToastType.Error => "Error",
+            ToastService.ToastType.Warning => "Warning",
+            ToastService.ToastType.Success => "Success",
+            ToastService.ToastType.Info => "Info",
+        };
+        
+        _background = Type switch
+        {
+            ToastService.ToastType.Error => "bg-error",
+            ToastService.ToastType.Warning => "bg-warning",
+            ToastService.ToastType.Success => "bg-success",
+            ToastService.ToastType.Info => "bg-info"
+        };
+
+        _ = StartTimerAsync();
+    }
+
+    private async Task StartTimerAsync()
+    {
+        try
+        {
+            await Task.Delay(_duration, _closeTokenSource.Token);
+            await Close();
+        }
+        catch (OperationCanceledException)
+        {
+            
+        }
+    }
+
+    public void Dispose()
+    {
+        _closeTokenSource.Cancel();
+        _closeTokenSource.Dispose();
+    }
+
+}

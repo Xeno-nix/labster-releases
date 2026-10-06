@@ -1,0 +1,53 @@
+﻿@using CLMS.Web.Services
+@implements IDisposable
+@inject ToastService Toasts
+
+<div class="toast-container fixed top-6 right-6 flex flex-col gap-2">
+    @foreach (var toast in _toasts)
+    {
+        <Toast @key="toast.Id"
+               Message="@toast.Message"
+               Type="toast.Type"
+               OnClosed="async () => await Remove(toast.Id)" />
+    }
+</div>
+
+@code {
+    // Don't worry bout this component. See ToastService instead
+    
+    private readonly List<ToastService.ToastMessage> _toasts = new();
+    private readonly int _maxToastCount = 5;
+    
+    protected override void OnInitialized()
+    {
+        Toasts.OnChanged += HandleChanged;
+    }
+
+    private void HandleChanged()
+    {
+        _ = InvokeAsync(ProcessQueue);
+    }
+
+    private void ProcessQueue()
+    {
+        Console.WriteLine(_toasts.Count);
+        while (_toasts.Count < _maxToastCount && Toasts.TryDequeue(out var toast))
+        {
+            if (toast is not null)
+                _toasts.Add(toast);
+        }
+
+        StateHasChanged();
+    }
+    
+    private async Task Remove(Guid id)
+    {
+        _toasts.RemoveAll(x => x.Id == id);
+        await InvokeAsync(ProcessQueue);
+    }
+
+    public void Dispose()
+    {
+        Toasts.OnChanged -= HandleChanged;
+    }
+}
