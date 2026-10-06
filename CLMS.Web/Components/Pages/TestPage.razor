@@ -1,9 +1,12 @@
 ﻿@page "/test"
+@using CLMS.Web.Components.Modals
 @using CLMS.Web.Components.Notification
 @using CLMS.Web.Services
 @inject ToastService Toasts
+@inject DialogService Dialogs
 
 <button @onclick="AddToast">Add Toast</button>
+<Dialog/>
 @code {
     /// <summary>
     /// This page is for testing components
@@ -11,18 +14,19 @@
     
     int cycle = 0;
     
-    public void AddToast()
+    
+    
+    public async void AddToast()
     {
-        var type = cycle switch
+        if (cycle == 0)
         {
-            0 => ToastService.ToastType.Info,
-            1 => ToastService.ToastType.Success,
-            2 => ToastService.ToastType.Error,
-            3 => ToastService.ToastType.Warning,
-        };
-        
-        Toasts.Show("Hi",type);
-
-        cycle = ++cycle % 4;
+            await Dialogs.ShowMessageDialogAsync("Hello test");
+        }
+        else if (cycle == 1)
+        {
+            var result = await Dialogs.ShowConfirmDialogAsync("Hello test","Title");
+            Console.WriteLine(result);
+        }
+        cycle = ++cycle % 2;
     }
 }

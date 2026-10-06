@@ -108,6 +108,7 @@ builder.Services.AddHttpClient<EmailService>();
 
 // web stuff
 builder.Services.AddScoped<ToastService>();
+builder.Services.AddScoped<DialogService>();
 
 var app = builder.Build();
 
