@@ -25,6 +25,8 @@ public static class DependencyInjection
             .AddScoped<IRefreshTokenRepository,RefreshTokenRepository>() 
             .AddScoped<IRefreshTokenRepository,RefreshTokenRepository>()
             
+            .AddScoped<IDbConnectionFactory, DbConnectionFactoryAdapter>()
+            .AddScoped<IEnrollmentRepository, EnrollmentRepository>()
             .AddScoped<IStudentRepository,StudentRepository>()
             .AddScoped<IGuestRepository,GuestRepository>()
             .AddScoped<ILabUtilizationRepository,LabUtilizationRepository>()
