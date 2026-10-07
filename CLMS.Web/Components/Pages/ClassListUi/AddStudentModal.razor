@@ -1,0 +1,223 @@
+@using System.Text.RegularExpressions
+@using CLMS.Application.DTOs.Booking
+@using CLMS.Application.Services
+@using CLMS.Domain.Enums
+
+@inject ClassListService ClassListService
+
+@if (Show)
+{
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @onclick="Dismiss">
+        <div class="bg-white rounded-xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto" @onclick:stopPropagation="true">
+            <div class="flex items-center justify-between p-6 border-b border-black/10 sticky top-0 bg-white z-10">
+                <div>
+                    <h2 class="text-primary text-lg">Add Student</h2>
+                    <p class="text-xs text-muted mt-0.5">Enrolls the student in every meeting of this class.</p>
+                </div>
+                <button @onclick="Dismiss" class="p-2 hover:bg-surface rounded-lg transition-colors">✕</button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="px-3 py-2 rounded-lg bg-[#fdecea] border border-[#f5c2c0] text-xs text-[#b3261e]">@ErrorMessage</div>
+                }
+
+                <div>
+                    <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">Student ID</label>
+                    <div class="flex gap-2">
+                        <input @bind="StudentId"
+                               @bind:event="oninput"
+                               placeholder="e.g., 2024-00227"
+                               class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                        <button type="button" @onclick="CheckStudentAsync" disabled="@IsChecking"
+                                class="px-4 py-2.5 bg-surface border border-black/10 rounded-lg text-sm font-medium hover:bg-black/5 transition-colors disabled:opacity-60">
+                            @(IsChecking ? "Checking..." : "Check")
+                        </button>
+                    </div>
+                    <p class="text-xs text-muted mt-1.5">Format: YYYY-NNNNN (4 or 5 digits)</p>
+                </div>
+
+                @if (Lookup is not null)
+                {
+                    <div class="px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 text-xs text-primary">
+                        Known student: <span class="font-medium">@Lookup.DisplayName</span> — no name needed.
+                    </div>
+                }
+                else if (CheckedId is not null)
+                {
+                    <div class="px-3 py-2 rounded-lg bg-surface border border-black/10 text-xs text-muted">
+                        No student with id <span class="font-medium">@CheckedId</span> yet. First and last name are required to create them.
+                    </div>
+                }
+
+                @if (Lookup is null)
+                {
+                    <div>
+                        <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">First Name</label>
+                        <input @bind="FirstName"
+                               placeholder="e.g., Juan"
+                               class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">Last Name</label>
+                        <input @bind="LastName"
+                               placeholder="e.g., Dela Cruz"
+                               class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">Middle Name</label>
+                            <input @bind="MiddleName"
+                                   placeholder="Optional"
+                                   class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">Suffix</label>
+                            <input @bind="Suffix"
+                                   placeholder="Optional (e.g., Jr.)"
+                                   class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                        </div>
+                    </div>
+                }
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" @onclick="Dismiss"
+                            class="px-5 py-2.5 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm">
+                        Cancel
+                    </button>
+                    <button type="button" @onclick="SubmitAsync" disabled="@IsSubmitting"
+                            class="px-5 py-2.5 bg-primary text-white border-none rounded-lg text-sm font-medium hover:opacity-90 transition-all disabled:opacity-60">
+                        @(IsSubmitting ? "Adding..." : "Add to Class")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public int ScheduleId { get; set; }
+    [Parameter] public Guid UserId { get; set; }
+    [Parameter] public Role Role { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+    [Parameter] public EventCallback<string> OnAdded { get; set; }
+
+    private string StudentId { get; set; } = string.Empty;
+    private string? FirstName { get; set; }
+    private string? MiddleName { get; set; }
+    private string? LastName { get; set; }
+    private string? Suffix { get; set; }
+
+    private bool IsChecking { get; set; }
+    private bool IsSubmitting { get; set; }
+    private string? ErrorMessage { get; set; }
+
+    /// <summary>Set when the checked id matches a known student.</summary>
+    private EnrolledStudentDTO? Lookup { get; set; }
+
+    /// <summary>Set after a check that found no student, to show the "new student" hint.</summary>
+    private string? CheckedId { get; set; }
+
+    private bool _wasShown;
+
+    protected override void OnParametersSet()
+    {
+        if (Show && !_wasShown)
+            Reset();
+
+        _wasShown = Show;
+    }
+
+    private void Reset()
+    {
+        StudentId = string.Empty;
+        FirstName = null;
+        MiddleName = null;
+        LastName = null;
+        Suffix = null;
+        Lookup = null;
+        CheckedId = null;
+        ErrorMessage = null;
+        IsChecking = false;
+        IsSubmitting = false;
+    }
+
+    private async Task Dismiss()
+    {
+        Reset();
+        await OnDismiss.InvokeAsync();
+    }
+
+    private async Task CheckStudentAsync()
+    {
+        ErrorMessage = null;
+        Lookup = null;
+        CheckedId = null;
+
+        var id = StudentId.Trim();
+
+        if (!Regex.IsMatch(id, ClassListCsvParser.StudentIdPattern))
+        {
+            ErrorMessage = "That ID doesn't look right — expected format YYYY-NNNNN (4 or 5 digits).";
+            return;
+        }
+
+        IsChecking = true;
+
+        try
+        {
+            Lookup = await ClassListService.FindStudentAsync(id);
+            CheckedId = id; // even when Lookup is null, mark the check as done
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsChecking = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        ErrorMessage = null;
+
+        if (Lookup is null
+            && (string.IsNullOrWhiteSpace(FirstName) || string.IsNullOrWhiteSpace(LastName)))
+        {
+            ErrorMessage = "First and last name are required for a new student.";
+            return;
+        }
+
+        var dto = new AddStudentDTO
+        {
+            StudentId = StudentId.Trim(),
+            FirstName = FirstName,
+            MiddleName = MiddleName,
+            LastName = LastName,
+            Suffix = Suffix
+        };
+
+        IsSubmitting = true;
+
+        try
+        {
+            var message = await ClassListService.AddStudentAsync(UserId, Role, ScheduleId, dto);
+            Reset();
+            await OnAdded.InvokeAsync(message);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+}

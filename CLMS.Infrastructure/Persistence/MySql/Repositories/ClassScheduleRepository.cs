@@ -8,12 +8,9 @@ namespace CLMS.Infrastructure.Repositories;
 
 public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) : IClassScheduleRepository
 {
-    public async Task<IEnumerable<ClassScheduleDTO>> GetAllAsync()
-    {
-        var schedules = new List<ClassScheduleDTO>();
-
-        const string sql = """
-            SELECT
+    // Columns shared by every schedule query. student_count is a correlated subquery because
+    // a class's roster lives in student_enrollment keyed on the individual schedule row.
+    private const string ScheduleColumns = """
                 cs.class_schedule_id,
                 cs.course_id,
                 c.course_code,
@@ -27,7 +24,17 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
                 at.semester,
                 cs.day_of_week,
                 cs.time_start,
-                cs.time_end
+                cs.time_end,
+                cs.year_level,
+                cs.section,
+                (
+                    SELECT COUNT(DISTINCT se.student_id)
+                    FROM student_enrollment se
+                    WHERE se.class_schedule_id = cs.class_schedule_id
+                ) AS student_count
+        """;
+
+    private const string ScheduleJoins = """
             FROM class_schedule cs
             INNER JOIN courses c
                 ON cs.course_id = c.course_id
@@ -37,6 +44,16 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
                 ON cs.lab_id = l.lab_id
             INNER JOIN academic_terms at
                 ON cs.term_id = at.academic_term_id
+        """;
+
+    public async Task<IEnumerable<ClassScheduleDTO>> GetAllAsync()
+    {
+        var schedules = new List<ClassScheduleDTO>();
+
+        var sql = $"""
+            SELECT
+                {ScheduleColumns}
+            {ScheduleJoins}
             WHERE u.role_type = 'Faculty'
               AND cs.deleted_at IS NULL
             ORDER BY
@@ -63,33 +80,179 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
         return schedules;
     }
 
-    public async Task<ClassScheduleDTO?> GetByIdAsync(int id)
+    /// <summary>
+    /// Schedules taught by one instructor in one term. Unlike GetAllAsync this does not
+    /// filter on the instructor's role_type, so an instructor is always visible even if
+    /// their role changes.
+    /// </summary>
+    public async Task<IEnumerable<ClassScheduleDTO>> GetByInstructorAsync(
+        Guid instructorId,
+        int termId)
+    {
+        var schedules = new List<ClassScheduleDTO>();
+
+        var sql = $"""
+            SELECT
+                {ScheduleColumns}
+            {ScheduleJoins}
+            WHERE cs.instructor_id = @InstructorId
+              AND cs.term_id = @TermId
+              AND cs.deleted_at IS NULL
+            ORDER BY
+                cs.year_level,
+                cs.section,
+                cs.time_start;
+            """;
+
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@InstructorId", instructorId);
+        command.Parameters.AddWithValue("@TermId", termId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            schedules.Add(MapSchedule(reader));
+        }
+
+        return schedules;
+    }
+
+    /// <summary>
+    /// Every non-deleted schedule in a term. Used by the Admin class list view.
+    /// </summary>
+    public async Task<IEnumerable<ClassScheduleDTO>> GetAllForTermAsync(int termId)
+    {
+        var schedules = new List<ClassScheduleDTO>();
+
+        var sql = $"""
+            SELECT
+                {ScheduleColumns}
+            {ScheduleJoins}
+            WHERE cs.term_id = @TermId
+              AND cs.deleted_at IS NULL
+            ORDER BY
+                cs.year_level,
+                cs.section,
+                c.course_code,
+                cs.time_start;
+            """;
+
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@TermId", termId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            schedules.Add(MapSchedule(reader));
+        }
+
+        return schedules;
+    }
+
+    /// <summary>
+    /// All schedule ids belonging to the same "class" as <paramref name="scheduleId"/>:
+    /// same course, instructor, term, year level and section. The returned list always
+    /// includes <paramref name="scheduleId"/> itself.
+    /// <para>
+    /// NULL-safe equality (<c>&lt;=&gt;</c>) is deliberate: a schedule with a NULL year
+    /// level or section only matches rows that are also NULL in both, which makes it a
+    /// group of one until those fields are filled in.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<int>> GetGroupScheduleIdsAsync(int scheduleId)
     {
         const string sql = """
-            SELECT
-                cs.class_schedule_id,
-                cs.course_id,
-                c.course_code,
-                c.course_name,
-                cs.instructor_id,
-                CONCAT(u.first_name, ' ', u.last_name) AS instructor_name,
-                cs.lab_id,
-                l.lab_name,
-                cs.term_id,
-                at.academic_year,
-                at.semester,
-                cs.day_of_week,
-                cs.time_start,
-                cs.time_end
+            SELECT cs2.class_schedule_id
             FROM class_schedule cs
-            INNER JOIN courses c
-                ON cs.course_id = c.course_id
-            INNER JOIN users u
-                ON cs.instructor_id = u.user_id
-            INNER JOIN laboratories l
-                ON cs.lab_id = l.lab_id
-            INNER JOIN academic_terms at
-                ON cs.term_id = at.academic_term_id
+            INNER JOIN class_schedule cs2
+                ON  cs2.course_id     =  cs.course_id
+                AND cs2.instructor_id =  cs.instructor_id
+                AND cs2.term_id       =  cs.term_id
+                AND cs2.year_level   <=> cs.year_level
+                AND cs2.section      <=> cs.section
+            WHERE cs.class_schedule_id = @ScheduleId
+              AND cs.deleted_at IS NULL
+              AND cs2.deleted_at IS NULL;
+            """;
+
+        var ids = new List<int>();
+
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@ScheduleId", scheduleId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            ids.Add(reader.GetInt32("class_schedule_id"));
+        }
+
+        return ids;
+    }
+
+    /// <summary>
+    /// Same grouping as <see cref="GetGroupScheduleIdsAsync"/> but returning the full rows
+    /// (day/time, StudentCount, lab, ...) in week order. Used by the sync status UI.
+    /// </summary>
+    public async Task<IReadOnlyList<ClassScheduleDTO>> GetGroupSchedulesAsync(int scheduleId)
+    {
+        var schedules = new List<ClassScheduleDTO>();
+
+        var sql = $"""
+            SELECT
+                {ScheduleColumns}
+            {ScheduleJoins}
+            INNER JOIN class_schedule cs2
+                ON  cs.course_id     =  cs2.course_id
+                AND cs.instructor_id =  cs2.instructor_id
+                AND cs.term_id       =  cs2.term_id
+                AND cs.year_level   <=> cs2.year_level
+                AND cs.section      <=> cs2.section
+            WHERE cs2.class_schedule_id = @ScheduleId
+              AND cs.deleted_at IS NULL
+              AND cs2.deleted_at IS NULL
+            ORDER BY
+                cs.day_of_week,
+                cs.time_start;
+            """;
+
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+
+        command.Parameters.AddWithValue("@ScheduleId", scheduleId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            schedules.Add(MapSchedule(reader));
+        }
+
+        return schedules;
+    }
+
+    public async Task<ClassScheduleDTO?> GetByIdAsync(int id)
+    {
+        var sql = $"""
+            SELECT
+                {ScheduleColumns}
+            {ScheduleJoins}
             WHERE cs.class_schedule_id = @Id
               AND u.role_type = 'Faculty'
               AND cs.deleted_at IS NULL;
@@ -119,43 +282,13 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
         // Added for the logging terminal's Student Time-In flow. Joins through
         // student_enrollment to find the schedule this student is enrolled in that is
         // in session right now (day matches, current time within start/end).
-        const string sql = """
+        var sql = $"""
             SELECT
-                cs.class_schedule_id,
-                cs.course_id,
-                c.course_code,
-                c.course_name,
-
-                cs.instructor_id,
-                CONCAT(u.first_name, ' ', u.last_name) AS instructor_name,
-
-                cs.lab_id,
-                l.lab_name,
-
-                cs.term_id,
-                at.academic_year,
-                at.semester,
-
-                cs.day_of_week,
-                cs.time_start,
-                cs.time_end
-
-            FROM class_schedule cs
+                {ScheduleColumns}
+            {ScheduleJoins}
 
             INNER JOIN student_enrollment se
                 ON se.class_schedule_id = cs.class_schedule_id
-
-            INNER JOIN courses c
-                ON cs.course_id = c.course_id
-
-            INNER JOIN users u
-                ON cs.instructor_id = u.user_id
-
-            INNER JOIN laboratories l
-                ON cs.lab_id = l.lab_id
-
-            INNER JOIN academic_terms at
-                ON cs.term_id = at.academic_term_id
 
             WHERE se.student_id = @StudentId
             AND cs.day_of_week = @DayOfWeek
@@ -197,7 +330,9 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
                 day_of_week,
                 time_start,
                 time_end,
-                term_id
+                term_id,
+                year_level,
+                section
             )
             VALUES
             (
@@ -207,7 +342,9 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
                 @DayOfWeek,
                 @TimeStart,
                 @TimeEnd,
-                @AcademicTermId
+                @AcademicTermId,
+                @YearLevel,
+                @Section
             );
 
             SELECT LAST_INSERT_ID();
@@ -249,6 +386,16 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
             "@AcademicTermId",
             schedule.AcademicTermId);
 
+        command.Parameters.AddWithValue(
+            "@YearLevel",
+            schedule.YearLevel is null
+                ? DBNull.Value
+                : schedule.YearLevel.Value);
+
+        command.Parameters.AddWithValue(
+            "@Section",
+            (object?)schedule.Section ?? DBNull.Value);
+
         var result = await command.ExecuteScalarAsync();
 
         return Convert.ToInt32(result);
@@ -265,7 +412,9 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
                 day_of_week = @DayOfWeek,
                 time_start = @TimeStart,
                 time_end = @TimeEnd,
-                term_id = @AcademicTermId
+                term_id = @AcademicTermId,
+                year_level = @YearLevel,
+                section = @Section
             WHERE class_schedule_id = @Id
               AND deleted_at IS NULL;
             """;
@@ -310,6 +459,16 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
             "@AcademicTermId",
             schedule.AcademicTermId);
 
+        command.Parameters.AddWithValue(
+            "@YearLevel",
+            schedule.YearLevel is null
+                ? DBNull.Value
+                : schedule.YearLevel.Value);
+
+        command.Parameters.AddWithValue(
+            "@Section",
+            (object?)schedule.Section ?? DBNull.Value);
+
         await command.ExecuteNonQueryAsync();
     }
 
@@ -339,6 +498,10 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
     private static ClassScheduleDTO MapSchedule(
         MySqlDataReader reader)
     {
+        var yearLevelOrdinal = reader.GetOrdinal("year_level");
+        var sectionOrdinal = reader.GetOrdinal("section");
+        var studentCountOrdinal = reader.GetOrdinal("student_count");
+
         return new ClassScheduleDTO
         {
             Id = reader.GetInt32("class_schedule_id"),
@@ -357,7 +520,19 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
             TimeStart = TimeOnly.FromTimeSpan(
                 reader.GetTimeSpan("time_start")),
             TimeEnd = TimeOnly.FromTimeSpan(
-                reader.GetTimeSpan("time_end"))
+                reader.GetTimeSpan("time_end")),
+
+            // Both nullable: existing schedules have no year level or section yet.
+            YearLevel = reader.IsDBNull(yearLevelOrdinal)
+                ? null
+                : reader.GetInt32(yearLevelOrdinal),
+            Section = reader.IsDBNull(sectionOrdinal)
+                ? null
+                : reader.GetString(sectionOrdinal),
+
+            StudentCount = reader.IsDBNull(studentCountOrdinal)
+                ? 0
+                : reader.GetInt32(studentCountOrdinal)
         };
     }
 }
