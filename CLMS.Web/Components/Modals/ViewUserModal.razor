@@ -1,0 +1,414 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using CLMS.Application.Identity.Services
+@using CLMS.Domain.Entities.Identity
+@using CLMS.Domain.Enums
+@using CLMS.Web.Models
+
+@inject NavigationManager Navigation;
+@inject UserManagementService UserMgmtService;
+
+
+@if (IsOpen)
+{
+    <ConfirmDialog
+        IsOpen="@_showConfirmDialog"
+        Title="Delete User"
+        Message="Are you sure you want to delete this user?"
+        OnResult="HandleConfirmResult" />
+
+    <MessageDialog
+        IsOpen="@_showMessageDialog"
+        Title="@_messageTitle"
+        Message="@_messageText"
+        OnClose="CloseMessage" />
+    
+    <div class="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-4">
+        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            <div class="flex items-center justify-between
+                            border-b border-gray-200 px-6 py-4">
+                <div>
+                    <h2 class="text-xl text-gray-900">@ViewModel?.GetFullName()</h2>
+                    <p class="text-sm text-gray-500">@ViewModel?.Id</p>
+                </div>
+                <button
+                    type="button"
+                    @onclick="Close"
+                    class="text-2xl text-gray-400 hover:text-gray-600">
+                    &times;
+                </button>
+            </div>
+            
+            @* view *@
+            @if (_isViewing)
+            {
+                <div class=" px-6 py-6">
+                    <div class="mb-3">
+                        <label class="text-sm font-medium">Full Name</label>
+                        <p class="w-full px-3 text-sm outline-none">@ViewModel?.GetFullName()</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="text-sm font-medium">Email</label>
+                            <p class="w-full px-3 text-sm outline-none">@ViewModel?.Email</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium">Role</label>
+                            <p class="w-full px-3 text-sm outline-none">@ViewModel?.Role</p>
+                        </div>
+                    </div>
+                    <hr class="my-4 outline-0 border-gray-200"/>
+                    <div class="grid grid-cols-2 gap-4 mb">
+                        <div class="">
+                            <label class="text-sm font-medium">Created At</label>
+                            <p class="w-full px-3 text-sm outline-none">@ViewModel?.CreatedAt</p>
+                        </div>
+                        <div class="">
+                            <label class="text-sm font-medium">Updated At</label>
+                            <p class="w-full px-3 text-sm outline-none">@ViewModel?.LastModifiedAt </p>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <EditForm Model="EditModel" OnValidSubmit="HandleSubmit" id="edit-form">
+                    <DataAnnotationsValidator />
+                    <div class="space-y-5 px-6 py-6">
+                        <div>
+                            <h3 class="mb-3 text-sm font-semibold text-gray-900">Personal Information</h3>
+
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <!-- First Name -->
+                                <div>
+                                    <label class="mb-1 block text-sm font-medium text-gray-700">First Name</label>
+                                    <InputText @bind-Value="EditModel.FirstName"
+                                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                    <ValidationMessage For="() => EditModel.FirstName" class="mt-1 text-xs text-error" />
+                                </div>
+
+                                <!-- Last Name -->
+                                <div>
+                                    <label class="mb-1 block text-sm font-medium text-gray-700">Last Name</label>
+                                    <InputText @bind-Value="EditModel.LastName"
+                                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                    <ValidationMessage For="() => EditModel.LastName" class="mt-1 text-xs text-error" />
+                                </div>
+
+                                <!-- Middle Name -->
+                                <div>
+                                    <label class="mb-1 block text-sm font-medium text-gray-700">
+                                        Middle Name <span class="font-normal text-muted">(Optional)</span>
+                                    </label>
+                                    <InputText @bind-Value="EditModel.MiddleName"
+                                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                    <ValidationMessage For="() => EditModel.MiddleName" class="mt-1 text-xs text-error" />
+                                </div>
+
+                                <!-- Suffix -->
+                                <div>
+                                    <label class="mb-1 block text-sm font-medium text-gray-700">
+                                        Suffix <span class="font-normal text-muted">(Optional)</span>
+                                    </label>
+                                    <InputText @bind-Value="EditModel.Suffix"
+                                        placeholder="Jr., Sr., III"
+                                        class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                    <ValidationMessage For="() => EditModel.Suffix" class="mt-1 text-xs text-error" />
+                                </div>
+
+                                <!-- Role -->
+                                <div>
+                                    <label class="mb-1 block text-sm font-medium text-gray-700">Role</label>
+                                    <InputSelect @bind-Value="EditModel.UserRole"
+                                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                        @foreach (var role in Enum.GetValues<Role>())
+                                        {
+                                            <option value="@role">@role</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="() => EditModel.UserRole" class="mt-1 text-xs text-error" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </EditForm>
+            }
+            <div class="flex justify-end gap-2 px-6 pb-4">
+                @if (_isViewing)
+                {
+                    <button
+                        type="button"
+                        @onclick="HandleEdit"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-black hover:bg-gray-50">
+                        Edit
+                    </button>
+
+                    <button
+                        type="button"
+                        @onclick="HandleDelete"
+                        class="rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-dark">
+                        Delete
+                    </button>
+                }
+                else
+                {
+                    <button
+                        type="submit"
+                        form="edit-form"
+                        class="rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-dark">
+                        Save
+                    </button>
+                    
+                    <button
+                        type="button"
+                        @onclick="HandleCancel"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-black hover:bg-gray-50">
+                        Cancel
+                    </button>
+
+                }
+            </div>
+        </div>
+        </div>
+        
+        
+}
+
+@code {
+
+    [Parameter] public bool IsOpen { get; set; } = false;
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    
+    [Parameter] public Guid? UserId { get; set; }
+    [Parameter] public EventCallback<Guid?> UserIdChanged { get; set; }
+
+    private bool _isViewing = true;
+    
+    public ViewUserModel ViewModel{ get; set; } = new();
+    public EditUserModel EditModel{ get; set; } = new();
+    public string ErrorMessage { get; set; }
+
+    private bool _showConfirmDialog;
+    private bool _showMessageDialog;
+
+    private string _messageTitle = string.Empty;
+    private string _messageText = string.Empty;
+
+    private enum DialogAction
+    {
+        Delete
+    }
+
+    private DialogAction? _pendingAction;
+
+    public sealed class EditUserModel
+    {
+        [Required(ErrorMessage = "First name is required.")]
+        public string FirstName { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Last name is required.")]
+        public string LastName { get; set; } = string.Empty;
+        public string? MiddleName { get; set; }
+        public string? Suffix { get; set; }
+        [Required(ErrorMessage = "User Role is required.")]
+        public Role UserRole { get; set; }
+    }
+    
+    public sealed class ViewUserModel
+    {
+        public Guid Id { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Email { get; set; }
+        public string? MiddleName { get; set; }
+        public string? Suffix { get; set; }
+        public string Role { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? LastModifiedAt { get; set; }
+        
+        public string GetFullName()
+        {
+            string fullName = FirstName;
+            if (MiddleName != null)
+            {
+                fullName += $" {MiddleName[0].ToString().ToUpper()}.";
+            }
+            fullName += $" {LastName}";
+            if (Suffix != null)
+            {
+                fullName += $" {Suffix}";
+            }
+            return fullName;
+        }
+    }
+
+    private void HandleEdit()
+    {
+        if (ViewModel is null)
+            return;
+
+        
+        EditModel = new EditUserModel
+        {
+            FirstName = ViewModel.FirstName,
+            LastName = ViewModel.LastName,
+            MiddleName = ViewModel.MiddleName,
+            Suffix = ViewModel.Suffix,
+
+            // ViewModel.Role is currently a string,
+            // while EditModel.UserRole is a Role enum.
+            UserRole = Enum.TryParse<Role>(ViewModel.Role, out var role)
+                ? role
+                : default
+        };
+
+        _isViewing = false;
+    }
+
+    private void HandleCancel()
+    {
+        // Throw away any changes made in the edit form.
+        EditModel = new EditUserModel();
+
+        _isViewing = true;
+    }
+
+    private async Task HandleSubmit()
+    {
+        ShowMessage("Test","Hello World!");
+        
+        if (ViewModel is null)
+            return;
+        
+        try
+        {
+            Console.WriteLine($"User {EditModel.UserRole.ToString()} submitted");
+            
+            await UserMgmtService.UpdateUser(
+                ViewModel.Id,
+                EditModel.UserRole,
+                EditModel.FirstName,
+                EditModel.LastName,
+                EditModel.MiddleName,
+                EditModel.Suffix
+            );
+            
+            
+            // Update the displayed ViewModel after successful save.
+            ViewModel.FirstName = EditModel.FirstName;
+            ViewModel.LastName = EditModel.LastName;
+            ViewModel.MiddleName = EditModel.MiddleName;
+            ViewModel.Suffix = EditModel.Suffix;
+            ViewModel.Role = EditModel.UserRole.ToString();
+            
+            _isViewing = true;
+
+            ShowMessage(
+                "User Updated",
+                "The user's information has been updated successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            ShowMessage(
+                "Update Failed",
+                ex.Message);
+        }
+    }
+
+    private void HandleDelete()
+    {
+        _pendingAction = DialogAction.Delete;
+        _showConfirmDialog = true;
+    }
+
+    private async Task HandleConfirmResult(bool confirmed)
+    {
+        _showConfirmDialog = false;
+
+        if (!confirmed)
+        {
+            _pendingAction = null;
+            return;
+        }
+
+        if (_pendingAction == DialogAction.Delete)
+        {
+            await DeleteUser();
+        }
+
+        _pendingAction = null;
+    }
+
+    private async Task DeleteUser()
+    {
+        if (ViewModel is null)
+            return;
+
+        try
+        {
+            await UserMgmtService.DeleteUser(ViewModel.Id);
+
+            ShowMessage(
+                "User Deleted",
+                "The user has been deleted successfully.");
+        }
+        catch (Exception ex)
+        {
+            ShowMessage(
+                "Delete Failed",
+                ex.Message);
+        }
+    }
+
+    private void ShowMessage(string title, string message)
+    {
+        _messageTitle = title;
+        _messageText = message;
+        _showMessageDialog = true;
+    }
+
+    private Task CloseMessage()
+    {
+        _showMessageDialog = false;
+        return Task.CompletedTask;
+    }
+    
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (UserId is not Guid id || ViewModel?.Id == id) return;
+        await LoadUser(id);
+    }
+
+    private async Task LoadUser(Guid id)
+    {
+        var user = await UserMgmtService.GetUserById(id);
+
+        Console.WriteLine("hi");
+        if (user == null) return;
+        Console.WriteLine(user.FirstName);
+
+        ViewModel = new()
+        {
+            Id = user.Id,
+            FirstName = user.FirstName.Value,
+            LastName = user.LastName.Value,
+            Email = user.Email,
+            MiddleName = user.MiddleName?.Value,
+            Suffix = user.Suffix?.Value,
+            Role = user.UserRole.ToString(),
+            CreatedAt = user.CreatedAt,
+            LastModifiedAt = user.LastModifiedAt
+        };
+        
+    }
+
+    private async Task Close()
+    {
+        Navigation.NavigateTo("/admin/users");
+        ViewModel = new();
+        ErrorMessage = null;
+        
+        await IsOpenChanged.InvokeAsync(false);
+        await UserIdChanged.InvokeAsync(null);
+    }
+}

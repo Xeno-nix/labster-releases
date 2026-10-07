@@ -1,8 +1,10 @@
-@inject IClassScheduleService ScheduleService
-@inject ICourseService CourseService
-@inject IUserService InstructorService
-@inject ILaboratoryService LaboratoryService
-@inject IAcademicTermService AcademicTermService
+@using CLMS.Application.Identity.Services
+@using CLMS.Application.Services
+@inject ClassScheduleService ScheduleService
+@inject CourseService CourseService
+@inject UserService InstructorService
+@inject LaboratoryService LaboratoryService
+@inject AcademicTermService AcademicTermService
 
 <div class="fixed inset-0 flex justify-center items-start p-12 bg-black/35 z-[1000] overflow-y-auto">
     <div class="w-full max-w-[520px] bg-white border border-gray-200 rounded-xl" @onclick:stopPropagation="true">
@@ -143,7 +145,7 @@
     [Parameter] public DateTime? InitialDate { get; set; }
 
     private IEnumerable<CourseDTO> courses = Enumerable.Empty<CourseDTO>();
-    private IEnumerable<UserDTO> instructors = Enumerable.Empty<UserDTO>();
+    private IEnumerable<UserDto> instructors = Enumerable.Empty<UserDto>();
     private IEnumerable<LaboratoryDTO> laboratories = Enumerable.Empty<LaboratoryDTO>();
     private IEnumerable<AcademicTermDTO> terms = Enumerable.Empty<AcademicTermDTO>();
 

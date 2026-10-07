@@ -1,9 +1,13 @@
 ﻿@page "/logbook"
+
+@attribute [Authorize]
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components
 @using CLMS.Application.DTOs.Logbook
 @using CLMS.Application.Interfaces
-@inject ILogbookService LogbookService
+@using CLMS.Application.Services
+
+@inject LogbookService LogbookService
 
 <PageTitle>CLMS — Logbook</PageTitle>
 

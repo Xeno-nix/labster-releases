@@ -1,23 +1,45 @@
-using Microsoft.Extensions.DependencyInjection;
+using CLMS.Application.Identity.Interfaces;
+using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
+using CLMS.Application.Persistence.Interfaces;
+using CLMS.Infrastructure.Auth;
+using CLMS.Infrastructure.Persistence.MySql;
+using CLMS.Infrastructure.Persistence.MySql.Repositories;
 using CLMS.Infrastructure.Repositories;
+using CLMS.Infrastructure.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CLMS.Infrastructure;
-
-
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services)
     {
-        services.AddScoped<IStudentRepository>(_ => new StudentRepository(connectionString));
-        services.AddScoped<IGuestRepository>(_ => new GuestRepository(connectionString));
-        services.AddScoped<ILabUtilizationRepository>(_ => new LabUtilizationRepository(connectionString));
-        services.AddScoped<ILogbookRepository>(_ => new LogbookRepository(connectionString));
-
-        services.AddScoped<IEquipmentRepository>(_ => new EquipmentRepository(connectionString));
-        services.AddScoped<ISupplyRepository>(_ => new SupplyRepository(connectionString));
-        services.AddScoped<ILaboratoryRepository>(_ => new LaboratoryRepository(connectionString));
-
+        services
+            .AddScoped<MySqlConnectionFactory>()
+            
+            .AddScoped<ITokenService, JwtAuthenticationService>()
+            .AddScoped<IPasswordHasher,PasswordHasher>()
+            .AddScoped<IRefreshTokenHasher,RefreshTokenHasher>()
+            .AddScoped<IUserRepository,UserRepository>()
+            .AddScoped<IRefreshTokenRepository,RefreshTokenRepository>() 
+            .AddScoped<IRefreshTokenRepository,RefreshTokenRepository>()
+            
+            .AddScoped<IStudentRepository,StudentRepository>()
+            .AddScoped<IGuestRepository,GuestRepository>()
+            .AddScoped<ILabUtilizationRepository,LabUtilizationRepository>()
+            .AddScoped<ILogbookRepository,LogbookRepository>()
+            .AddScoped<IEquipmentRepository,EquipmentRepository>()
+            .AddScoped<ISupplyRepository,SupplyRepository>()
+            
+            .AddScoped<IClassScheduleRepository,ClassScheduleRepository>()
+            .AddScoped<IBookingRepository,BookingRepository>()
+            .AddScoped<ILaboratoryRepository,LaboratoryRepository>()
+            .AddScoped<ICourseRepository,CourseRepository>()
+            .AddScoped<IAcademicTermRepository,AcademicTermRepository>()
+            .AddScoped<IEmailService,EmailService>()
+            ;
+  
         return services;
     }
 }

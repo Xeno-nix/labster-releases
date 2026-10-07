@@ -33,7 +33,7 @@ public class Student : AuditableEntity
         StudentId = studentId;
         FirstName = firstName ?? throw new ArgumentNullException(nameof(firstName));
         LastName = lastName ?? throw new ArgumentNullException(nameof(lastName));
-        _id = Guid.NewGuid();
+        Id = Guid.NewGuid();
         CreatedAt = DateTime.UtcNow;
     }
 

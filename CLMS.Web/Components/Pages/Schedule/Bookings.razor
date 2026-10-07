@@ -1,7 +1,9 @@
 @page "/bookings"
+@attribute [Authorize]
+@using CLMS.Application.Services
 @rendermode InteractiveServer
-@inject IBookingService BookingService
-@inject ILaboratoryService LaboratoryService
+@inject BookingService BookingService
+@inject LaboratoryService LaboratoryService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
 

@@ -1,7 +1,11 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider;
+@using CLMS.Web.Components.Notification
+@using Microsoft.AspNetCore.Components.Authorization
 @implements IDisposable
 
+<ToastContainer/>
 
 <div class="flex h-screen overflow-hidden">
 
@@ -67,6 +71,16 @@
                     </a>
                 </li>
                 <li>
+                    <a href="/admin/users" class="@NavClass("/admin/users", exact: false)">
+                        <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                        Users
+                    </a>
+                </li>
+                <li>
                     <a href="/class-lists" class="@NavClass("/class-lists", exact: false)">
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -127,18 +141,21 @@
                     <p class="text-sm font-medium text-[#2c2c2c] truncate">Administrator</p>
                     <p class="text-xs text-muted truncate">admin@usep.edu.ph</p>
                 </div>
-                <button type="button" title="Logout" disabled
-                        class="p-2 rounded-lg hover:bg-surface transition-colors flex-shrink-0 opacity-50 cursor-not-allowed">
-                    <svg class="w-4 h-4 text-primary" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                        <polyline points="16 17 21 12 16 7" />
-                        <line x1="21" x2="9" y1="12" y2="12" />
-                    </svg>
-                </button>
+                <form
+                    method="post"
+                    action="/auth/cookie-logout">
+                    <button type="submit" title="Logout"
+                            class="p-2 rounded-lg hover:bg-surface transition-colors flex-shrink-0 cursor-pointer">
+                        <svg class="w-4 h-4 text-primary" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            <polyline points="16 17 21 12 16 7" />
+                            <line x1="21" x2="9" y1="12" y2="12" />
+                        </svg>
+                    </button>
+                </form>
             </div>
         </div>
-
     </aside>
 
     @* Main Content *@

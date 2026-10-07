@@ -1,0 +1,101 @@
+﻿@using CLMS.Web.Services
+@implements IDisposable
+@inject DialogService Dialogs
+
+@if (Dialogs.CurrentRequest is not null)
+{
+    <div class="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40 px-4"
+         @onclick="Cancel">
+
+        <div class="w-full max-w-md rounded-xl bg-white shadow-xl"
+             @onclick:stopPropagation>
+
+            <div class="flex items-center gap-3 border-b border-gray-200 px-5 py-4">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary text-primary">
+                    @if (Dialogs.CurrentRequest.Type == DialogService.DialogType.Confirm)
+                    {
+                        <span class="text-lg">?</span>
+                    }
+                    else
+                    {
+                        <i class="fa-solid fa-info text-sm"></i>
+                    }
+                </div>
+
+                <h2 class="text-lg font-semibold text-gray-900">
+                    @Dialogs.CurrentRequest.Title
+                </h2>
+            </div>
+
+            <div class="px-5 py-5">
+                <p class="text-sm text-gray-600">
+                    @Dialogs.CurrentRequest.Message
+                </p>
+            </div>
+
+            <div class="flex justify-end gap-3 border-gray-200 px-5 pb-4">
+                @if (Dialogs.CurrentRequest.Type == DialogService.DialogType.Confirm)
+                {
+                    <button type="button"
+                            @onclick="Confirm"
+                            class="rounded-lg bg-primary px-4 py-2
+                                   text-sm font-medium text-white
+                                   hover:bg-primary-dark
+                                   focus:outline-none
+                                   focus:ring-2 focus:ring-primary/20">
+                        Yes
+                    </button>
+                    
+                    <button type="button"
+                            @onclick="Cancel"
+                            class="rounded-lg border border-gray-300 px-4 py-2
+                                   text-sm font-medium text-gray-700
+                                   hover:bg-gray-50">
+                        No
+                    </button>
+
+                }
+                else
+                {
+                    <button type="button"
+                            @onclick="Confirm"
+                            class="rounded-lg bg-primary px-4 py-2
+                                   text-sm font-medium text-white
+                                   hover:bg-primary-dark
+                                   focus:outline-none
+                                   focus:ring-2 focus:ring-primary/20">
+                        OK
+                    </button>
+                }
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Dialogs.OnChanged += HandleChanged;
+    }
+
+    private void HandleChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void Confirm()
+    {
+        Dialogs.Confirm();
+    }
+
+    private void Cancel()
+    {
+        Dialogs.Cancel();
+    }
+
+    public void Dispose()
+    {
+        Dialogs.OnChanged -= HandleChanged;
+    }
+}

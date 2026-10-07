@@ -2,9 +2,8 @@
 
 public abstract class AuditableEntity
 {
-    public Guid _id { get; set; }
-    public Guid Id { get { return _id; } }
+    public Guid Id { get; protected set; }
     public DateTime CreatedAt { get; set; }
     public DateTime LastModifiedAt { get; set; }
-    public DateTime ArchivedAt { get; set;}
+    public DateTime? DeletedAt { get; set;}
 }
