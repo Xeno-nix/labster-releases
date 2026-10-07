@@ -1,0 +1,129 @@
+@using CLMS.Application.DTOs.Booking
+
+@if (Show)
+{
+    if (Compact)
+    {
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium @ChipClasses">
+            <i data-lucide="@(IsInSync ? "check" : "alert-triangle")" class="w-3.5 h-3.5"></i>
+            @if (IsInSync)
+            {
+                <span>Synced &middot; @EffectiveSlots.Count @SlotNoun</span>
+            }
+            else if (FirstOutOfSync is { } slot)
+            {
+                <span>Out of sync &middot; @slot.Label missing @slot.MissingCount @Plural(slot.MissingCount, "student")</span>
+            }
+        </span>
+    }
+    else
+    {
+        <div class="rounded-xl border border-black/10 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-sm font-medium @(IsInSync ? "text-success" : "text-[#b45309]")">
+                    <i data-lucide="@(IsInSync ? "check-circle-2" : "alert-triangle")" class="w-4.5 h-4.5"></i>
+                    @if (IsInSync)
+                    {
+                        <span>Synced &middot; all @EffectiveSlots.Count slots (@TargetSize @Plural(TargetSize, "student"))</span>
+                    }
+                    else if (FirstOutOfSync is { } slot)
+                    {
+                        <span>Out of sync &middot; @slot.Label is missing @slot.MissingCount @Plural(slot.MissingCount, "student")</span>
+                    }
+                </div>
+
+                @if (!IsInSync)
+                {
+                    <button type="button" @onclick="OnSyncNow" disabled="@IsSyncing"
+                            class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium disabled:opacity-60">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        <span>@(IsSyncing ? "Syncing..." : "Sync now")</span>
+                    </button>
+                }
+            </div>
+
+            <ul class="mt-3 space-y-2">
+                @foreach (var slot in EffectiveSlots)
+                {
+                    <li class="flex items-center justify-between gap-3 text-sm">
+                        <span class="text-[#2c2c2c] font-medium">@slot.Label</span>
+                        <span class="flex items-center gap-2 text-muted">
+                            <span>@slot.StudentCount @Plural(slot.StudentCount, "student")</span>
+                            @if (slot.MissingCount > 0)
+                            {
+                                <span class="text-[#b45309] text-xs">missing @slot.MissingCount</span>
+                                <i data-lucide="alert-triangle" class="w-4 h-4 text-[#b45309]"></i>
+                            }
+                            else
+                            {
+                                <i data-lucide="check-circle-2" class="w-4 h-4 text-success"></i>
+                            }
+                        </span>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+}
+
+@code {
+    /// <summary>Card/row variant — a single chip derived from the class's slot counts.</summary>
+    [Parameter] public bool Compact { get; set; }
+
+    /// <summary>The class's meetings. Used for the compact chip and as a fallback for detail.</summary>
+    [Parameter] public IReadOnlyList<ClassSlotDTO> Slots { get; set; } = [];
+
+    /// <summary>Authoritative sync status, computed by ClassListService. Roster panel passes this.</summary>
+    [Parameter] public SyncStatusDTO? Status { get; set; }
+
+    [Parameter] public EventCallback OnSyncNow { get; set; }
+
+    [Parameter] public bool IsSyncing { get; set; }
+
+    /// <summary>
+    /// Slot rows to render: the authoritative status when supplied, otherwise derived from
+    /// the slot counts (the roster size is the largest slot count in that case).
+    /// </summary>
+    private List<SyncSlotDTO> EffectiveSlots
+    {
+        get
+        {
+            if (Status is { Slots.Count: > 0 } status)
+                return status.Slots.ToList();
+
+            var target = Slots.Count > 0 ? Slots.Max(s => s.StudentCount) : 0;
+
+            return Slots
+                .OrderBy(s => s.DayOfWeek)
+                .ThenBy(s => s.TimeStart)
+                .Select(s => new SyncSlotDTO
+                {
+                    ScheduleId = s.ScheduleId,
+                    Label = s.Label,
+                    StudentCount = s.StudentCount,
+                    MissingCount = Math.Max(0, target - s.StudentCount)
+                })
+                .ToList();
+        }
+    }
+
+    private int TargetSize => Status?.RosterSize ?? (Slots.Count > 0 ? Slots.Max(s => s.StudentCount) : 0);
+
+    private bool IsInSync => EffectiveSlots.Count > 0 && EffectiveSlots.All(s => s.MissingCount == 0);
+
+    private SyncSlotDTO? FirstOutOfSync => EffectiveSlots.FirstOrDefault(s => s.MissingCount > 0);
+
+    /// <summary>
+    /// A single meeting has nothing to sync against, so the badge only appears when a class
+    /// has multiple meetings or is actually out of sync.
+    /// </summary>
+    private bool Show => Status is not null
+        ? Status.TotalSlots > 1 || !IsInSync
+        : Slots.Count > 1 || (Slots.Count > 0 && !IsInSync);
+
+    private string ChipClasses => IsInSync ? "bg-success/10 text-success" : "bg-warning/25 text-[#b45309]";
+
+    private string SlotNoun => EffectiveSlots.Count == 1 ? "slot" : "slots";
+
+    private static string Plural(int count, string noun) => count == 1 ? noun : $"{noun}s";
+}

@@ -8,12 +8,15 @@ namespace CLMS.Application.Services;
 public class ClassScheduleService 
 {
     private readonly IClassScheduleRepository _repository;
+    private readonly ClassListService _classListService;
     
 
     public ClassScheduleService(
-        IClassScheduleRepository repository)
+        IClassScheduleRepository repository,
+        ClassListService classListService)
     {
         _repository = repository;
+        _classListService = classListService;
     }
 
 //create sched
@@ -25,6 +28,8 @@ public class ClassScheduleService
             InstructorId = dto.InstructorId,
             LaboratoryId = dto.LaboratoryId,
             AcademicTermId = dto.AcademicTermId,
+            YearLevel = dto.YearLevel,
+            Section = NormalizeSection(dto.Section),
             DayOfWeek = dto.DayOfWeek,
             TimeStart = dto.TimeStart,
             TimeEnd = dto.TimeEnd
@@ -35,7 +40,25 @@ public class ClassScheduleService
             throw new InvalidOperationException("The Class Schedule conflicts with an existing class schedule.");
         }
 
-        return await _repository.CreateAsync(schedule);
+        var id = await _repository.CreateAsync(schedule);
+
+        // Sync hook: a newly added meeting of an existing class inherits its siblings'
+        // roster right after save, so the group never drifts. No-op for a brand-new class.
+        await _classListService.SyncGroupEnrollmentAsync(id);
+
+        return id;
+    }
+
+    /// <summary>
+    /// Section is free text (max 10 chars in the schema): trimmed and uppercased so that
+    /// "a" and " A " group together as the same class. Returns null for blank input.
+    /// </summary>
+    private static string? NormalizeSection(string? section)
+    {
+        if (string.IsNullOrWhiteSpace(section))
+            return null;
+
+        return section.Trim().ToUpperInvariant();
     }
 //delete sched
     public async Task DeleteAsync(int id)
@@ -87,6 +110,8 @@ public class ClassScheduleService
             InstructorId = dto.InstructorId,
             LaboratoryId = dto.LaboratoryId,
             AcademicTermId = dto.AcademicTermId,
+            YearLevel = dto.YearLevel,
+            Section = NormalizeSection(dto.Section),
             DayOfWeek = dto.DayOfWeek,
             TimeStart = dto.TimeStart,
             TimeEnd = dto.TimeEnd
@@ -98,6 +123,11 @@ public class ClassScheduleService
         }
 
         await _repository.UpdateAsync(schedule);
+
+        // Sync hook: if the edit moved this slot into (or within) a class group, every
+        // meeting ends up with the same roster. A slot edited between groups keeps its own
+        // students only when the destination group has no roster — see §5.4 of the plan.
+        await _classListService.SyncGroupEnrollmentAsync(id);
     }
 
 }

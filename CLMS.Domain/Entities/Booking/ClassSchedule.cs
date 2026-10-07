@@ -11,5 +11,13 @@ public class ClassSchedule : AuditableEntity
     public TimeOnly TimeStart { get; set; }
     public TimeOnly TimeEnd { get; set; }
 
- 
+    /// <summary>
+    /// Year level (1-5) and section identify which "class" a weekly meeting belongs to.
+    /// A class is a group of class_schedule rows sharing course, instructor, term,
+    /// year level and section. Both are nullable so existing schedules keep working;
+    /// a schedule with either one null is treated as a group of one.
+    /// </summary>
+    public int? YearLevel { get; set; }
+
+    public string? Section { get; set; }
 }

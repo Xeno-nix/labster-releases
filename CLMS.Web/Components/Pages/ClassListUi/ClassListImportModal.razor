@@ -1,0 +1,379 @@
+@using System.Text
+@using CLMS.Application.DTOs.Booking
+@using CLMS.Application.Services
+@using CLMS.Domain.Enums
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject ClassListService ClassListService
+
+@if (Show)
+{
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @onclick="Dismiss">
+        <div class="bg-white rounded-xl w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-y-auto" @onclick:stopPropagation="true">
+            <div class="flex items-center justify-between p-6 border-b border-black/10 sticky top-0 bg-white z-10">
+                <div>
+                    <h2 class="text-primary text-lg">Import students</h2>
+                    <p class="text-xs text-muted mt-0.5">@StepSubtitle</p>
+                </div>
+                <button type="button" @onclick="Dismiss" class="p-2 hover:bg-surface rounded-lg transition-colors" title="Close">✕</button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">@ErrorMessage</div>
+                }
+
+                @if (Step == 1)
+                {
+                    <div>
+                        <label class="block text-sm font-medium text-[#2c2c2c] mb-1.5">CSV file</label>
+                        <label class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-black/10 rounded-lg bg-surface p-8 cursor-pointer hover:border-primary/40 transition-colors text-center">
+                            <i data-lucide="file-up" class="w-6 h-6 text-muted"></i>
+                            <span class="text-sm text-muted">Click to choose a CSV file</span>
+                            <span class="text-xs text-muted">Columns: student_id, last_name, first_name, middle_name, suffix</span>
+                            <InputFile OnChange="OnFileSelected" accept=".csv,text/csv" class="hidden" />
+                        </label>
+                        <p class="text-xs text-muted mt-1.5">
+                            Limits: 1 MB, up to 500 rows. Students whose ID isn't in the system yet are created automatically.
+                        </p>
+                    </div>
+
+                    @if (SelectedFileName is not null)
+                    {
+                        <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-surface border border-black/10 text-sm">
+                            <span class="truncate font-medium">@SelectedFileName</span>
+                            <span class="text-xs text-muted flex-shrink-0">@FileSizeKb KB</span>
+                        </div>
+                    }
+
+                    <div class="text-xs text-muted">
+                        Don't have a roster file yet?
+                        <a href="@TemplateCsvDataUri" download="class-list-template.csv" class="text-primary underline hover:text-primary-dark">Download the template</a>.
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" @onclick="Dismiss" class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm">
+                            Cancel
+                        </button>
+                        <button type="button" @onclick="PreviewAsync"
+                                disabled="@(SelectedFileName is null || IsLoading)"
+                                class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm text-sm font-medium disabled:opacity-60">
+                            @(IsLoading ? "Reading..." : "Preview")
+                        </button>
+                    </div>
+                }
+
+                @if (Step == 2 && Preview is not null)
+                {
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-block px-2 py-1 rounded text-xs font-medium bg-success/10 text-success">@Preview.ToEnroll to enroll</span>
+                        <span class="inline-block px-2 py-1 rounded text-xs font-medium bg-primary/10 text-primary">@Preview.ToCreate new students</span>
+                        <span class="inline-block px-2 py-1 rounded text-xs font-medium bg-surface text-muted">@Preview.AlreadyEnrolled already enrolled</span>
+                        <span class="inline-block px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700">@Preview.Invalid invalid</span>
+                    </div>
+
+                    @if (Preview.Rows.Count == 0)
+                    {
+                        <div class="py-8 text-center text-sm text-muted">
+                            <p>No data rows found. Check that the file has a header row
+                                (student_id, last_name, first_name, ...) and at least one student below it.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="overflow-x-auto border border-black/10 rounded-lg">
+                            <table class="w-full text-sm">
+                                <thead class="bg-surface">
+                                    <tr class="text-left text-xs uppercase tracking-wide text-[#2c2c2c]">
+                                        <th class="px-4 py-2.5 font-semibold">#</th>
+                                        <th class="px-4 py-2.5 font-semibold">Student ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Name</th>
+                                        <th class="px-4 py-2.5 font-semibold">Status</th>
+                                        <th class="px-4 py-2.5 font-semibold">Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-black/5">
+                                    @foreach (var row in Preview.Rows)
+                                    {
+                                        <tr class="hover:bg-surface transition-colors">
+                                            <td class="px-4 py-2.5 text-xs text-muted">@row.RowNumber</td>
+                                            <td class="px-4 py-2.5 font-mono text-xs">@(string.IsNullOrEmpty(row.StudentId) ? "—" : row.StudentId)</td>
+                                            <td class="px-4 py-2.5">@(string.IsNullOrWhiteSpace(row.DisplayName) ? "—" : row.DisplayName)</td>
+                                            <td class="px-4 py-2.5">@StatusChip(row.Status)</td>
+                                            <td class="px-4 py-2.5 text-xs text-muted">@RowNote(row)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (Preview.Importable == 0)
+                    {
+                        <p class="text-xs text-muted">Everything in this file is already enrolled or invalid — nothing to import.</p>
+                    }
+
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" @onclick="() => Step = 1" disabled="@IsLoading"
+                                class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm disabled:opacity-60">
+                            Back to file
+                        </button>
+                        <button type="button" @onclick="Dismiss" class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm">
+                            Cancel
+                        </button>
+                        <button type="button" @onclick="CommitAsync"
+                                disabled="@(Preview.Importable == 0 || IsLoading)"
+                                class="px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm text-sm font-medium disabled:opacity-60">
+                            @(IsLoading ? "Importing..." : "Confirm import")
+                        </button>
+                    </div>
+                }
+
+                @if (Step == 3 && Result is not null)
+                {
+                    <div class="flex items-start gap-3 px-4 py-3 rounded-lg bg-success/10 border border-success/30 text-sm text-success">
+                        <i data-lucide="check-circle-2" class="w-5 h-5 mt-0.5 flex-shrink-0"></i>
+                        <div>
+                            <p class="font-medium">Import complete</p>
+                            <p class="mt-0.5">@Result.Message</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <div>
+                            @if (Result.Invalid > 0)
+                            {
+                                <a href="@ErrorRowsCsvDataUri" download="import-errors.csv"
+                                   class="text-sm text-primary underline hover:text-primary-dark">
+                                    Download error rows (CSV)
+                                </a>
+                            }
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button type="button" @onclick="Reset"
+                                    class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm">
+                                Import another file
+                            </button>
+                            <button type="button" @onclick="Dismiss"
+                                    class="px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm text-sm font-medium">
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public int ScheduleId { get; set; }
+    [Parameter] public Guid UserId { get; set; }
+    [Parameter] public Role Role { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+    [Parameter] public EventCallback<ClassListImportResult> OnCommitted { get; set; }
+
+    private int Step { get; set; } = 1;
+    private byte[]? FileBytes { get; set; }
+    private string? SelectedFileName { get; set; }
+    private string? ErrorMessage { get; set; }
+    private bool IsLoading { get; set; }
+    private ClassListImportPreview? Preview { get; set; }
+    private ClassListImportResult? Result { get; set; }
+    private string? ErrorRowsCsvDataUri { get; set; }
+
+    private string StepSubtitle => Step switch
+    {
+        1 => "Choose a CSV file — students are enrolled into every meeting of this class.",
+        2 => "Review the rows before importing.",
+        _ => "Import complete."
+    };
+
+    private long FileSizeKb => (FileBytes?.Length ?? 0) / 1024;
+
+    private string TemplateCsvDataUri { get; } = BuildCsvDataUri(
+        "student_id,last_name,first_name,middle_name,suffix\n" +
+        "2024-00227,Dela Cruz,Juan,Santos,\n" +
+        "2024-00318,Reyes,Maria,Luna,Jr.\n");
+
+    private bool _wasShown;
+
+    protected override void OnParametersSet()
+    {
+        if (Show && !_wasShown)
+            Reset();
+
+        _wasShown = Show;
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        ErrorMessage = null;
+        Preview = null;
+        Result = null;
+        FileBytes = null;
+
+        var file = e.File;
+        if (file is null)
+            return;
+
+        if (file.Size > ClassListCsvParser.MaxFileBytes)
+        {
+            ErrorMessage = "That file is larger than the 1 MB limit.";
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(ClassListCsvParser.MaxFileBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+
+            FileBytes = buffer.ToArray();
+            SelectedFileName = file.Name;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Could not read the file. {ex.Message}";
+        }
+    }
+
+    private async Task PreviewAsync()
+    {
+        if (FileBytes is null)
+            return;
+
+        ErrorMessage = null;
+        IsLoading = true;
+
+        try
+        {
+            await using var stream = new MemoryStream(FileBytes);
+            Preview = await ClassListService.PreviewImportAsync(UserId, Role, ScheduleId, stream);
+            Step = 2;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task CommitAsync()
+    {
+        if (FileBytes is null)
+            return;
+
+        ErrorMessage = null;
+        IsLoading = true;
+
+        try
+        {
+            await using var stream = new MemoryStream(FileBytes);
+            Result = await ClassListService.CommitImportAsync(UserId, Role, ScheduleId, stream);
+            BuildErrorRowsCsv(Preview);
+            Step = 3;
+            await OnCommitted.InvokeAsync(Result);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void BuildErrorRowsCsv(ClassListImportPreview? preview)
+    {
+        if (preview is null)
+        {
+            ErrorRowsCsvDataUri = null;
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("student_id,last_name,first_name,middle_name,suffix,error");
+
+        foreach (var row in preview.Rows.Where(r => r.Status == ClassListImportStatus.Invalid))
+        {
+            sb.AppendLine(string.Join(',', new[]
+            {
+                CsvEscape(row.StudentId),
+                CsvEscape(row.LastName),
+                CsvEscape(row.FirstName),
+                CsvEscape(row.MiddleName),
+                CsvEscape(row.Suffix),
+                CsvEscape(row.Error)
+            }));
+        }
+
+        ErrorRowsCsvDataUri = BuildCsvDataUri(sb.ToString());
+    }
+
+    private static string CsvEscape(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+
+        return value;
+    }
+
+    private static string BuildCsvDataUri(string csv)
+    {
+        // UTF-8 BOM so Excel opens the file with the right encoding.
+        var bytes = Encoding.UTF8.GetBytes("\uFEFF" + csv);
+        return "data:text/csv;charset=utf-8;base64," + Convert.ToBase64String(bytes);
+    }
+
+    private static MarkupString StatusChip(ClassListImportStatus status)
+    {
+        var (label, cls) = status switch
+        {
+            ClassListImportStatus.WillEnroll => ("Will enroll", "bg-success/10 text-success"),
+            ClassListImportStatus.WillCreateStudent => ("New student", "bg-primary/10 text-primary"),
+            ClassListImportStatus.AlreadyEnrolled => ("Already enrolled", "bg-surface text-muted"),
+            _ => ("Invalid", "bg-red-50 text-red-700")
+        };
+
+        return new MarkupString($"<span class=\"inline-block px-2 py-1 rounded text-xs font-medium {cls}\">{label}</span>");
+    }
+
+    private static string RowNote(ClassListImportRow row)
+    {
+        if (row.Status == ClassListImportStatus.Invalid)
+            return row.Error ?? string.Empty;
+
+        if (row.NameDiffers)
+            return $"Stored name: {row.StoredName} — the existing record is kept as is.";
+
+        return string.Empty;
+    }
+
+    private void Reset()
+    {
+        Step = 1;
+        FileBytes = null;
+        SelectedFileName = null;
+        ErrorMessage = null;
+        IsLoading = false;
+        Preview = null;
+        Result = null;
+        ErrorRowsCsvDataUri = null;
+    }
+
+    private async Task Dismiss()
+    {
+        Reset();
+        await OnDismiss.InvokeAsync();
+    }
+}
