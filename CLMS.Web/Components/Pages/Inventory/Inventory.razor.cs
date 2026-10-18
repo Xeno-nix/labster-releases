@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using System.Text.RegularExpressions;
 using CLMS.Application.Services;
+using CLMS.Web.Services;
 
 namespace CLMS.Web.Components.Pages.Inventory;
 
@@ -14,6 +15,8 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     [Inject] private LaboratoryService LaboratoryService { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private ToastService Toasts { get; set; } = default!;
+    [Inject] private DialogService Dialogs { get; set; } = default!;
 
     private const string QrElementId = "qr-canvas";
     private const string ScannerVideoElementId = "scanner-video";
@@ -26,8 +29,6 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     private List<EquipmentItem> Equipment { get; set; } = new();
     private List<SupplyItem> Supplies { get; set; } = new();
     private List<LabOption> Labs { get; set; } = new();
-    private string? FlashSuccess { get; set; }
-    private string? FlashError { get; set; }
 
     private string ActiveTab { get; set; } = "equipment";
 
@@ -62,9 +63,6 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     private bool EditingEquipment { get; set; }
     private EquipmentItem EquipmentFormModel { get; set; } = new();
 
-    private bool ShowDeleteEquipment { get; set; }
-    private EquipmentItem? PendingDeleteEquipment { get; set; }
-
     private bool ShowQr { get; set; }
     private bool ShowScanner { get; set; }
     private EquipmentItem? SelectedEquipment { get; set; }
@@ -86,13 +84,6 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     private bool ShowSupplyForm { get; set; }
     private bool EditingSupply { get; set; }
     private SupplyItem SupplyFormModel { get; set; } = new();
-
-    private bool ShowDeleteSupply { get; set; }
-    private SupplyItem? PendingDeleteSupply { get; set; }
-
-    private bool ShowStatusConfirm { get; set; }
-    private SupplyItem? PendingStatusSupply { get; set; }
-    private string? PendingStatusValue { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -254,12 +245,12 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
             if (EditingEquipment)
             {
                 await EquipmentService.UpdateAsync(model.EquipmentId, dto);
-                FlashSuccess = "Equipment updated successfully.";
+                Toasts.Show("Equipment updated successfully.", ToastService.ToastType.Success);
             }
             else
             {
                 await EquipmentService.CreateAsync(dto);
-                FlashSuccess = "Equipment added successfully. Assign it to a lab from its QR panel.";
+                Toasts.Show("Equipment added successfully. Assign it to a lab from its QR panel.", ToastService.ToastType.Success);
             }
 
             await ReloadEquipmentAsync();
@@ -267,27 +258,28 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
-            FlashError = ex.Message;
+            Toasts.Show(ex.Message, ToastService.ToastType.Error);
         }
     }
 
-    private void OpenDeleteEquipment(EquipmentItem item)
+    private async Task OpenDeleteEquipment(EquipmentItem item)
     {
-        PendingDeleteEquipment = item;
-        ShowDeleteEquipment = true;
-    }
+        var ok = await Dialogs.ShowConfirmDialogAsync(
+            $"Delete {item.EquipmentName} ({item.EquipmentNo})? This action cannot be undone.",
+            "Delete Equipment");
 
-    private async Task DeleteEquipmentConfirmed()
-    {
-        if (PendingDeleteEquipment is not null)
+        if (!ok) return;
+
+        try
         {
-            await EquipmentService.DeleteAsync(PendingDeleteEquipment.EquipmentId);
+            await EquipmentService.DeleteAsync(item.EquipmentId);
             await ReloadEquipmentAsync();
-            FlashSuccess = "Equipment deleted.";
+            Toasts.Show("Equipment deleted.", ToastService.ToastType.Success);
         }
-
-        ShowDeleteEquipment = false;
-        PendingDeleteEquipment = null;
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            Toasts.Show(ex.Message, ToastService.ToastType.Error);
+        }
     }
 
     private void OpenQr(EquipmentItem item)
@@ -331,12 +323,12 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
             await ReloadEquipmentAsync();
 
             SelectedEquipment = Equipment.FirstOrDefault(e => e.EquipmentId == SelectedEquipment.EquipmentId);
-            FlashSuccess = "Equipment record updated.";
+            Toasts.Show("Equipment record updated.", ToastService.ToastType.Success);
             CloseQr();
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
-            FlashError = ex.Message;
+            Toasts.Show(ex.Message, ToastService.ToastType.Error);
         }
     }
 
@@ -370,11 +362,11 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
             await ReloadEquipmentAsync();
             SelectedEquipment = Equipment.FirstOrDefault(e => e.EquipmentId == SelectedEquipment.EquipmentId);
-            FlashSuccess = "Equipment reassigned.";
+            Toasts.Show("Equipment reassigned.", ToastService.ToastType.Success);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
-            FlashError = ex.Message;
+            Toasts.Show(ex.Message, ToastService.ToastType.Error);
         }
     }
 
@@ -409,7 +401,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
         query = (query ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(query))
         {
-            FlashSuccess = "No code detected. Try again or enter it manually.";
+            Toasts.Show("No code detected. Try again or enter it manually.", ToastService.ToastType.Warning);
             return;
         }
 
@@ -433,7 +425,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
         if (match is null)
         {
-            FlashSuccess = "No matching equipment was found for that scan.";
+            Toasts.Show("No matching equipment was found for that scan.", ToastService.ToastType.Warning);
             return;
         }
 
@@ -482,50 +474,51 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
         }
 
         await ReloadSuppliesAsync();
-        FlashSuccess = EditingSupply ? "Supply updated successfully." : "Supply added successfully.";
+        Toasts.Show(EditingSupply ? "Supply updated successfully." : "Supply added successfully.", ToastService.ToastType.Success);
 
         ShowSupplyForm = false;
     }
 
-    private void OpenDeleteSupply(SupplyItem item)
+    private async Task OpenDeleteSupply(SupplyItem item)
     {
-        PendingDeleteSupply = item;
-        ShowDeleteSupply = true;
-    }
+        var ok = await Dialogs.ShowConfirmDialogAsync(
+            $"Delete {item.SupplyName}? This action cannot be undone.",
+            "Delete Supply Item");
 
-    private async Task DeleteSupplyConfirmed()
-    {
-        if (PendingDeleteSupply is not null)
+        if (!ok) return;
+
+        try
         {
-            await SupplyService.DeleteAsync(PendingDeleteSupply.SupplyId);
+            await SupplyService.DeleteAsync(item.SupplyId);
             await ReloadSuppliesAsync();
-            FlashSuccess = "Supply deleted.";
+            Toasts.Show("Supply deleted.", ToastService.ToastType.Success);
         }
-
-        ShowDeleteSupply = false;
-        PendingDeleteSupply = null;
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            Toasts.Show(ex.Message, ToastService.ToastType.Error);
+        }
     }
 
-    private void ConfirmStatusChange(SupplyItem item, string newStatus)
+    private async Task ConfirmStatusChange(SupplyItem item, string newStatus)
     {
         if (newStatus == item.Status) return;
-        PendingStatusSupply = item;
-        PendingStatusValue = newStatus;
-        ShowStatusConfirm = true;
-    }
 
-    private async Task StatusChangeConfirmed()
-    {
-        if (PendingStatusSupply is not null && PendingStatusValue is not null)
+        var ok = await Dialogs.ShowConfirmDialogAsync(
+            $"Change {item.SupplyName}'s status to {newStatus.Replace('_', ' ')}?",
+            "Update Supply Status");
+
+        if (!ok) return;
+
+        try
         {
-            await SupplyService.UpdateStatusAsync(PendingStatusSupply.SupplyId, PendingStatusValue);
-            PendingStatusSupply.Status = PendingStatusValue;
-            FlashSuccess = "Supply status updated.";
+            await SupplyService.UpdateStatusAsync(item.SupplyId, newStatus);
+            item.Status = newStatus;
+            Toasts.Show("Supply status updated.", ToastService.ToastType.Success);
         }
-
-        ShowStatusConfirm = false;
-        PendingStatusSupply = null;
-        PendingStatusValue = null;
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            Toasts.Show(ex.Message, ToastService.ToastType.Error);
+        }
     }
 
     private static EquipmentItem CloneEquipment(EquipmentItem item) => new()

@@ -4,6 +4,7 @@
 @using CLMS.Application.Services
 @using CLMS.Domain.Enums
 @using CLMS.Web.Components.Pages.ClassListUi
+@using CLMS.Web.Services
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 
@@ -14,17 +15,12 @@
 @inject AcademicTermService TermService
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JS
+@inject ToastService Toasts
+@inject DialogService Dialogs
 
 <PageTitle>CLMS — Class Lists</PageTitle>
 
-<div class="space-y-6">
-
-    @if (!string.IsNullOrEmpty(ErrorMessage))
-    {
-        <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-700">@ErrorMessage</p>
-        </div>
-    }
+<div class="space-y-6" id="class-lists-top">
 
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -80,49 +76,39 @@
     }
     else
     {
-        @if (SelectedClass is not null)
-        {
-            <ClassRosterPanel Class="SelectedClass"
-                              UserId="@UserId"
-                              Role="@CurrentRole"
-                              OnBack="CloseClass"
-                              OnClassChanged="RefreshClassesAfterChange" />
-        }
-        else
-        {
-            <div class="flex items-center justify-between">
-                <p class="text-sm text-muted">
-                    @Classes.Count @(Classes.Count == 1 ? "class" : "classes")
-                    @if (TotalStudents > 0)
-                    {
-                        <span> · @TotalStudents student@(TotalStudents == 1 ? "" : "s")</span>
-                    }
-                </p>
-            </div>
+        <div class="space-y-3">
+            @foreach (var cls in PagedClasses)
+            {
+                var isExpanded = IsExpanded(cls);
 
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                @foreach (var cls in Classes)
-                {
-                    <button type="button"
-                            class="bg-white rounded-lg border border-black/10 shadow-sm p-5 text-left hover:border-primary/40 hover:shadow-md transition-all cursor-pointer w-full"
-                            @onclick="() => OpenClass(cls)">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-primary font-semibold truncate">@cls.CourseCode</p>
-                                <p class="text-sm text-muted truncate">@cls.CourseName</p>
-                            </div>
-                            @if (cls.StudentCount > 0)
-                            {
-                                <span class="inline-block px-2 py-1 rounded text-xs font-medium bg-primary/10 text-primary flex-shrink-0">
-                                    @cls.StudentCount
-                                </span>
-                            }
-                        </div>
-
-                        <div class="mt-4 pt-4 border-t border-black/10 space-y-2">
-                            <div class="flex items-start gap-2 text-sm text-[#2c2c2c]">
-                                <i data-lucide="layers" class="w-4 h-4 text-muted flex-shrink-0 mt-0.5"></i>
+                <div class="bg-white rounded-lg border @(isExpanded ? "border-primary/50 shadow-md" : "border-black/10 shadow-sm") transition-all duration-300">
+                    <div class="relative">
+                        <button aria-expanded="@(isExpanded ? "true" : "false")"
+                                aria-controls="@RosterPanelId(cls)"
+                                type="button"
+                                class="w-full p-5 pr-12 text-left hover:bg-surface/40 transition-colors rounded-t-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                                @onclick="() => ToggleClass(cls)">
+                            <span class="flex items-start justify-between gap-3">
                                 <span class="min-w-0">
+                                    <span class="block text-primary font-semibold truncate">@cls.CourseCode</span>
+                                    <span class="block text-sm font-medium text-[#2c2c2c] truncate">@cls.CourseName</span>
+                                </span>
+                            </span>
+
+                        <span class="mt-4 pt-4 border-t border-black/10 grid grid-cols-1 md:grid-cols-[1.15fr_1.1fr_1.2fr_0.9fr] gap-x-6 gap-y-3">
+                            <span class="min-w-0 flex items-start gap-2 text-sm font-medium text-[#2c2c2c]">
+                                <i data-lucide="clock" class="w-4 h-4 text-muted flex-shrink-0 mt-1"></i>
+                                <span class="min-w-0 flex flex-col gap-1 leading-6">
+                                    @foreach (var slot in cls.Slots)
+                                    {
+                                        <span class="whitespace-nowrap">@slot.Label</span>
+                                    }
+                                </span>
+                            </span>
+
+                            <span class="min-w-0 flex items-start gap-2 text-sm text-[#2c2c2c]">
+                                <i data-lucide="layers" class="w-4 h-4 text-muted flex-shrink-0 mt-1"></i>
+                                <span class="min-w-0 whitespace-normal break-words leading-6">
                                     @if (cls.IsGrouped)
                                     {
                                         <span>Year @cls.YearLevel &middot; Section @cls.Section</span>
@@ -132,44 +118,117 @@
                                         <span class="text-muted">Year &amp; section not set</span>
                                     }
                                 </span>
-                            </div>
-
-                            <div class="flex items-start gap-2 text-sm text-[#2c2c2c]">
-                                <i data-lucide="clock" class="w-4 h-4 text-muted flex-shrink-0 mt-0.5"></i>
-                                <span class="min-w-0">@cls.SlotsLabel</span>
-                            </div>
-
-                            <div class="flex items-start gap-2 text-sm text-[#2c2c2c]">
-                                <i data-lucide="flask-conical" class="w-4 h-4 text-muted flex-shrink-0 mt-0.5"></i>
-                                <span class="min-w-0 truncate">@LabLabel(cls)</span>
-                            </div>
-
-                            @if (IsAdmin)
-                            {
-                                <div class="flex items-start gap-2 text-sm text-[#2c2c2c]">
-                                    <i data-lucide="user" class="w-4 h-4 text-muted flex-shrink-0 mt-0.5"></i>
-                                    <span class="min-w-0 truncate">@cls.InstructorName</span>
-                                </div>
-                            }
-                        </div>
-
-                        <div class="mt-3 pt-3 border-t border-black/10 flex items-center justify-between gap-3">
-                            <ClassListSyncBadge Compact="true" Slots="@cls.Slots" />
-                            <span class="text-xs font-medium text-primary flex items-center gap-1 flex-shrink-0">
-                                @if (cls.StudentCount > 0)
-                                {
-                                    <span>View roster (@cls.StudentCount)</span>
-                                }
-                                else
-                                {
-                                    <span>View roster</span>
-                                }
-                                <span aria-hidden="true">→</span>
                             </span>
+
+                            <span class="min-w-0 flex items-start gap-2 text-sm text-[#2c2c2c]">
+                                <i data-lucide="flask-conical" class="w-4 h-4 text-muted flex-shrink-0 mt-1"></i>
+                                <span class="min-w-0 whitespace-normal break-words leading-6">@LabLabel(cls)</span>
+                            </span>
+
+                            <span class="min-w-0 flex items-start gap-2 text-sm text-[#2c2c2c]">
+                                <i data-lucide="user" class="w-4 h-4 text-muted flex-shrink-0 mt-1"></i>
+                                <span class="min-w-0 whitespace-normal break-words leading-6">
+                                    @if (IsAdmin && !string.IsNullOrWhiteSpace(cls.InstructorName))
+                                    {
+                                        @cls.InstructorName
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" aria-hidden="true">—</span>
+                                    }
+                                </span>
+                            </span>
+                        </span>
+                        </button>
+
+                        <button type="button"
+                                title="Delete class"
+                                aria-label="Delete class"
+                                class="absolute top-4 right-4 p-2 rounded-lg text-muted hover:text-error hover:bg-error/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/30 transition-colors"
+                                @onclick="() => PromptDeleteClassAsync(cls)">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <div id="@RosterPanelId(cls)"
+                         class="accordion-panel"
+                         data-open="@(isExpanded ? "true" : "false")"
+                         inert="@(!isExpanded)">
+                        <div class="accordion-panel__inner">
+                            <div class="accordion-panel__content">
+                                @if (PanelMounted(cls))
+                                {
+                                    <div class="border-t border-black/10">
+                                        <ClassRosterPanel Class="cls"
+                                                          UserId="@UserId"
+                                                          Role="@CurrentRole"
+                                                          ShowBackButton="false"
+                                                          Framed="false"
+                                                          ShowHeader="false"
+                                                          OnClassChanged="RefreshClassesAfterChange" />
+                                    </div>
+                                }
+                            </div>
                         </div>
+                    </div>
+
+                    <button aria-expanded="@(isExpanded ? "true" : "false")"
+                            aria-controls="@RosterPanelId(cls)"
+                            type="button"
+                            title="@(isExpanded ? "Hide roster" : "Show roster")"
+                            aria-label="@(isExpanded ? "Hide roster" : "Show roster")"
+                            class="w-full flex items-center justify-center py-3 border-t border-black/10 rounded-b-lg text-muted hover:bg-surface/60 hover:text-[#2c2c2c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 transition-colors"
+                            @onclick="() => ToggleClass(cls)">
+                        <svg class="w-4 h-4 transition-transform duration-300 @(isExpanded ? "rotate-180" : "")"
+                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="m6 9 6 6 6-6"></path>
+                        </svg>
                     </button>
+                </div>
+            }
+        </div>
+
+        @if (TotalPages > 1)
+        {
+            <nav class="flex items-center justify-center gap-1.5" aria-label="Pagination">
+                <button type="button"
+                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-black/10 bg-surface text-sm text-[#2c2c2c] hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        disabled="@(CurrentPage <= 1)"
+                        @onclick="GoToPreviousPage">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                    Prev
+                </button>
+
+                @foreach (var p in PaginationPages)
+                {
+                    @if (p < 0)
+                    {
+                        <span class="w-6 text-center text-sm text-muted select-none">…</span>
+                    }
+                    else
+                    {
+                        <button type="button"
+                                aria-label="Page @p"
+                                aria-current="@(p == CurrentPage ? "page" : null)"
+                                class="inline-flex items-center justify-center w-9 h-9 rounded-lg border text-sm font-medium transition-colors
+                                       @(p == CurrentPage
+                                           ? "bg-primary text-white border-primary"
+                                           : "border-black/10 bg-surface text-[#2c2c2c] hover:bg-black/5")"
+                                @onclick="() => GoToPage(p)">
+                            @p
+                        </button>
+                    }
                 }
-            </div>
+
+                <button type="button"
+                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-black/10 bg-surface text-sm text-[#2c2c2c] hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        disabled="@(CurrentPage >= TotalPages)"
+                        @onclick="GoToNextPage">
+                    Next
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+            </nav>
         }
     }
 
@@ -184,7 +243,6 @@
     private Role CurrentRole { get; set; } = Role.Admin;
 
     private bool IsLoading { get; set; } = true;
-    private string? ErrorMessage { get; set; }
 
     private bool IsAdmin => CurrentRole == Role.Admin;
 
@@ -192,8 +250,6 @@
         Terms.FirstOrDefault(t => t.Id == SelectedTermId) is { } term
             ? $"{term.Semester} Semester {term.AcademicYear}".Trim()
             : "the selected term";
-
-    private int TotalStudents => Classes.Sum(c => c.StudentCount);
 
     protected override async Task OnInitializedAsync()
     {
@@ -217,7 +273,6 @@
     private async Task LoadTermsAsync(int? preferredTermId = null)
     {
         IsLoading = true;
-        ErrorMessage = null;
 
         try
         {
@@ -251,7 +306,7 @@
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Could not load class lists. {ex.Message}";
+            Toasts.Show($"Could not load class lists. {ex.Message}", ToastService.ToastType.Error);
             Classes = [];
         }
         finally
@@ -264,16 +319,174 @@
     {
         if (int.TryParse(args.Value?.ToString(), out var termId))
         {
-            SelectedClass = null;
+            ToggleToken++;
+            ExpandedClass = null;
+            ClosingScheduleId = null;
+            CurrentPage = 1;
             await LoadTermsAsync(preferredTermId: termId);
         }
     }
 
-    private ClassListClassDTO? SelectedClass { get; set; }
+    private const int PageSize = 6;
 
-    private void OpenClass(ClassListClassDTO cls) => SelectedClass = cls;
+    private ClassListClassDTO? ExpandedClass { get; set; }
 
-    private void CloseClass() => SelectedClass = null;
+    private int CurrentPage { get; set; } = 1;
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(Classes.Count / (double)PageSize));
+
+    private IReadOnlyList<ClassListClassDTO> PagedClasses
+    {
+        get
+        {
+            var page = Math.Clamp(CurrentPage, 1, TotalPages);
+            return Classes.Skip((page - 1) * PageSize).Take(PageSize).ToList();
+        }
+    }
+
+    private bool IsExpanded(ClassListClassDTO cls) =>
+        ExpandedClass?.RepresentativeScheduleId == cls.RepresentativeScheduleId;
+
+    /// <summary>Id of the card mid-collapse — keeps its panel mounted long enough for the animation.</summary>
+    private int? ClosingScheduleId { get; set; }
+
+    /// <summary>Bumped on every toggle/page/term change so late close-delays are ignored.</summary>
+    private int ToggleToken { get; set; }
+
+    private static string RosterPanelId(ClassListClassDTO cls) =>
+        $"roster-panel-{cls.RepresentativeScheduleId}";
+
+    /// <summary>
+    /// True while a card is expanded or still animating its collapse, i.e. whenever its panel
+    /// should stay mounted inside the persistent accordion wrapper.
+    /// </summary>
+    private bool PanelMounted(ClassListClassDTO cls)
+    {
+        var id = cls.RepresentativeScheduleId;
+        return ExpandedClass?.RepresentativeScheduleId == id || ClosingScheduleId == id;
+    }
+
+    private void ToggleClass(ClassListClassDTO cls)
+    {
+        var token = ++ToggleToken;
+        var id = cls.RepresentativeScheduleId;
+
+        if (IsExpanded(cls))
+        {
+            // Start collapsing: keep the panel mounted so the 300ms transition can play.
+            ExpandedClass = null;
+            ClosingScheduleId = id;
+            _ = AnimateCloseAsync(token, id);
+        }
+        else
+        {
+            ClosingScheduleId = null;
+            ExpandedClass = cls;
+        }
+    }
+
+    private async Task AnimateCloseAsync(int token, int closingId)
+    {
+        try
+        {
+            await Task.Delay(300);
+            if (token == ToggleToken && ClosingScheduleId == closingId)
+            {
+                ClosingScheduleId = null;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch
+        {
+            // Circuit disposed/resumed mid-delay — nothing left to update.
+        }
+    }
+
+    /// <summary>
+    /// Deletes the class (all of its meetings) in one transaction, then reloads the class
+    /// list so the deleted card disappears.
+    /// </summary>
+    private async Task PromptDeleteClassAsync(ClassListClassDTO cls)
+    {
+        var ok = await Dialogs.ShowConfirmDialogAsync(
+            "This action cannot be undone.",
+            "Are you sure you want to delete this class?");
+
+        if (!ok) return;
+
+        try
+        {
+            await ClassListService.DeleteClassListAsync(
+                UserId, CurrentRole, cls.RepresentativeScheduleId);
+
+            Toasts.Show("Class deleted successfully", ToastService.ToastType.Success);
+
+            ToggleToken++;
+            ExpandedClass = null;
+            ClosingScheduleId = null;
+            await LoadTermsAsync(preferredTermId: SelectedTermId);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show(ex.Message, ToastService.ToastType.Error);
+        }
+    }
+
+    private Task GoToPreviousPage() => GoToPage(CurrentPage - 1);
+
+    private Task GoToNextPage() => GoToPage(CurrentPage + 1);
+
+    /// <summary>Set after page navigation so OnAfterRenderAsync scrolls the list into view.</summary>
+    private bool ScrollPending { get; set; }
+
+    private Task GoToPage(int page)
+    {
+        var clamped = Math.Clamp(page, 1, TotalPages);
+        if (clamped == CurrentPage)
+            return Task.CompletedTask;
+
+        // Collapse the open panel when navigating pages so it never becomes orphaned off-page.
+        ToggleToken++;
+        ExpandedClass = null;
+        ClosingScheduleId = null;
+        CurrentPage = clamped;
+        ScrollPending = true;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Numbered page buttons for the pager, with ellipsis markers (negative = "…") when
+    /// there are more than 7 pages: e.g. 1 … 4 5 6 … 12.
+    /// </summary>
+    private IReadOnlyList<int> PaginationPages
+    {
+        get
+        {
+            var total = TotalPages;
+            var current = Math.Clamp(CurrentPage, 1, total);
+            var pages = new List<int> { 1 };
+
+            if (total <= 7)
+            {
+                for (var i = 2; i <= total; i++) pages.Add(i);
+                return pages;
+            }
+
+            // Keep a 3-page window around the current page, widened near the ends.
+            var start = Math.Max(2, current - 1);
+            var end = Math.Min(total - 1, current + 1);
+
+            if (current <= 3) { start = 2; end = 4; }
+            else if (current >= total - 2) { start = total - 3; end = total - 1; }
+
+            if (start > 2) pages.Add(-1);
+            for (var i = start; i <= end; i++) pages.Add(i);
+            if (end < total - 1) pages.Add(-2);
+            pages.Add(total);
+
+            return pages;
+        }
+    }
 
     /// <summary>
     /// Called after a roster add/remove: reloads classes so card counts update, then points
@@ -281,15 +494,22 @@
     /// </summary>
     private async Task RefreshClassesAfterChange()
     {
-        if (SelectedClass is null)
+        if (ExpandedClass is null)
             return;
 
-        var representativeId = SelectedClass.RepresentativeScheduleId;
+        var representativeId = ExpandedClass.RepresentativeScheduleId;
 
         await LoadTermsAsync(preferredTermId: SelectedTermId);
 
-        SelectedClass = Classes.FirstOrDefault(c => c.RepresentativeScheduleId == representativeId)
-            ?? SelectedClass;
+        var refreshed = Classes.FirstOrDefault(c => c.RepresentativeScheduleId == representativeId);
+        ExpandedClass = refreshed ?? ExpandedClass;
+
+        // If the refresh pushed the class onto another page, follow it so the panel stays visible.
+        if (refreshed is not null)
+        {
+            var index = Classes.ToList().IndexOf(refreshed);
+            CurrentPage = (index / PageSize) + 1;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -297,6 +517,13 @@
         // data-lucide tags are converted to SVGs client-side; Blazor re-renders add new tags
         // (cards, roster rows, modals), so re-scan after every render — same as Inventory.
         await JS.InvokeVoidAsync("lucide.createIcons");
+
+        // The DOM is patched by now, so a scroll here always targets the new page.
+        if (ScrollPending)
+        {
+            ScrollPending = false;
+            await JS.InvokeVoidAsync("clms.scrollToTop", "class-lists-top");
+        }
     }
 
     private static string TermLabel(AcademicTermDTO term) =>

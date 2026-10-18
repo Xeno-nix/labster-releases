@@ -1,3 +1,4 @@
+using System.Data.Common;
 using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces.Repositories;
 using CLMS.Domain.Entities.Booking;
@@ -493,6 +494,49 @@ public class ClassScheduleRepository(MySqlConnectionFactory connectionFactory) :
         command.Parameters.AddWithValue("@Id", id);
 
         await command.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>
+    /// Soft-deletes a batch of schedules in one statement (soft-deleted rows are skipped).
+    /// Runs on the caller's connection/transaction so it can join the delete-class-list
+    /// transaction; the caller guarantees the concrete MySQL types.
+    /// </summary>
+    public async Task<int> DeleteManyAsync(
+        IEnumerable<int> scheduleIds,
+        DbConnection connection,
+        DbTransaction transaction)
+    {
+        var ids = scheduleIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return 0;
+
+        var conn = (MySqlConnection)connection;
+        var tx = (MySqlTransaction)transaction;
+
+        var affected = 0;
+        const int maxIdsPerBatch = 500;
+
+        for (var offset = 0; offset < ids.Count; offset += maxIdsPerBatch)
+        {
+            var batch = ids.Skip(offset).Take(maxIdsPerBatch).ToList();
+            var placeholders = string.Join(',', batch.Select((_, i) => $"@S{i}"));
+
+            var sql = $"""
+                UPDATE class_schedule
+                SET deleted_at = NOW()
+                WHERE deleted_at IS NULL
+                  AND class_schedule_id IN ({placeholders});
+                """;
+
+            await using var command = new MySqlCommand(sql, conn, tx);
+
+            for (var i = 0; i < batch.Count; i++)
+                command.Parameters.AddWithValue($"@S{i}", batch[i]);
+
+            affected += await command.ExecuteNonQueryAsync();
+        }
+
+        return affected;
     }
 
     private static ClassScheduleDTO MapSchedule(

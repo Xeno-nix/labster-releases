@@ -391,9 +391,10 @@ public class ClassListService
     }
 
     /// <summary>
-    /// Removes every enrollment in the class — all meeting slots — in one transaction.
-    /// Students themselves are kept (they may be enrolled elsewhere and have lab logs), and
-    /// the schedule rows are kept too; only the roster is cleared. Returns rows removed.
+    /// Deletes the whole class — every meeting slot — in one transaction: its enrollments are
+    /// removed and the schedule rows are soft-deleted, so the class disappears from both the
+    /// class list and the schedule page. Student records themselves are kept (they may be
+    /// enrolled elsewhere and have lab logs). Returns the number of enrollments removed.
     /// </summary>
     public async Task<int> DeleteClassListAsync(
         Guid userId,
@@ -411,6 +412,8 @@ public class ClassListService
         try
         {
             var removed = await _enrollmentRepository.DeleteAllAsync(groupIds, connection, transaction);
+
+            await _scheduleRepository.DeleteManyAsync(groupIds, connection, transaction);
 
             await transaction.CommitAsync();
 
