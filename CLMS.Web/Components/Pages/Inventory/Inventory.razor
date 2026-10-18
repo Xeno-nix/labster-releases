@@ -8,20 +8,6 @@
 
 <div class="space-y-6">
 
-    @if (!string.IsNullOrEmpty(FlashSuccess))
-    {
-        <div class="flex items-center gap-3 p-4 bg-success/10 border border-success/30 rounded-lg">
-            <p class="text-sm text-success">@FlashSuccess</p>
-        </div>
-    }
-
-    @if (!string.IsNullOrEmpty(FlashError))
-    {
-        <div class="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-700">@FlashError</p>
-        </div>
-    }
-
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
             <h1 class="text-primary text-2xl mb-1">Inventory Management</h1>
@@ -447,34 +433,3 @@
 
 <SupplyFormModal Show="ShowSupplyForm" IsEdit="EditingSupply" Model="SupplyFormModel"
                 OnCancel="CloseSupplyForm" OnSave="SaveSupply" />
-
-<ConfirmModal Show="ShowDeleteEquipment" Title="Delete Equipment"
-              ConfirmLabel="Yes, Delete"
-              OnCancel="() => ShowDeleteEquipment = false" OnConfirm="DeleteEquipmentConfirmed">
-    <Body>
-        <p class="text-sm text-muted mb-2">You are about to delete:</p>
-        <p class="text-sm font-medium text-[#2c2c2c] mb-2">@PendingDeleteEquipment?.EquipmentName (@PendingDeleteEquipment?.EquipmentNo)</p>
-        <p class="text-xs text-muted">This action cannot be undone.</p>
-    </Body>
-</ConfirmModal>
-
-<ConfirmModal Show="ShowDeleteSupply" Title="Delete Supply Item"
-              ConfirmLabel="Yes, Delete"
-              OnCancel="() => ShowDeleteSupply = false" OnConfirm="DeleteSupplyConfirmed">
-    <Body>
-        <p class="text-sm text-muted mb-2">You are about to delete:</p>
-        <p class="text-sm font-medium text-[#2c2c2c] mb-2">@PendingDeleteSupply?.SupplyName</p>
-        <p class="text-xs text-muted">This action cannot be undone.</p>
-    </Body>
-</ConfirmModal>
-
-<ConfirmModal Show="ShowStatusConfirm" Title="Update Supply Status"
-              ConfirmLabel="Yes, Update"
-              OnCancel="() => ShowStatusConfirm = false" OnConfirm="StatusChangeConfirmed">
-    <Body>
-        <p class="text-sm text-muted mb-2">
-            Change <span class="font-medium text-[#2c2c2c]">@PendingStatusSupply?.SupplyName</span>'s status to
-            <span class="font-medium text-[#2c2c2c]">@PendingStatusValue?.Replace('_', ' ')</span>?
-        </p>
-    </Body>
-</ConfirmModal>

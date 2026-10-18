@@ -1,3 +1,4 @@
+using System.Data.Common;
 using CLMS.Application.DTOs.Booking;
 using CLMS.Domain.Entities.Booking;
 
@@ -46,4 +47,14 @@ public interface IClassScheduleRepository
     Task UpdateAsync(ClassSchedule schedule);
 
     Task DeleteAsync(int id);
+
+    /// <summary>
+    /// Soft-deletes every given schedule that is still active (sets deleted_at), one statement
+    /// per batch, on the caller's connection/transaction. Used by delete class list to remove a
+    /// whole class — all of its meeting slots — together. Returns the number of rows affected.
+    /// </summary>
+    Task<int> DeleteManyAsync(
+        IEnumerable<int> scheduleIds,
+        DbConnection connection,
+        DbTransaction transaction);
 }
