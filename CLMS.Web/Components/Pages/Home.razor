@@ -1,15 +1,145 @@
 ﻿@page "/"
 
 @attribute [Authorize]
+@using System.Security.Claims
+@using CLMS.Application.DTOs.Dashboard
+@using CLMS.Application.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject DashboardService DashboardService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard</PageTitle>
 
-<ComingSoonPlaceholder Title="Dashboard">
-    <svg class="w-8 h-8 flex-shrink-0" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect width="7" height="9" x="3" y="3" rx="1" />
-        <rect width="7" height="5" x="14" y="3" rx="1" />
-        <rect width="7" height="9" x="14" y="12" rx="1" />
-        <rect width="7" height="5" x="3" y="16" rx="1" />
-    </svg>
-</ComingSoonPlaceholder>
+@if (snapshot is null)
+{
+    <p class="text-sm text-muted">Loading dashboard…</p>
+}
+else
+{
+    @* ── Row 1: KPI strip ───────────────────────────────────────────── *@
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white border border-gray-200 rounded-lg p-5">
+            <p class="text-sm text-muted">People in labs now</p>
+            <p class="text-3xl font-heading font-semibold text-gray-800 mt-1">@snapshot.ActiveNow</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-lg p-5">
+            <p class="text-sm text-muted">Sessions today</p>
+            <p class="text-3xl font-heading font-semibold text-gray-800 mt-1">@snapshot.SessionsToday</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-lg p-5">
+            <p class="text-sm text-muted">Classes running now</p>
+            <p class="text-3xl font-heading font-semibold text-gray-800 mt-1">@snapshot.ClassesRunningNow</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-lg p-5">
+            <p class="text-sm text-muted">Needs attention</p>
+            <p class="text-3xl font-heading font-semibold @(snapshot.AttentionCount > 0 ? "text-error" : "text-success") mt-1">
+                @snapshot.AttentionCount
+            </p>
+        </div>
+    </div>
+
+    @* ── Row 2: occupancy + today's timeline ────────────────────────── *@
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        @* Live occupancy per lab *@
+        <div class="bg-white border border-gray-200 rounded-lg p-5">
+            <h4 class="text-base font-heading font-semibold text-gray-800 mb-4">Lab occupancy</h4>
+            @if (snapshot.Occupancy.Count == 0)
+            {
+                <p class="text-sm text-muted">No laboratories registered.</p>
+            }
+            else
+            {
+                @foreach (var lab in snapshot.Occupancy)
+                {
+                    <div class="mb-3 last:mb-0">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-gray-700">@lab.LabName</span>
+                            <span class="text-muted">@lab.Active / @lab.TotalUnits units</span>
+                        </div>
+                        <div class="h-2 bg-surface rounded-full overflow-hidden">
+                            <div class="h-full bg-primary rounded-full transition-all"
+                                 style="width: @lab.Percent%"></div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        @* Today's schedule + bookings, merged *@
+        <div class="bg-white border border-gray-200 rounded-lg p-5">
+            <h4 class="text-base font-heading font-semibold text-gray-800 mb-4">Today's timeline</h4>
+            @if (snapshot.Timeline.Count == 0)
+            {
+                <p class="text-sm text-muted">Nothing scheduled today.</p>
+            }
+            else
+            {
+                @foreach (var item in snapshot.Timeline)
+                {
+                    <div class="flex items-center gap-3 py-2 @(item.IsNow ? "border-l-4 border-primary pl-3 bg-surface rounded-r-lg" : "")">
+                        <span class="text-xs text-muted font-mono w-24 shrink-0">
+                            @item.StartTime.ToString("h:mm")–@item.EndTime.ToString("h:mm")
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm text-gray-800 truncate @(item.IsNow ? "font-semibold" : "")">@item.Title</p>
+                            <p class="text-xs text-muted truncate">@item.Subtitle · @item.LabName</p>
+                        </div>
+                        <span class="text-xs px-2 py-0.5 rounded-full shrink-0 @(item.IsClass ? "bg-info/10 text-info" : "bg-accent/20 text-gray-800")">
+                            @(item.IsClass ? "Class" : "Booking")
+                        </span>
+                        @if (item.IsNow)
+                        {
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-primary text-white shrink-0">Now</span>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    @* ── Row 3: needs attention ─────────────────────────────────────── *@
+    <div class="bg-white border border-gray-200 rounded-lg p-5">
+        <h4 class="text-base font-heading font-semibold text-gray-800 mb-3">Needs attention</h4>
+        @if (snapshot.Attention.Count == 0)
+        {
+            <p class="text-sm text-success">All good — nothing needs attention.</p>
+        }
+        else
+        {
+            <div class="flex flex-wrap gap-3">
+                @foreach (var item in snapshot.Attention)
+                {
+                    <a href="@item.Href"
+                       class="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-primary transition-colors">
+                        <span class="w-6 h-6 rounded-full bg-error/10 text-error text-xs font-semibold flex items-center justify-center">
+                            @item.Count
+                        </span>
+                        @item.Label
+                    </a>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private DashboardSnapshotDTO? snapshot;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Admin sees everything; Faculty is scoped to their own classes/sessions.
+        // Claims are set in AuthController.CookieLogin (NameIdentifier + Role).
+        Guid? facultyId = null;
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true && !user.IsInRole("Admin"))
+        {
+            var idClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (Guid.TryParse(idClaim, out var id))
+                facultyId = id;
+        }
+
+        snapshot = await DashboardService.GetSnapshotAsync(facultyId);
+    }
+}
