@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using CLMS.Application.Identity.Exceptions;
 using CLMS.Shared.Dtos;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication;
@@ -35,7 +36,16 @@ public class AuthController(
 
             return Redirect("/");
         }
-        catch (UnauthorizedAccessException ex)
+        catch (AccountLockedException ex)
+        {
+            var minutesLeft = (int)Math.Ceiling((ex.LockoutEnd - DateTime.UtcNow).TotalMinutes);
+            return Redirect($"/login?error=locked&minutes={Math.Max(minutesLeft, 1)}");
+        }
+        catch (InvalidCredentialsException ex) when (ex.AttemptsRemaining is not null)
+        {
+            return Redirect($"/login?error=invalid&attemptsLeft={ex.AttemptsRemaining}");
+        }
+        catch (UnauthorizedAccessException)
         {
             return Redirect("/login?error=invalid");
         }
