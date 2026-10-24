@@ -1,8 +1,8 @@
-﻿using CLMS.Application.Identity.Exceptions;
-using CLMS.Application.Identity.Interfaces;
+﻿using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Persistence.Interfaces;
 using CLMS.Domain.Entities.Identity;
 using CLMS.Domain.ValueObjects;
+using CLMS.Shared.Contracts;
 using CLMS.Shared.Dtos;
 
 namespace CLMS.Application.Identity.Services;
@@ -12,7 +12,9 @@ public sealed class AuthenticationService(
     IPasswordHasher passwordHasher,
     ITokenService tokenService,
     IRefreshTokenHasher refreshTokenHasher,
-    IRefreshTokenRepository refreshTokenRepository)
+    IRefreshTokenRepository refreshTokenRepository,
+    IExternalIdentityRepository externalIdentityRepository,
+    AccountOnboardingService onboarding)
 {
     private const int MaxSessions = 5;
     
@@ -22,9 +24,9 @@ public sealed class AuthenticationService(
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
     /// <summary>
-    /// Registers User
+    /// Legacy application entry point: queues an invitation without issuing credentials.
     /// </summary>
-    /// <param name="request"> Request details. <see cref="RegisterRequest"/></param>
+    /// <param name="request">Administrator-supplied invitation details.</param>
     /// <exception cref="InvalidOperationException">Email already been used.</exception>
     public async Task RegisterAsync(RegisterDto request)
     {
@@ -61,7 +63,12 @@ public sealed class AuthenticationService(
     public async Task<AuthTokensDto> JwtLogin(AuthenticationRequestDto requestDto)
     {
         var userClaims = await AuthenticateUserAsync(requestDto);
+        return await IssueTokens(userClaims);
         
+    }
+
+    public async Task<AuthTokensDto> IssueTokens(UserClaimsDto userClaims)
+    {
         // generate access token
         var accessToken = tokenService.GenerateAccessToken(userClaims);
 
@@ -102,6 +109,60 @@ public sealed class AuthenticationService(
         return new AuthTokensDto(
             accessToken,
             refreshToken);
+    }
+    
+    /// <summary>
+    /// Retrieves external identity of an internally registered user.
+    /// If its linked internal account is deactivated or missing, throws an
+    /// UnauthorizedAccessException or InvalidOperationException.
+    /// </summary>
+    /// <param name="request"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="UnauthorizedAccessException"></exception>
+    /// <exception cref="InvalidOperationException"></exception>
+    public async Task<ExternalLoginUserDto> AuthenticateExternalUserAsync(
+        ExternalLoginRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        // retrieves provider
+        var provider = request.Provider.Trim().ToLowerInvariant();
+
+        // provider user id
+        if (string.IsNullOrWhiteSpace(request.ProviderSubject))
+        {
+            throw new UnauthorizedAccessException(
+                "Invalid external identity.");
+        }
+        
+        var identity = await externalIdentityRepository.FindAsync(
+            provider,
+            request.ProviderSubject,
+            cancellationToken);
+
+        //identity not exist
+        if (identity is null)
+        {
+            throw new UnauthorizedAccessException(
+                "No linked Google account found. Contact your SuperAdmin.");
+        }
+        
+        // external identity exist but no internal
+        var user = await userRepository.FindByIdAsync(identity.UserId)
+                   ?? throw new UnauthorizedAccessException(
+                       "The linked user account no longer exists.");
+        
+        // internal is deleted (soft)
+        if (user.DeletedAt.HasValue)
+        {
+            throw new UnauthorizedAccessException(
+                "This account is disabled.");
+        }
+        
+        return new ExternalLoginUserDto(
+            user.Id,
+            user.Email,
+            user.UserRole);
     }
 
     public async Task Logout(string refreshToken)
@@ -146,7 +207,7 @@ public sealed class AuthenticationService(
         // 
         // NOTE : if mahitabo ni, something namali up or giallow ang delete pag
         //        delete ug user which is NO! NO! NO!
-        if (user is null)
+        if (user is null || user.DeletedAt.HasValue)
             throw new UnauthorizedAccessException("User does not exist.");
         
         // Issue new access token 
@@ -188,7 +249,7 @@ public sealed class AuthenticationService(
         var user = await userRepository.FindByEmailAsync(requestDto.Email);
 
         // if user not found using email
-        if (user is null) throw new InvalidCredentialsException();
+        if (user is null || user.DeletedAt.HasValue) throw new InvalidCredentialsException("Invalid credentials.");
 
         // refuse while locked, even if the password is correct
         if (user.IsLockedOut) throw new AccountLockedException(user.LockoutEnd!.Value);

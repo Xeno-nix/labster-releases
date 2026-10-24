@@ -9,66 +9,139 @@
 
 @inject AuthenticationService authService;
 @inject NavigationManager Navigation;
+@inject IConfiguration Configuration;
 @inject ToastService Toasts
 
 <PageTitle>CLMS - Login</PageTitle>
 
-<div class="min-h-screen flex items-center justify-center p-6 bg-[#f8f8f8]">
-    <div class="w-full max-w-md">
-        
-        <div class="text-center mb-8">
-            <h1 class="text-3xl text-primary font-medium mb-2">CLMS Login</h1>
-            <p class="text-gray-600">Computer Laboratory Management System</p>
-            <p class="text-gray-600">USeP TMC - Tagum Unit</p>
-        </div>
-        
-        @* card *@
-        <div class="border-[#d5d5d5] border px-6 mb-8 py-8 w-full rounded-xl bg-white shadow-lg">
-            <form
-                method="post"
-                action="/auth/cookie-login"
-                class="space-y-2">
-                <div>
-                    <label class="block mb-2">Email Address</label>
-                    <input
-                        value="@Model.Email"
-                        type="email"
-                        name="Email"
-                        required
-                        placeholder="Enter your email"
-                        class="w-full px-4 py-3 border border-[#d5d5d5] rounded-lg bg-gray-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"/>
-                </div>
-                <div>
-                    <label class="block mb-2">Password</label>
-                    <div class="relative">
-                        <input
-                            id="passwordFld"
-                            value="@Model.Password"
-                            type="password"
-                            name="Password"
-                            required
-                            minlength="8"
-                            placeholder="Enter your password"
-                            class="overflow-clip w-full pl-4 pr-12 py-3 border border-[#d5d5d5] rounded-lg bg-gray-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"/>
-                        <button
-                            id="toggleShowPasswordBtn"
-                            type="button"
-                            onclick="toggleShowPassword()"
-                            class="absolute right-4 top-1/2 -translate-y-1/2 hover:cursor-pointer  z-10">
-                            <svg height="24" width="24" viewBox="0 0 24 24" color="#777777">
-                                <use id="toggleShowPasswordBtnIcon" href="/svg/eye-on.svg"></use>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <button
-                    type="submit"
-                    class="bg-primary w-full px-4 py-3 rounded-lg text-white font-bold hover:bg-primary-dark duration-75">
-                    Login
-                </button>
-            </form>
-        </div>
 
+<div class="min-h-screen grid grid-cols-2 grid-rows-1 bg-[#f8f8f8] text-fg-primary">
+    <div class="flex justify-center items-center min-h-screen">
+        <div>
+            <div class="text-center mb-8">
+                <h1 class="text-3xl text-primary font-medium mb-2">Labster Login</h1>
+                <p class="text-gray-600">Computer Laboratory Management System</p>
+                <p class="text-gray-600">USeP TMC - Tagum Unit</p>
+            </div>
+
+            @* card *@
+            <div class="px-6 mb-8 py-8 w-lg">
+                <form
+                    method="post"
+                    action="/auth/cookie-login"
+                    class="space-y-2">
+                    <div>
+                        <label class="block mb-2">Email Address</label>
+                        <input
+                            value="@Model.Email"
+                            type="email"
+                            name="Email"
+                            required
+                            placeholder="Enter your email"
+                            class="w-full px-4 py-3 border border-[#d5d5d5] rounded-sm bg-gray-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"/>
+                    </div>
+                    <div>
+                        <label class="block mb-2">Password</label>
+                        <div class="relative">
+                            <input
+                                id="passwordFld"
+                                value="@Model.Password"
+                                type="password"
+                                name="Password"
+                                required
+                                minlength="8"
+                                placeholder="Enter your password"
+                                class="overflow-clip w-full pl-4 pr-12 py-3 border border-[#d5d5d5] rounded-sm bg-gray-100 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"/>
+                            <button
+                                id="toggleShowPasswordBtn"
+                                type="button"
+                                onclick="toggleShowPassword()"
+                                class="absolute right-4 top-1/2 -translate-y-1/2 hover:cursor-pointer  z-10">
+                                <svg height="24" width="24" viewBox="0 0 24 24" color="#898989">
+                                    <use id="toggleShowPasswordBtnIcon" href="/svg/eye-on.svg"></use>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex justify-between mb-5">
+                        <span>
+                            <input id="rememberMe" 
+                                   type="checkbox"
+                                   name="rememberMe"/>
+                            <label for="rememberMe">Remember Me</label>
+                        </span>
+                        <a href="">Forgot Password? </a>
+                    </div>
+                    <button
+                        type="submit"
+                        class="bg-primary w-full px-4 py-3 rounded-sm text-white font-bold hover:bg-primary-dark duration-75">
+                        Login
+                    </button>
+                    <a href="/auth/google/start" class="w-full">
+                        <div class="gsi-material-button">
+                            <div class="gsi-material-button-state"></div>
+                            <div class="gsi-material-button-content-wrapper">
+                                <div class="gsi-material-button-icon">
+                                    <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" style="display: block;">
+                                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                                        <path fill="none" d="M0 0h48v48H0z"></path>
+                                    </svg>
+                                </div>
+                                <span class="gsi-material-button-contents">Sign in with Google</span>
+                                <span style="display: none;">Sign in with Google</span>
+                            </div>
+                        </div>
+                    </a>
+                </form>
+                
+                @if (!String.IsNullOrWhiteSpace(Error) && 
+                     Error is "invalid" or "google_account_not_authorized" or "google_verification_failed"
+                     )
+                {
+                    <div role="alert" class="mt-5 flex flex-col items-start gap-3 rounded-sm border border-error/50 bg-error/20 p-4">
+                        <div class="w-full flex flex-start gap-2 items-center">
+                            <i class="fa-solid fa-info-circle text-error-dark"></i>
+                            
+                            <p class="text-sm font-semibold text-error-dark">
+                                @if (Error is "invalid")
+                                {
+                                    <text>Sign-in failed</text>
+                                } 
+                                else if (Error is "google_account_not_authorized")
+                                {
+                                    <text>Google account not registered</text>
+                                }
+                                else if (Error is "google_verification_failed")
+                                {
+                                    <text>Google verification unsuccessful</text>
+                                }
+                            </p>
+                        </div>
+                        <p class="mt-1 text-sm leading-relaxed text-fg-primary break-words">
+                            @if (Error is "invalid")
+                            {
+                                <text>Email or password is incorrect!</text>
+                            } 
+                            else if (Error is "google_account_not_authorized")
+                            {
+                                <text>
+                                    Your Google account is not currently linked to a Labster account. Please sign in to your Labster account and link your Google account in Account Settings.
+                                </text>
+                            }
+                            else if (Error is "google_verification_failed")
+                            {
+                                <text>Google sign-in was cancelled or could not be completed. Try again, or reopen your verification invitation.</text>
+                            }
+                        </p>
+                    </div> 
+                }
+            </div>
+        </div>
+        </div>
+    <div class="bg-primary bg-[url('/svg/blob-scene-haikei.svg')] bg-no-repeat bg-cover min-h-screen bg-">
     </div>
 </div>
 <script>

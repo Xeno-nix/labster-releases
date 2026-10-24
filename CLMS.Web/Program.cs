@@ -6,15 +6,31 @@ using CLMS.Infrastructure.Services;
 using CLMS.Infrastructure;
 using CLMS.Infrastructure.Auth;
 using System.Text;
+using CLMS.Web.Authentication;
 using CLMS.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using CLMS.Infrastructure.DatabaseMaintenance;
+using CLMS.Application.Identity.Interfaces;
+using CLMS.Application.Identity.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.DataProtection;
 
 
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("GoogleLink", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
 
 // Add services to the container.
 builder.Services
@@ -44,27 +60,27 @@ builder.Services
     {
         // Used by Blazor/UI
         options.DefaultAuthenticateScheme =
-            CookieAuthenticationDefaults.AuthenticationScheme;
+            AuthenticationSchemes.Cookie;
 
         options.DefaultSignInScheme =
-            CookieAuthenticationDefaults.AuthenticationScheme;
+            AuthenticationSchemes.Cookie;
 
         options.DefaultChallengeScheme =
-            CookieAuthenticationDefaults.AuthenticationScheme;
+            AuthenticationSchemes.Cookie;
     })
-    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, o =>
+    .AddJwtBearer(AuthenticationSchemes.Bearer, o =>
     {
-
+        
         o.TokenValidationParameters = new TokenValidationParameters()
         {
             ValidateIssuer = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
-
+            
             ValidateAudience = true,
             ValidAudience = builder.Configuration["Jwt:Audience"],
-
+            
             ValidateLifetime = true,
-
+            
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(
@@ -72,36 +88,62 @@ builder.Services
             )
         };
     })
-    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+    .AddCookie(AuthenticationSchemes.Cookie, options =>
     {
         options.Cookie.Name = "CLMS.Auth";
         options.LoginPath = "/login";
+        options.Cookie.Path = "/";
         options.AccessDeniedPath = "/access-denied";
-
+        
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
+        
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+    })
+    .AddCookie(AuthenticationSchemes.ExternalCookie, options =>
+    {
+        options.Cookie.Name = "CLMS.External";
+
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+        options.SlidingExpiration = false;
 
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Lax;
-    });
+    })
+    .AddGoogle(AuthenticationSchemes.Google, options =>
+    {
+        options.ClientId = builder.Configuration["Google:ClientId"]!;
+        options.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
+        options.SignInScheme = AuthenticationSchemes.ExternalCookie;
+        options.CallbackPath = new PathString("/signin-google");
+        
+        options.Scope.Add("email");
+        options.Scope.Add("profile");
+        
+        options.SaveTokens = false;
+    })
+    ;
 
+// TODO Define access policies
 builder.Services
     .AddAuthorization(options =>
     {
+        // TODO SuperAdmin: replace Admin with the future SuperAdmin role.
+        options.AddPolicy("RegisterUsers", policy => policy.RequireAuthenticatedUser().RequireRole("Admin"));
         options.AddPolicy("JwtPolicy", policy =>
         {
-            policy.AuthenticationSchemes.Add("jwt");
+            policy.AuthenticationSchemes.Add(AuthenticationSchemes.Bearer);
             policy.RequireAuthenticatedUser();
         });
-
+        
         options.AddPolicy("CookiePolicy", policy =>
         {
-            policy.AuthenticationSchemes.Add("cookie");
+            policy.AuthenticationSchemes.Add(AuthenticationSchemes.Cookie);
             policy.RequireAuthenticatedUser();
         });
-
-
     });
 
 // booking daw
@@ -150,6 +192,7 @@ app.UseStatusCodePagesWithReExecute(
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.UseAntiforgery();
 

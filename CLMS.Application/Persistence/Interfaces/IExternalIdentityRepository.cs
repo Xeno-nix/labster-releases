@@ -3,9 +3,10 @@
 namespace CLMS.Application.Persistence.Interfaces;
 public interface IExternalIdentityRepository
 {
-    Task<ExternalIdentity> FindByProviderAndUserIdAsync(string provider, string providerUserId);
-    Task<ExternalIdentity> FindByIdAsync(Guid id);
-    Task<IReadOnlyList<ExternalIdentity>> FindAllByUserIdAsync(Guid userId);
-    Task CreateAsync(ExternalIdentity identity);
-    Task DeleteAsync(ExternalIdentity identity);
+    Task<ExternalIdentity?> FindAsync(string provider, string providerSub, CancellationToken cancellationToken);
+    Task<ExternalIdentity?> FindByIdAsync(Guid id, CancellationToken cancellationToken);
+    // Task<IReadOnlyList<ExternalIdentity>> FindAllByUserIdAsync(Guid userId);
+    Task<bool> CreateAsync(ExternalIdentity identity, CancellationToken cancellationToken);
+    // Task DeleteAsync(ExternalIdentity identity);
 }
+

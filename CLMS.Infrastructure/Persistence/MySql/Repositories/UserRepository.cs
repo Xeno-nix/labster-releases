@@ -114,7 +114,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
             DateTime? deletedAt = reader.IsDBNull(reader.GetOrdinal("deleted_at"))
                 ? null :
                 reader.GetDateTime("deleted_at");
-
+            
             users.Add(new(
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
@@ -124,7 +124,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                 reader.GetString("email"),
                 Enum.Parse<Role>(reader.GetString("role_type"),true),
                 reader.GetString("password_hash"),
-                deletedAt
+                deletedAt 
             ));
         }
 
@@ -166,7 +166,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
             Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
                 ? null : 
                 new Name(reader.GetString("suffix"));
-
+            
             users.Add(new(
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
@@ -184,8 +184,6 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
 
     public async Task<User?> FindByEmailAsync(string email)
     {
-        var users =  new List<User>();
-        
         const string sql = """
            SELECT
                user_id,
@@ -231,7 +229,8 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                 suffix,
                 reader.GetString("email"),
                 Enum.Parse<Role>(reader.GetString("role_type"),true),
-                reader.GetString("password_hash")
+                reader.GetString("password_hash"),
+                reader.IsDBNull(reader.GetOrdinal("deleted_at")) ? null : reader.GetDateTime("deleted_at")
             )
             {
                 FailedLoginAttempts = reader.GetInt32("failed_login_attempts"),
@@ -246,8 +245,6 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
 
     public async Task<User?> FindByIdAsync(Guid id)
     {
-        var users =  new List<User>();
-        
         const string sql = """
            SELECT
                user_id,
@@ -259,7 +256,8 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                role_type,
                password_hash,
                created_at,
-               last_modified_at
+               last_modified_at,
+               deleted_at
            FROM users
            WHERE user_id = @UserId
            LIMIT 1;
@@ -282,7 +280,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
             Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
                 ? null : 
                 new Name(reader.GetString("suffix"));
-
+            
             return new(
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
@@ -293,7 +291,8 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                 Enum.Parse<Role>(reader.GetString("role_type"),true),
                 reader.GetString("password_hash"),
                 reader.GetDateTime("created_at"),
-                reader.GetDateTime("last_modified_at")
+                reader.GetDateTime("last_modified_at"),
+                reader.IsDBNull(reader.GetOrdinal("deleted_at")) ? null : reader.GetDateTime("deleted_at")
             );
         }
 

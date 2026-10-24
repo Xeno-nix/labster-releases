@@ -1,9 +1,12 @@
 ﻿using System.Security.Claims;
+using CLMS.Shared.Contracts;
 using CLMS.Application.Identity.Exceptions;
 using CLMS.Shared.Dtos;
+using CLMS.Web.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using AuthenticationService = CLMS.Application.Identity.Services.AuthenticationService;
 
 namespace CLMS.Web.Controllers;
@@ -14,7 +17,7 @@ public class AuthController(
     : ControllerBase
 {
     [HttpPost("/auth/cookie-login")]
-    public async Task<IActionResult> CookieLogin([FromForm] AuthenticationRequestDto loginRequest)
+    public async Task<IActionResult> CookieLogin([FromForm] AuthenticationRequestDto loginRequest, [FromForm] bool rememberMe = false)
     {
         UserClaimsDto result;
         try
@@ -27,12 +30,22 @@ public class AuthController(
                 new(ClaimTypes.Email, result.Email),
                 new(ClaimTypes.Role, result.UserRole.ToString())
             };
+
+            var properties = new AuthenticationProperties
+            {
+                IsPersistent = rememberMe,
+                ExpiresUtc = DateTimeOffset.UtcNow.Add(
+                    rememberMe
+                        ? TimeSpan.FromDays(5)
+                        : TimeSpan.FromHours(8)
+                    )
+            };
         
-            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var identity = new ClaimsIdentity(claims, AuthenticationSchemes.Cookie);
             
             var principal = new ClaimsPrincipal(identity);
             
-            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,principal);
+            await HttpContext.SignInAsync(AuthenticationSchemes.Cookie,principal, properties);
 
             return Redirect("/");
         }
@@ -54,7 +67,7 @@ public class AuthController(
     [HttpPost("/auth/cookie-logout")]
     public async Task<IActionResult> Logout()
     {
-        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        await HttpContext.SignOutAsync(AuthenticationSchemes.Cookie);
 
         return Redirect("/");
     }
@@ -131,4 +144,110 @@ public class AuthController(
         
         return Ok(result);
     }
+
+    [AllowAnonymous]
+    [HttpGet("auth/google/start")]
+    public IActionResult GoogleStart(string? returnUrl = "/")
+    {
+        if (!Url.IsLocalUrl(returnUrl))
+        {
+            returnUrl = "/";
+        }
+        
+        var properties = new AuthenticationProperties
+        {
+            RedirectUri = Url.Action(
+                nameof(GoogleCallback),
+                "Auth",
+                new { returnUrl })
+        };
+
+        return Challenge(properties, AuthenticationSchemes.Google);
+    }
+
+    [HttpGet("auth/google/callback")]
+    public async Task<IActionResult> GoogleCallback(string? returnUrl = "/")
+    {
+        var externalAuth = await HttpContext.AuthenticateAsync(
+            AuthenticationSchemes.ExternalCookie);
+        
+        // login failed
+        if (!externalAuth.Succeeded ||
+            externalAuth.Principal is null)
+        {
+            return Redirect("/login?error=external_login_failed");
+        }
+        
+        // if login success
+        
+        // stored set of external credentials
+        var principal = externalAuth.Principal;
+
+        // claimSub or the external id
+        var subject = principal.FindFirstValue(
+            ClaimTypes.NameIdentifier);
+        var email = principal.FindFirstValue(
+            ClaimTypes.Email);
+
+        if (string.IsNullOrWhiteSpace(subject) ||
+            string.IsNullOrWhiteSpace(email))
+        {
+            await HttpContext.SignOutAsync(AuthenticationSchemes.ExternalCookie);
+
+            return Redirect("/login?error=external_claims_missing");
+        }
+
+        try
+        {
+            // after retrieving external id and email
+            // authenticate external user 
+            var user = await authService
+                .AuthenticateExternalUserAsync(
+                    new (
+                        "google",
+                        subject,
+                        email)
+                    );
+            
+            // create claims for cookie sign in
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier,
+                    user.UserId.ToString()),
+                new(ClaimTypes.Email, user.Email)
+            };
+            
+            claims.Add(new Claim(ClaimTypes.Role, user.UserRole.ToString()));
+
+            var clmsIdentity = new ClaimsIdentity(
+                claims,
+                AuthenticationSchemes.Cookie);
+
+            var clmsPrincipal = new ClaimsPrincipal(clmsIdentity);
+            
+            await HttpContext.SignInAsync(
+                AuthenticationSchemes.Cookie,
+                clmsPrincipal,
+                new AuthenticationProperties
+                {
+                    IsPersistent = true,
+                    AllowRefresh = true
+                });
+
+            await HttpContext.SignOutAsync(AuthenticationSchemes.ExternalCookie);
+
+            if (!Url.IsLocalUrl(returnUrl))
+            {
+                returnUrl = "/";
+            }
+
+            return LocalRedirect(returnUrl!);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            await HttpContext.SignOutAsync(AuthenticationSchemes.ExternalCookie);
+            return Redirect("/login?error=google_account_not_authorized");
+        }
+    }
+    
 }
