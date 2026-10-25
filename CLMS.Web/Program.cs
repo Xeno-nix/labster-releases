@@ -10,6 +10,7 @@ using CLMS.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using CLMS.Infrastructure.DatabaseMaintenance;
 
 
 
@@ -109,6 +110,26 @@ builder.Services.AddHttpClient<EmailService>();
 // web stuff
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<DialogService>();
+builder.Services.AddCascadingAuthenticationState();
+
+builder.Services.AddOptions<DatabaseBackupOptions>()
+    .Bind(builder.Configuration.GetSection("DatabaseBackup"))
+    .PostConfigure(options => options.Directory = Path.GetFullPath(options.Directory, builder.Environment.ContentRootPath))
+    .Validate(options => options.HourPhilippineTime is >= 0 and <= 23 && options.KeepLast >= 2 && options.TimeoutMinutes > 0,
+        "Backup hour must be 0–23, retention at least 2, and timeout positive.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.DumpExecutable) && !string.IsNullOrWhiteSpace(options.ClientExecutable),
+        "Database backup executable paths are required.")
+    .Validate(options =>
+    {
+        var webRoot = Path.GetFullPath(builder.Environment.WebRootPath ?? Path.Combine(builder.Environment.ContentRootPath, "wwwroot"));
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        return !options.Directory.Equals(webRoot, comparison) &&
+            !options.Directory.StartsWith(Path.TrimEndingDirectorySeparator(webRoot) + Path.DirectorySeparatorChar, comparison);
+    },
+        "Database backups must be stored outside wwwroot.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<DatabaseBackupService>();
+builder.Services.AddHostedService<DatabaseBackupWorker>();
 
 var app = builder.Build();
 

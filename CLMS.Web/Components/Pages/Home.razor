@@ -5,7 +5,7 @@
 @attribute [Authorize]
 @using System.Security.Claims
 @using CLMS.Application.DTOs.Dashboard
-@using CLMS.Application.Services
+
 @using Microsoft.AspNetCore.Components.Authorization
 @inject DashboardService DashboardService
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -149,4 +149,3 @@ else
         snapshot = await DashboardService.GetSnapshotAsync(facultyId);
     }
 }
-
