@@ -10,10 +10,6 @@ using CLMS.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using CLMS.Web.Auth;
-using CLMS.Web.Endpoints;
-using CLMS.Web.Hosted;
-using Microsoft.AspNetCore.Authentication;
 
 
 
@@ -57,17 +53,17 @@ builder.Services
     })
     .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, o =>
     {
-        
+
         o.TokenValidationParameters = new TokenValidationParameters()
         {
             ValidateIssuer = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            
+
             ValidateAudience = true,
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            
+
             ValidateLifetime = true,
-            
+
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(
@@ -80,10 +76,10 @@ builder.Services
         options.Cookie.Name = "CLMS.Auth";
         options.LoginPath = "/login";
         options.AccessDeniedPath = "/access-denied";
-        
+
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
-        
+
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Lax;
@@ -96,29 +92,16 @@ builder.Services
         {
             policy.AuthenticationSchemes.Add("jwt");
             policy.RequireAuthenticatedUser();
-        });        options.AddPolicy("CookiePolicy", policy =>
+        });
+
+        options.AddPolicy("CookiePolicy", policy =>
         {
             policy.AuthenticationSchemes.Add("cookie");
             policy.RequireAuthenticatedUser();
         });
 
-        // Per-unit API-key auth for the lab-PC agents (X-Agent-Key header).
-        options.AddPolicy("AgentPolicy", policy =>
-        {
-            policy.AuthenticationSchemes.Add(AgentApiKeyAuthenticationHandler.SchemeName);
-            policy.RequireAuthenticatedUser();
-        });
-        
+
     });
-
-// Agent API-key scheme (hash lookup against computer_units.agent_api_key_hash).
-builder.Services
-    .AddAuthentication()
-    .AddScheme<AuthenticationSchemeOptions, AgentApiKeyAuthenticationHandler>(
-        AgentApiKeyAuthenticationHandler.SchemeName, null);
-
-// Orphaned-session cleanup: closes logs for units that stopped heartbeating.
-builder.Services.AddHostedService<UnitLogCleanupWorker>();
 
 // booking daw
 builder.Services.AddHttpClient<EmailService>();
@@ -150,7 +133,6 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapControllers();
-app.MapAgentEndpoints();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

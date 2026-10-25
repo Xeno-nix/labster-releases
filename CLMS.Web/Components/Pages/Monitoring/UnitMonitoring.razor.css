@@ -1,0 +1,79 @@
+.monitoring-page {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.monitoring-toolbar {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.laboratory-control {
+    flex: 1 1 160px;
+    min-width: 0;
+    max-width: 220px;
+}
+
+.search-control {
+    flex: 1 1 200px;
+    min-width: 0;
+    max-width: 280px;
+}
+
+.status-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.workstations-section {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pc-card-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 2px 2px 4px;
+}
+
+@media (max-width: 639px) {
+    .laboratory-control, .search-control { max-width: none; }
+    .status-filters { margin-left: 0; }
+}
+
+.pc-grid-container {
+    container-type: inline-size;
+}
+
+.pc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+}
+
+@container (min-width: 452px) {
+    .pc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container (min-width: 684px) {
+    .pc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@container (min-width: 916px) {
+    .pc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

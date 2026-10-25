@@ -81,6 +81,16 @@
                     </a>
                 </li>
                 <li>
+                    <a href="/unit-monitoring" title="Unit Monitoring" aria-label="Unit Monitoring" @onclick="CloseMobileSidebar" class="@NavClass("/unit-monitoring", exact: true)">
+                        <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="2" y="3" width="20" height="14" rx="2" />
+                            <path d="M8 21h8m-4-4v4" />
+                        </svg>
+                        <span class="sidebar-link-text">Unit Monitoring</span>
+                    </a>
+                </li>
+                <li>
                     <a href="/admin/users" title="Users" aria-label="Users" @onclick="CloseMobileSidebar" class="@NavClass("/admin/users", exact: false)">
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -169,10 +179,10 @@
     </aside>
 
     @* Main Content *@
-    <main class="main-content flex-1 overflow-auto">
+    <main class="main-content flex-1 min-w-0 @(IsUnitMonitoring ? "flex min-h-0 flex-col overflow-hidden" : "overflow-auto")">
 
         @* Mobile top bar (only visible < lg) *@
-        <div class="lg:hidden sticky top-0 z-30 bg-white border-b border-black/10 flex items-center gap-3 px-4 py-3">
+        <div class="lg:hidden sticky top-0 z-30 bg-white border-b border-black/10 flex shrink-0 items-center gap-3 px-4 py-3">
             <button type="button" class="p-2 -ml-2 rounded-lg hover:bg-surface transition-colors cursor-pointer"
                     aria-label="Open navigation" aria-controls="main-sidebar"
                     aria-expanded="@(_mobileSidebarOpen ? "true" : "false")" @onclick="OpenMobileSidebar">
@@ -195,7 +205,7 @@
             </div>
         </div>
 
-        <div class="p-4 sm:p-6 lg:p-8">
+        <div class="@(IsUnitMonitoring ? "flex min-h-0 flex-1 flex-col p-4 lg:p-5" : "p-4 sm:p-6 lg:p-8")">
             @Body
         </div>
     </main>
@@ -221,6 +231,8 @@
         if (e.Key == "Escape")
             CloseMobileSidebar();
     }
+    private bool IsUnitMonitoring => string.Equals(
+        new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/'), "/unit-monitoring", StringComparison.OrdinalIgnoreCase);
 
     // Mirrors Laravel's request()->routeIs(...) ternary per nav item. Recomputed on
     // every navigation via NavigationManager, both for full page loads (static SSR
@@ -259,3 +271,4 @@
         Navigation.LocationChanged -= OnLocationChanged;
     }
 }
+

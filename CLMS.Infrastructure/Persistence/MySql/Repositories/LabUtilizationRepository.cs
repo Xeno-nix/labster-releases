@@ -16,6 +16,7 @@ public class LabUtilizationRepository(MySqlConnectionFactory connectionFactory) 
                 guest_id,
                 purpose_subject,
                 faculty_in_charge,
+                laboratory_id,
                 log_date,
                 time_in,
                 time_out
@@ -26,6 +27,7 @@ public class LabUtilizationRepository(MySqlConnectionFactory connectionFactory) 
                 @GuestId,
                 @Purpose,
                 @InstructorId,
+                @LaboratoryId,
                 @LogDate,
                 @TimeIn,
                 @TimeOut
@@ -46,6 +48,7 @@ public class LabUtilizationRepository(MySqlConnectionFactory connectionFactory) 
         command.Parameters.AddWithValue("@LogDate", log.LogDate.ToDateTime(TimeOnly.MinValue));
         command.Parameters.AddWithValue("@TimeIn", log.TimeIn);
         command.Parameters.AddWithValue("@TimeOut", (object?)log.TimeOut ?? DBNull.Value);
+        command.Parameters.AddWithValue("@LaboratoryId", (object?)log.LaboratoryId ?? DBNull.Value);
 
         var result = await command.ExecuteScalarAsync();
 
@@ -157,6 +160,54 @@ public class LabUtilizationRepository(MySqlConnectionFactory connectionFactory) 
         }
 
         return results;
+    }
+
+    public async Task<(int ActiveNow, int SessionsToday, List<(int LaboratoryId, int Active)> ByLab)>
+        GetDashboardStatsAsync(Guid? facultyId)
+    {
+        // Faculty scope: faculty_in_charge stores the users.user_id GUID as text.
+        var facultyClause = facultyId.HasValue
+            ? " AND faculty_in_charge = @FacultyId"
+            : string.Empty;
+
+        var sql = $"""
+            SELECT
+                laboratory_id,
+                COALESCE(SUM(time_out IS NULL), 0) AS active_now,
+                COALESCE(SUM(log_date = CURDATE()), 0) AS sessions_today
+            FROM attendance_logs
+            WHERE 1 = 1{facultyClause}
+            GROUP BY laboratory_id;
+            """;
+
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+        if (facultyId.HasValue)
+            command.Parameters.AddWithValue("@FacultyId", facultyId.Value.ToString());
+
+        int activeNow = 0;
+        int sessionsToday = 0;
+        var byLab = new List<(int LaboratoryId, int Active)>();
+
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var active = Convert.ToInt32(reader.GetValue(reader.GetOrdinal("active_now")));
+            var today = Convert.ToInt32(reader.GetValue(reader.GetOrdinal("sessions_today")));
+
+            activeNow += active;
+            sessionsToday += today;
+
+            // Rows written before the course/laboratory_id migration have no lab —
+            // they still count toward the totals, just not toward any lab bar.
+            var labOrdinal = reader.GetOrdinal("laboratory_id");
+            if (!reader.IsDBNull(labOrdinal) && active > 0)
+                byLab.Add((reader.GetInt32(labOrdinal), active));
+        }
+
+        return (activeNow, sessionsToday, byLab);
     }
 
     private static LaboratoryUseLog MapLog(MySqlDataReader reader)
