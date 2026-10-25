@@ -204,7 +204,7 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
     {
         return new ComputerUnitDTO
         {
-            Id = Guid.Parse(reader.GetString("computer_unit_id")),
+            Id = reader.GetGuid("computer_unit_id"),
             UnitName = reader.GetString("unit_name"),
             UnitNumber = reader.GetByte("unit_number"),
             LaboratoryId = reader.GetInt32("laboratory_id"),

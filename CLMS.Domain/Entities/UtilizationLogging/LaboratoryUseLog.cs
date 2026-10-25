@@ -5,13 +5,11 @@
 /// StudentId / GuestId is set per row (student session or visitor session). An open
 /// session is one where TimeOut is null.
 ///
-/// Note: attendance_logs has no lab_id column — unlike the Laravel source project this
-/// was migrated from, this table doesn't track which laboratory a session happened in
-/// as its own FK. LaboratoryId/ClassScheduleId below are NOT persisted columns; they're
-/// resolved transiently (e.g. from the student's class schedule, or the guest's
-/// booking) purely to build a meaningful Purpose string and for in-memory use during a
-/// single request. If per-log laboratory tracking is needed later, attendance_logs
-/// would need a lab_id column added.
+/// Note: laboratory_id was added by the 2026-09-23 migration and is persisted on
+/// insert (rows created before that migration have NULL lab — no backfill is possible).
+/// ClassScheduleId below is still NOT a persisted column; it's resolved transiently
+/// (e.g. from the student's class schedule) purely to build a meaningful Purpose string
+/// and for in-memory use during a single request.
 /// </summary>
 public class LaboratoryUseLog
 {

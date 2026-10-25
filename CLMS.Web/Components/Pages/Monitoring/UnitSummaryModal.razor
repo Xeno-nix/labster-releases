@@ -1,0 +1,27 @@
+@using CLMS.Application.DTOs.Monitoring
+
+<Modal Show="Show" Title="Workstation summary" OnClose="OnClose">
+    <p class="mb-4 text-sm text-muted">@LaboratoryName</p>
+    <dl class="divide-y divide-black/10 text-sm">
+        @foreach (var summary in new[] {
+            ("Registered units", Units.Count),
+            ("Online", Units.Count(u => u.GetStatus(ObservedAtUtc) is UnitMonitoringStatus.Idle or UnitMonitoringStatus.InUse)),
+            ("In use", Units.Count(u => u.GetStatus(ObservedAtUtc) == UnitMonitoringStatus.InUse)),
+            ("Offline", Units.Count(u => u.GetStatus(ObservedAtUtc) == UnitMonitoringStatus.Offline)),
+            ("No signal", Units.Count(u => u.GetStatus(ObservedAtUtc) == UnitMonitoringStatus.NoSignal)) })
+        {
+            <div class="flex items-center justify-between gap-4 py-3">
+                <dt class="text-gray-600">@summary.Item1</dt>
+                <dd class="font-semibold text-gray-800">@summary.Item2</dd>
+            </div>
+        }
+    </dl>
+</Modal>
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter] public IReadOnlyList<UnitMonitoringDTO> Units { get; set; } = [];
+    [Parameter] public string LaboratoryName { get; set; } = "All laboratories";
+    [Parameter] public DateTime ObservedAtUtc { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+}

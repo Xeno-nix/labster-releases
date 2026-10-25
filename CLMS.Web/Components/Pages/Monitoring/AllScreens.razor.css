@@ -1,0 +1,40 @@
+.screen-wall-area {
+    flex: 1;
+    min-height: 0;
+    padding: 12px;
+    overflow: hidden;
+}
+
+.screen-wall {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(var(--wall-columns, 1), var(--wall-tile-width, 100%));
+    align-content: start;
+    justify-content: center;
+}
+
+.screen-tile {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+}
+
+.screen-pagination {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-top: 1px solid #ffffff1a;
+    font-size: 12px;
+}
+
+.screen-pagination button {
+    padding: 6px 12px;
+    border: 1px solid #ffffff33;
+    border-radius: 8px;
+}
+
+.screen-pagination button:disabled { opacity: .4; }
+.screen-pagination button:not(:disabled):hover { background: #1f2937; }
+.screen-pagination button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
