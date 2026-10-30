@@ -1,0 +1,83 @@
+@page "/class-lists"
+@page "/courses"
+@page "/school-semesters"
+@attribute [Authorize(Roles = "Admin,Faculty")]
+@rendermode InteractiveServer
+@inject NavigationManager Navigation
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Routing
+
+<PageTitle>CLMS — Class Management</PageTitle>
+
+<div class="space-y-6">
+    @switch (ActivePath)
+    {
+        case "/courses":
+            <Courses HeaderTemplate="ManagementHeader" />
+            break;
+        case "/school-semesters":
+            <SchoolSemesters HeaderTemplate="ManagementHeader" />
+            break;
+        default:
+            <ClassList HeaderTemplate="ManagementHeader" />
+            break;
+    }
+</div>
+
+@code {
+    private RenderFragment<RenderFragment> ManagementHeader => actions => @<div class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <h1 class="text-2xl font-semibold text-primary">Class Management</h1>
+                <p class="mt-1 text-sm text-muted">Manage class lists, courses, and school semesters.</p>
+            </div>
+            @actions
+        </div>
+        <nav aria-label="Class management tabs" class="flex overflow-x-auto overflow-y-hidden border-b border-black/10">
+            @foreach (var tab in Tabs)
+            {
+                <button type="button" @onclick="() => ChangeTab(tab.Path)" aria-pressed="@(ActivePath == tab.Path)"
+                   class="flex shrink-0 items-center gap-2 -mb-px border-b-2 px-5 py-3 text-sm font-medium transition-colors @(ActivePath == tab.Path ? "border-primary text-primary" : "border-transparent text-muted hover:text-[#2c2c2c]")">
+                    @tab.Label
+                </button>
+            }
+        </nav>
+    </div>;
+
+    private static readonly (string Path, string Label)[] Tabs =
+    [
+        ("/class-lists", "Class Lists"),
+        ("/courses", "Courses"),
+        ("/school-semesters", "School Semesters")
+    ];
+
+    private string ActivePath = "/class-lists";
+
+    protected override void OnInitialized()
+    {
+        ActivePath = GetPath(Navigation.Uri);
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void ChangeTab(string path)
+    {
+        ActivePath = path;
+        Navigation.NavigateTo(path);
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        var path = GetPath(args.Location);
+        if (!Tabs.Any(tab => tab.Path == path)) return;
+
+        _ = InvokeAsync(() =>
+        {
+            ActivePath = path;
+            StateHasChanged();
+        });
+    }
+
+    private static string GetPath(string uri) => new Uri(uri).AbsolutePath.TrimEnd('/').ToLowerInvariant();
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

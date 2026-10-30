@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider;
 @using CLMS.Web.Components.Notification
@@ -9,49 +9,57 @@
 <ToastContainer/>
 <Dialog/>
 
-<div class="flex h-screen overflow-hidden">
+<div class="app-shell flex h-screen overflow-hidden @(_sidebarCollapsed ? "sidebar-collapsed" : "")" @onkeydown="HandleKeyDown">
 
-    <input type="checkbox" id="sidebar-toggle" class="hidden peer" />
-
-    @* Mobile overlay (only when sidebar open) *@
-    <label for="sidebar-toggle"
-           class="lg:hidden hidden peer-checked:block fixed inset-0 bg-black/50 z-40"
-           aria-hidden="true">
-    </label>
+    @if (_mobileSidebarOpen)
+    {
+        <button type="button" class="sidebar-overlay" aria-label="Close navigation" @onclick="CloseMobileSidebar"></button>
+    }
 
     @* Sidebar — fixed/slide-in on mobile, normal flex on lg+ *@
-    <aside class="fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white border-r border-black/10 flex flex-col flex-shrink-0
-                  -translate-x-full peer-checked:translate-x-0 lg:translate-x-0 transition-transform duration-200 ease-in-out">
+    <aside id="main-sidebar" aria-label="Main navigation"
+           class="sidebar @(_mobileSidebarOpen ? "sidebar-mobile-open" : "") bg-white border-r border-black/10 flex flex-col flex-shrink-0">
 
         @* Logo + mobile close *@
-        <div class="p-6 border-b border-black/10 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+        <div class="sidebar-header border-b border-black/10 flex items-center justify-between">
+            <div class="sidebar-brand flex items-center gap-3">
+                <div class="sidebar-logo w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-white" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect width="20" height="14" x="2" y="3" rx="2" />
                         <path d="M8 21h8m-4-4v4" />
                     </svg>
                 </div>
-                <div>
+                <div class="sidebar-brand-text">
                     <p class="text-primary font-heading font-semibold text-base leading-tight">CLMS</p>
                     <p class="text-xs text-muted">USeP</p>
                 </div>
             </div>
-            <label for="sidebar-toggle" class="lg:hidden p-1.5 rounded-lg hover:bg-surface transition-colors cursor-pointer">
+            <button type="button" class="sidebar-mobile-close p-1.5 rounded-lg hover:bg-surface transition-colors cursor-pointer"
+                    aria-label="Close navigation" aria-controls="main-sidebar" @onclick="CloseMobileSidebar">
                 <svg class="w-5 h-5 text-muted" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 6 6 18" />
                     <path d="m6 6 12 12" />
                 </svg>
-            </label>
+            </button>
+            <button type="button" class="sidebar-desktop-toggle p-1.5 rounded-lg hover:bg-surface transition-colors cursor-pointer"
+                    title="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
+                    aria-label="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
+                    aria-expanded="@(!_sidebarCollapsed ? "true" : "false")" aria-controls="main-sidebar" @onclick="ToggleSidebar">
+                <svg class="w-5 h-5 text-muted" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M9 3v18" />
+                </svg>
+            </button>
         </div>
 
         @* Navigation *@
-        <nav class="flex-1 p-4 overflow-y-auto">
+        <nav class="sidebar-nav flex-1 p-4 overflow-y-auto">
             <ul class="space-y-1">
                 <li>
-                    <a href="/" class="@NavClass("/", exact: true)">
+                    <a href="/" title="Dashboard" aria-label="Dashboard" @onclick="CloseMobileSidebar" class="@NavClass("/", exact: true)">
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect width="7" height="9" x="3" y="3" rx="1" />
@@ -59,20 +67,21 @@
                             <rect width="7" height="9" x="14" y="12" rx="1" />
                             <rect width="7" height="5" x="3" y="16" rx="1" />
                         </svg>
-                        Dashboard
+                        <span class="sidebar-link-text">Dashboard</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/logbook" class="@NavClass("/logbook", exact: true)">
+                    <a href="/logbook" title="Logbook" aria-label="Logbook" @onclick="CloseMobileSidebar" class="@NavClass("/logbook", exact: true)">
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
                             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
                         </svg>
-                        Logbook
+                        <span class="sidebar-link-text">Logbook</span>
                     </a>
                 </li>
                 <li>
+<<<<<<< HEAD
                     <a href="/unit-monitoring" class="@NavClass("/unit-monitoring", exact: true)">
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -84,26 +93,29 @@
                 </li>
                 <li>
                     <a href="/admin/users" class="@NavClass("/admin/users", exact: false)">
+=======
+                    <a href="/admin/users" title="Users" aria-label="Users" @onclick="CloseMobileSidebar" class="@NavClass("/admin/users", exact: false)">
+>>>>>>> d0ed7e6 (feat: add academic management and unify scheduling workflows)
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                             <circle cx="12" cy="7" r="4" />
                         </svg>
-                        Users
+                        <span class="sidebar-link-text">Users</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/class-lists" class="@NavClass("/class-lists", exact: false)">
+                    <a href="/class-lists" title="Class Management" aria-label="Class Management" @onclick="CloseMobileSidebar" class="@NavClass("/class-lists", exact: false)">
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                             <circle cx="12" cy="7" r="4" />
                         </svg>
-                        Class List
+                        <span class="sidebar-link-text">Class Management</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/instructors" class="@NavClass("/instructors", exact: false)">
+                    <a href="/instructors" title="Instructors" aria-label="Instructors" @onclick="CloseMobileSidebar" class="@NavClass("/instructors", exact: false)">
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -111,11 +123,11 @@
                             <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
                             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                         </svg>
-                        Instructors
+                        <span class="sidebar-link-text">Instructors</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/schedule/calendar-view" class="@NavClass("/schedule/calendar-view", exact: true)">
+                    <a href="/bookings" title="Schedule &amp; Booking" aria-label="Schedule &amp; Booking" @onclick="CloseMobileSidebar" class="@NavClass("/bookings", exact: true)">
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M8 2v4" />
@@ -123,11 +135,11 @@
                             <rect width="18" height="18" x="3" y="4" rx="2" />
                             <path d="M3 10h18" />
                         </svg>
-                        Schedule &amp; Booking
+                        <span class="sidebar-link-text">Schedule &amp; Booking</span>
                     </a>
                 </li>
                 <li>
-                    <a href="/inventory" class="@NavClass("/inventory", exact: true)">
+                    <a href="/inventory" title="Inventory" aria-label="Inventory" @onclick="CloseMobileSidebar" class="@NavClass("/inventory", exact: true)">
                         <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="m7.5 4.27 9 5.15" />
@@ -135,7 +147,7 @@
                             <path d="m3.3 7 8.7 5 8.7-5" />
                             <path d="M12 22V12" />
                         </svg>
-                        Inventory
+                        <span class="sidebar-link-text">Inventory</span>
                     </a>
                 </li>
             </ul>
@@ -144,12 +156,12 @@
         @* Profile — no auth wired up yet, so these show the same fallback values
            Laravel's session('user_name', 'Administrator') etc. would show when
            unauthenticated. Logout button is not yet wired to anything. *@
-        <div class="p-4 border-t border-black/10">
-            <div class="flex items-center gap-3 px-4 py-3">
+        <div class="sidebar-footer p-4 border-t border-black/10">
+            <div class="sidebar-profile flex items-center gap-3 px-4 py-3">
                 <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
                     AD
                 </div>
-                <div class="flex-1 min-w-0">
+                <div class="sidebar-profile-details flex-1 min-w-0">
                     <p class="text-sm font-medium text-[#2c2c2c] truncate">Administrator</p>
                     <p class="text-xs text-muted truncate">admin@usep.edu.ph</p>
                 </div>
@@ -171,18 +183,28 @@
     </aside>
 
     @* Main Content *@
+<<<<<<< HEAD
     <main class="flex-1 min-w-0 @(IsUnitMonitoring ? "flex min-h-0 flex-col overflow-hidden" : "overflow-auto")">
 
         @* Mobile top bar (only visible < lg) *@
         <div class="lg:hidden sticky top-0 z-30 bg-white border-b border-black/10 flex shrink-0 items-center gap-3 px-4 py-3">
             <label for="sidebar-toggle" class="p-2 -ml-2 rounded-lg hover:bg-surface transition-colors cursor-pointer">
+=======
+    <main class="main-content flex-1 overflow-auto">
+
+        @* Mobile top bar (only visible < lg) *@
+        <div class="lg:hidden sticky top-0 z-30 bg-white border-b border-black/10 flex items-center gap-3 px-4 py-3">
+            <button type="button" class="p-2 -ml-2 rounded-lg hover:bg-surface transition-colors cursor-pointer"
+                    aria-label="Open navigation" aria-controls="main-sidebar"
+                    aria-expanded="@(_mobileSidebarOpen ? "true" : "false")" @onclick="OpenMobileSidebar">
+>>>>>>> d0ed7e6 (feat: add academic management and unify scheduling workflows)
                 <svg class="w-6 h-6 text-primary" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="4" x2="20" y1="12" y2="12" />
                     <line x1="4" x2="20" y1="6" y2="6" />
                     <line x1="4" x2="20" y1="18" y2="18" />
                 </svg>
-            </label>
+            </button>
             <div class="flex items-center gap-2">
                 <div class="w-7 h-7 bg-primary rounded flex items-center justify-center">
                     <svg class="w-4 h-4 text-white" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -209,8 +231,23 @@
 </div>
 
 @code {
+<<<<<<< HEAD
     private bool IsUnitMonitoring => string.Equals(
         new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/'), "/unit-monitoring", StringComparison.OrdinalIgnoreCase);
+=======
+    private bool _sidebarCollapsed;
+    private bool _mobileSidebarOpen;
+
+    private void ToggleSidebar() => _sidebarCollapsed = !_sidebarCollapsed;
+    private void OpenMobileSidebar() => _mobileSidebarOpen = true;
+    private void CloseMobileSidebar() => _mobileSidebarOpen = false;
+
+    private void HandleKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+            CloseMobileSidebar();
+    }
+>>>>>>> d0ed7e6 (feat: add academic management and unify scheduling workflows)
 
     // Mirrors Laravel's request()->routeIs(...) ternary per nav item. Recomputed on
     // every navigation via NavigationManager, both for full page loads (static SSR
@@ -221,11 +258,13 @@
         if (current.Length > 1 && current.EndsWith('/'))
             current = current.TrimEnd('/');
 
-        var isActive = exact
+        var isClassManagement = path == "/class-lists" && (current.Equals("/courses", StringComparison.OrdinalIgnoreCase) || current.Equals("/school-semesters", StringComparison.OrdinalIgnoreCase));
+        var isScheduleManagement = path == "/bookings" && current.Equals("/schedules", StringComparison.OrdinalIgnoreCase);
+        var isActive = isClassManagement || isScheduleManagement || (exact
             ? string.Equals(current, path, StringComparison.OrdinalIgnoreCase)
-            : current.StartsWith(path, StringComparison.OrdinalIgnoreCase);
+            : current.StartsWith(path, StringComparison.OrdinalIgnoreCase));
 
-        const string baseClasses = "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium";
+        const string baseClasses = "sidebar-link flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-sm font-medium";
         return isActive
             ? $"{baseClasses} bg-primary text-white"
             : $"{baseClasses} text-[#2c2c2c] hover:bg-surface";
@@ -237,7 +276,10 @@
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
-        => InvokeAsync(StateHasChanged);
+    {
+        _mobileSidebarOpen = false;
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     public void Dispose()
     {

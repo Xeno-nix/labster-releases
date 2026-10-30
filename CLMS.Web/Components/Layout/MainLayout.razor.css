@@ -1,3 +1,122 @@
+.sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    width: 16rem;
+    max-width: calc(100vw - 3rem);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: width 200ms ease, transform 200ms ease, visibility 200ms;
+}
+
+.sidebar-mobile-open {
+    transform: translateX(0);
+    visibility: visible;
+}
+
+.sidebar-header {
+    position: relative;
+    padding: 1.5rem 1rem;
+    gap: 0.5rem;
+}
+
+.sidebar-logo {
+    flex-shrink: 0;
+}
+
+.sidebar-desktop-toggle {
+    display: none;
+}
+
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgb(0 0 0 / 50%);
+    border: 0;
+    cursor: pointer;
+}
+
+.main-content {
+    min-width: 0;
+}
+
+.sidebar-link-text {
+    white-space: nowrap;
+}
+
+@media (min-width: 64rem) {
+    .sidebar {
+        position: relative;
+        transform: none;
+        visibility: visible;
+    }
+
+    .sidebar-mobile-close,
+    .sidebar-overlay {
+        display: none;
+    }
+
+    .sidebar-desktop-toggle {
+        display: inline-flex;
+        flex-shrink: 0;
+    }
+
+    .sidebar-collapsed .sidebar {
+        width: 5rem;
+    }
+
+    .sidebar-collapsed .sidebar-brand-text,
+    .sidebar-collapsed .sidebar-link-text,
+    .sidebar-collapsed .sidebar-profile-details {
+        display: none;
+    }
+
+    .sidebar-collapsed .sidebar-header {
+        justify-content: center;
+    }
+
+    /* Keep the logo visible and use the same toggle button over it to expand. */
+    .sidebar-collapsed .sidebar-desktop-toggle {
+        position: absolute;
+        inset: 1.5rem auto auto 50%;
+        transform: translateX(-50%);
+        width: 2.5rem;
+        height: 2.5rem;
+        background: transparent;
+    }
+
+    .sidebar-collapsed .sidebar-desktop-toggle svg {
+        display: none;
+    }
+
+    .sidebar-desktop-toggle:focus-visible {
+        outline: 2px solid var(--color-primary, #8b1538);
+        outline-offset: 3px;
+    }
+
+    .sidebar-collapsed .sidebar-nav,
+    .sidebar-collapsed .sidebar-footer {
+        padding: 1rem 0.75rem;
+    }
+
+    .sidebar-collapsed .sidebar-link {
+        justify-content: center;
+        padding: 0.75rem;
+    }
+
+    .sidebar-collapsed .sidebar-profile {
+        flex-direction: column;
+        padding: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebar {
+        transition: none;
+    }
+}
+
 #blazor-error-ui {
     color-scheme: light only;
     background: lightyellow;
