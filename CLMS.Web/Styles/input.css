@@ -17,6 +17,13 @@
     --color-surface: #f8f9fa;
     --color-muted: #6c757d;
     --color-info: #3495d2;
+
+    /* Class-list roster row metrics, declared once so the scroll container can derive its
+       height from the real row design instead of a guessed pixel value.
+       Student row = text-sm line-height (1.25rem) + py-3 top/bottom (0.75rem each) + 1px divider. */
+    --roster-row-h: 2.8125rem;
+    /* Roster header = text-xs line-height (1rem) + py-2.5 top/bottom (0.625rem each) + 1px divider. */
+    --roster-header-h: 2.3125rem;
 }
 
 @layer base {
@@ -37,6 +44,50 @@
 
     #dotnet-compile-error:not(:has(*)) {
         display: none !important;
+    }
+
+    /* Class-list accordion: height animation via grid-template-rows, driven by data-open.
+       The wrapper is always rendered; only its contents mount/unmount (see ClassList.razor). */
+    .accordion-panel {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows 300ms ease;
+    }
+
+    .accordion-panel[data-open="true"] {
+        grid-template-rows: 1fr;
+    }
+
+    .accordion-panel__inner {
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .accordion-panel__content {
+        opacity: 0;
+        transition: opacity 200ms ease;
+    }
+
+    .accordion-panel[data-open="true"] .accordion-panel__content {
+        opacity: 1;
+    }
+
+    /* Independently scrollable student roster: keeps about seven rows visible while the rest
+       scroll under the pinned table header. Height is derived from the row metrics above, so
+       only the list scrolls — never the course card, the expanded panel, or the page.
+       overscroll-behavior stops the page from scrolling when the list reaches its end. */
+    .roster-scroll {
+        max-height: calc((var(--roster-row-h) * 7) + var(--roster-header-h));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .accordion-panel,
+        .accordion-panel__inner,
+        .accordion-panel__content {
+            transition: none;
+        }
     }
 }
 

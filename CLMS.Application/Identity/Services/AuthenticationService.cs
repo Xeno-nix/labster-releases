@@ -1,4 +1,5 @@
-﻿using CLMS.Application.Identity.Interfaces;
+﻿using CLMS.Application.Identity.Exceptions;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Persistence.Interfaces;
 using CLMS.Domain.Entities.Identity;
 using CLMS.Domain.ValueObjects;
@@ -15,6 +16,11 @@ public sealed class AuthenticationService(
 {
     private const int MaxSessions = 5;
     
+    private const int MaxFailedLoginAttempts = 5;
+    // start warning the user once this many attempts (or fewer) remain
+    private const int LockoutWarningThreshold = 3;
+    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
     /// <summary>
     /// Registers User
     /// </summary>
@@ -182,16 +188,39 @@ public sealed class AuthenticationService(
         var user = await userRepository.FindByEmailAsync(requestDto.Email);
 
         // if user not found using email
-        if (user is null) throw new UnauthorizedAccessException("Invalid credentials.");
+        if (user is null) throw new InvalidCredentialsException();
+
+        // refuse while locked, even if the password is correct
+        if (user.IsLockedOut) throw new AccountLockedException(user.LockoutEnd!.Value);
 
         // checks if the password is correct for the user
         var passwordValid =
             passwordHasher.Verify(
                 requestDto.Password,
                 user.PasswordHash);
-        
+
         // invalid password
-        if (!passwordValid) throw new UnauthorizedAccessException("Invalid credentials.");
+        if (!passwordValid)
+        {
+            // counted in the database (not from the copy read above) so concurrent attempts aren't lost
+            var failedAttempts = await userRepository.IncrementFailedLoginAttemptsAsync(user.Id);
+
+            if (failedAttempts >= MaxFailedLoginAttempts)
+            {
+                var lockoutEnd = DateTime.UtcNow.Add(LockoutDuration);
+                await userRepository.LockOutAsync(user.Id, lockoutEnd);
+                throw new AccountLockedException(lockoutEnd);
+            }
+
+            // only tell the user how many attempts remain once they are close to the limit
+            var attemptsRemaining = MaxFailedLoginAttempts - failedAttempts;
+            throw new InvalidCredentialsException(
+                attemptsRemaining <= LockoutWarningThreshold ? attemptsRemaining : null);
+        }
+
+        // success - clear failed attempts and any expired lockout
+        if (user.FailedLoginAttempts != 0 || user.LockoutEnd is not null)
+            await userRepository.ResetFailedLoginAttemptsAsync(user.Id);
         
         return new UserClaimsDto(
             user.Id,

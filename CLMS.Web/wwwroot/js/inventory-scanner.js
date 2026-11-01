@@ -53,11 +53,22 @@ window.clmsInventoryScanner = {
 
             this._instance = new QrScanner(
                 video,
-                (result) => dotNetRef.invokeMethodAsync("OnQrScanned", result.data ?? result),
+                (result) => {
+                    const text = result?.data ?? result;
+                    dotNetRef.invokeMethodAsync("OnQrScanned", text);
+                },
                 {
-                    highlightScanRegion: true,
+                    highlightScanRegion: false,
                     highlightCodeOutline: true,
-                    maxScansPerSecond: 5
+                    maxScansPerSecond: 5,
+                    calculateScanRegion: (video) => ({
+                        x: 0,
+                        y: 0,
+                        width: video.videoWidth,
+                        height: video.videoHeight,
+                        downScaledWidth: 800,
+                        downScaledHeight: 800
+                    })
                 }
             );
             await this._instance.start();
