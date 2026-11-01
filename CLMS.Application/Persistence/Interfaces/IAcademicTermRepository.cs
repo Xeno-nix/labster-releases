@@ -4,6 +4,9 @@ using CLMS.Domain.Entities.Booking;
 namespace CLMS.Application.Interfaces.Repositories;
 public interface IAcademicTermRepository
 {
+    Task<int> CreateAsync(AcademicTerm term);
+    Task<bool> UpdateAsync(AcademicTerm term);
+    Task<bool> DeleteAsync(int id);
     Task<IEnumerable<AcademicTerm>> GetAllAsync();
 
     /// <summary>

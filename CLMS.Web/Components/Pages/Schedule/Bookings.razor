@@ -1,157 +1,223 @@
-@page "/bookings"
+@inject CLMS.Web.Services.ToastService Toasts
 @attribute [Authorize]
 @using CLMS.Application.Services
-@rendermode InteractiveServer
+@using CLMS.Web.Services
 @inject BookingService BookingService
 @inject LaboratoryService LaboratoryService
-@inject IJSRuntime JSRuntime
-@inject NavigationManager Navigation
+@inject DialogService Dialogs
 
-<PageTitle>Laboratory Bookings</PageTitle>
+<div class="space-y-6">
+    @HeaderTemplate(HeaderActions)
 
-<div class="relative p-4 md:p-8">
-
-    @if (!string.IsNullOrEmpty(toastMessage))
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
     {
-        <div class="fixed top-6 right-6 z-[2000] flex items-center gap-2.5 rounded-lg bg-green-700 px-4 py-3 text-sm font-medium text-white shadow-lg animate-[toast-in_0.2s_ease-out]">
-            <span class="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-white/25 text-[0.7rem] font-bold">✓</span>
-            <span>@toastMessage</span>
-        </div>
-    }
-
-    <div class="mb-6 flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-            <button type="button"
-                class="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-                @onclick="BackToCalendar">
-                ← Back to Calendar
-            </button>
-            <h3 class="m-0 text-xl font-semibold text-gray-800">Laboratory Bookings</h3>
-            <p class="mt-1 text-sm text-gray-500">Manage laboratory reservations.</p>
-        </div>
-        <button type="button"
-                class="rounded-md bg-[#7a1f2b] px-4 py-2.5 text-sm text-white transition-colors hover:bg-[#651923]"
-                @onclick="OpenCreateForm">
-            + New Booking
-        </button>
-    </div>
-
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             @errorMessage
         </div>
     }
 
-    @if (isLoading)
-    {
-        <p class="py-4 text-sm text-gray-500">Loading bookings...</p>
-    }
-    else if (!bookings.Any())
-    {
-        <div class="rounded-lg border border-gray-200 bg-white px-6 py-12 text-center">
-            <div class="mb-3 text-3xl opacity-35">📅</div>
-            <h5 class="m-0 text-sm text-gray-600">No bookings yet</h5>
-            <p class="mt-1.5 mb-4 text-xs text-gray-400">Add your first laboratory booking to get started.</p>
-            <button type="button"
-                    class="rounded-md bg-[#7a1f2b] px-3.5 py-2 text-sm text-white hover:bg-[#651923]"
-                    @onclick="OpenCreateForm">
-                + New Booking
-            </button>
-        </div>
-    }
-    else
-    {
-        <div class="overflow-hidden rounded-lg border border-gray-200 bg-white md:overflow-x-auto">
-            <table class="w-full min-w-[700px] border-collapse md:min-w-0">
-                <thead>
-                    <tr>
-                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Requestor</th>
-                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Contact</th>
-                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Laboratory</th>
-                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Date</th>
-                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Time</th>
-                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">Purpose</th>
-                        <th class="border-b border-gray-200 bg-gray-50 px-4.5 py-3.5"></th>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <input type="text"
+               @bind="bookingSearch"
+               @bind:event="oninput"
+               @bind:after="ResetBookingPage"
+               placeholder="Search requestor, email, or purpose..."
+               class="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary sm:max-w-sm" />
+
+        <select @bind="bookingLabFilter"
+                @bind:after="ResetBookingPage"
+                class="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary">
+            <option value="">All Laboratories</option>
+            @foreach (var lab in laboratories)
+            {
+                <option value="@lab.Id">@lab.Name</option>
+            }
+        </select>
+
+        <span class="text-sm text-muted sm:ml-auto">
+            @FilteredBookings.Count() booking(s)
+        </span>
+    </div>
+
+    <div class="overflow-hidden rounded-xl border border-black/10 bg-white">
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[850px] text-left">
+                <thead class="border-b border-black/10 bg-gray-50">
+                    <tr class="text-xs font-semibold uppercase tracking-wide text-muted">
+                        <th class="px-5 py-4">Requestor</th>
+                        <th class="px-5 py-4">Contact</th>
+                        <th class="px-5 py-4">Laboratory</th>
+                        <th class="px-5 py-4">Date</th>
+                        <th class="px-5 py-4">Time</th>
+                        <th class="px-5 py-4">Purpose</th>
+                        <th class="px-5 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach (BookingDTO booking in bookings)
+                <tbody class="divide-y divide-black/5">
+                    @if (isLoadingBookings)
                     {
-                        <tr class="hover:bg-gray-50">
-                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm font-semibold text-blue-900 last:border-b-0">
-                                @booking.RequestorName
+                        <tr>
+                            <td colspan="7" class="px-5 py-12 text-center text-sm text-muted">
+                                Loading bookings...
                             </td>
-                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
-                                @booking.Email
-                            </td>
-                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
-                                @GetLaboratoryName(booking.LaboratoryId)
-                            </td>
-                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
-                                @booking.Date.ToString("MMM dd, yyyy")
-                            </td>
-                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
-                                @booking.StartTime.ToString("hh:mm tt") - @booking.EndTime.ToString("hh:mm tt")
-                            </td>
-                            <td class="border-b border-gray-100 px-4.5 py-3.5 align-middle text-sm text-gray-700 last:border-b-0">
-                                @booking.Purpose
-                            </td>
-                            <td class="border-b border-gray-100 px-4.5 py-3.5 text-right align-middle last:border-b-0">
-                                <div class="flex justify-end gap-2">
-                                    <button type="button"
-                                            class="rounded-md border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-[#7a1f2b] hover:border-[#7a1f2b] hover:bg-red-50/40"
-                                            @onclick="() => OpenEditForm(booking.Id)">
-                                        Edit
-                                    </button>
-                                    <button type="button"
-                                            class="rounded-md border border-gray-200 bg-white px-3.5 py-1.5 text-xs font-medium text-red-700 hover:border-red-700 hover:bg-red-50 disabled:cursor-default disabled:opacity-60"
-                                            disabled="@(deletingId == booking.Id)"
-                                            @onclick="() => DeleteBooking(booking.Id)">
-                                        @(deletingId == booking.Id ? "Deleting..." : "Delete")
-                                    </button>
+                        </tr>
+                    }
+                    else if (!FilteredBookings.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="px-5 py-14 text-center">
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-2xl">📅</span>
+                                    <p class="font-medium text-[#2c2c2c]">
+                                        @(bookings.Any() ? "No matching bookings" : "No bookings added yet")
+                                    </p>
+                                    <p class="text-sm text-muted">
+                                        @(bookings.Any() ? "Try changing your search or filters." : "Add your first laboratory booking to get started.")
+                                    </p>
                                 </div>
                             </td>
                         </tr>
                     }
+                    else
+                    {
+                        @foreach (var booking in BookingPageItems)
+                        {
+                            <tr class="transition-colors hover:bg-gray-50/70">
+                                <td class="px-5 py-4 text-sm font-medium text-[#2c2c2c]">
+                                    @booking.RequestorName
+                                </td>
+                                <td class="px-5 py-4 text-sm text-muted">
+                                    @booking.Email
+                                </td>
+                                <td class="px-5 py-4 text-sm text-[#2c2c2c]">
+                                    @GetLaboratoryName(booking.LaboratoryId)
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-4 text-sm">
+                                    @booking.Date.ToString("MMM dd, yyyy")
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-4 text-sm">
+                                    @booking.StartTime.ToString("hh:mm tt") - @booking.EndTime.ToString("hh:mm tt")
+                                </td>
+                                <td class="max-w-[200px] px-5 py-4 text-sm text-muted">
+                                    <span class="block truncate" title="@booking.Purpose">
+                                        @booking.Purpose
+                                    </span>
+                                </td>
+                                <td class="px-5 py-4">
+                                    <div class="flex justify-end gap-1">
+                                        <button type="button"
+                                                @onclick="() => OpenEditBooking(booking.Id)"
+                                                title="Edit booking"
+                                                class="rounded-lg p-2 text-muted hover:bg-gray-100 hover:text-primary">
+                                            Edit
+                                        </button>
+                                        <button type="button"
+                                                @onclick="() => DeleteBooking(booking.Id)"
+                                                disabled="@(deletingBookingId == booking.Id)"
+                                                class="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50">
+                                            @(deletingBookingId == booking.Id ? "Deleting..." : "Delete")
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
                 </tbody>
             </table>
         </div>
+
+        @if (!isLoadingBookings && FilteredBookings.Any())
+        {
+            <div class="flex flex-col justify-between gap-3 border-t border-black/10 px-5 py-3 sm:flex-row sm:items-center">
+                <p class="text-xs text-muted">
+                    Showing @BookingFirstItem–@BookingLastItem of @FilteredBookings.Count() bookings
+                </p>
+                <div class="flex items-center gap-2">
+                    <button type="button"
+                            @onclick="() => ChangeBookingPage(bookingPage - 1)"
+                            disabled="@(bookingPage <= 1)"
+                            class="rounded-lg border border-black/10 px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
+                        Previous
+                    </button>
+                    <span class="text-sm text-muted">
+                        Page @bookingPage of @BookingTotalPages
+                    </span>
+                    <button type="button"
+                            @onclick="() => ChangeBookingPage(bookingPage + 1)"
+                            disabled="@(bookingPage >= BookingTotalPages)"
+                            class="rounded-lg border border-black/10 px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
+                        Next
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (showBookingModal)
+    {
+        <BookingModal @key="editingBookingId"
+            BookingId="@editingBookingId"
+            OnClose="CloseBookingModal"
+            OnSaved="HandleBookingSaved" />
     }
 </div>
 
-@if (showModal)
-{
-    <BookingModal BookingId="editingId"
-                  OnClose="CloseModal"
-                  OnSaved="HandleBookingSaved" />
-}
-
-<style>
-    @@keyframes toast-in {
-        from {
-            opacity: 0;
-            transform: translateY(-8px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-</style>
-
 @code {
-    private IEnumerable<BookingDTO> bookings = Enumerable.Empty<BookingDTO>();
-    private IEnumerable<LaboratoryDTO> laboratories = Enumerable.Empty<LaboratoryDTO>();
+    [Parameter, EditorRequired]
+    public RenderFragment<RenderFragment> HeaderTemplate { get; set; } = default!;
 
-    private bool isLoading = true;
-    private bool showModal;
-    private int? editingId;
-    private int? deletingId;
+    private RenderFragment HeaderActions => @<div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <button type="button"
+                @onclick="OpenCreateBooking"
+                class="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90">
+            + New Booking
+        </button>
+    </div>;
+
+    private const int PageSize = 10;
+
+    private IEnumerable<BookingDTO> bookings = Enumerable.Empty<BookingDTO>();
+
+    private List<(int Id, string Name)> laboratories = new();
+
+    private bool isLoadingBookings = true;
+
+    private bool showBookingModal;
+
+    private int? editingBookingId;
+
+    private int? deletingBookingId;
+
     private string? errorMessage;
 
-    private string? toastMessage;
-    private CancellationTokenSource? toastCts;
+    private string bookingSearch = "";
+
+    private string bookingLabFilter = "";
+
+    private int bookingPage = 1;
+
+    private IEnumerable<BookingDTO> FilteredBookings =>
+        bookings.Where(b =>
+            (string.IsNullOrWhiteSpace(bookingSearch) ||
+             (b.RequestorName?.Contains(bookingSearch, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (b.Email?.Contains(bookingSearch, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (b.Purpose?.Contains(bookingSearch, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             GetLaboratoryName(b.LaboratoryId).Contains(bookingSearch, StringComparison.OrdinalIgnoreCase))
+            &&
+            (string.IsNullOrWhiteSpace(bookingLabFilter) ||
+             b.LaboratoryId.ToString() == bookingLabFilter));
+
+    private int BookingTotalPages =>
+        Math.Max(1, (int)Math.Ceiling(FilteredBookings.Count() / (double)PageSize));
+
+    private IEnumerable<BookingDTO> BookingPageItems =>
+        FilteredBookings.Skip((bookingPage - 1) * PageSize).Take(PageSize);
+
+    private int BookingFirstItem =>
+        FilteredBookings.Any() ? ((bookingPage - 1) * PageSize) + 1 : 0;
+
+    private int BookingLastItem =>
+        Math.Min(bookingPage * PageSize, FilteredBookings.Count());
 
     protected override async Task OnInitializedAsync()
     {
@@ -163,7 +229,8 @@
     {
         try
         {
-            laboratories = await LaboratoryService.GetAllAsync();
+            var result = await LaboratoryService.GetAllAsync();
+            laboratories = result.Select(l => (Id: l.Id, Name: l.Name)).ToList();
         }
         catch (Exception ex)
         {
@@ -172,17 +239,17 @@
         }
     }
 
-    private string GetLaboratoryName(int labId)
-        => laboratories.FirstOrDefault(l => l.Id == labId)?.Name ?? $"Lab {labId}";
+    private string GetLaboratoryName(int id) =>
+        laboratories.FirstOrDefault(l => l.Id == id).Name ?? $"Lab {id}";
 
     private async Task LoadBookings()
     {
-        isLoading = true;
-        errorMessage = null;
+        isLoadingBookings = true;
 
         try
         {
-            bookings = await BookingService.GetAllAsync();
+            bookings = (await BookingService.GetAllAsync()).ToList();
+            bookingPage = Math.Min(bookingPage, BookingTotalPages);
         }
         catch (Exception ex)
         {
@@ -191,50 +258,62 @@
         }
         finally
         {
-            isLoading = false;
+            isLoadingBookings = false;
         }
     }
 
-    private void OpenCreateForm()
+    private void ResetBookingPage() => bookingPage = 1;
+
+    private void ChangeBookingPage(int page) =>
+        bookingPage = Math.Clamp(page, 1, BookingTotalPages);
+
+    private void OpenCreateBooking()
     {
-        editingId = null;
-        showModal = true;
+        editingBookingId = null;
+        showBookingModal = true;
     }
 
-    private void OpenEditForm(int id)
+    private void OpenEditBooking(int id)
     {
-        editingId = id;
-        showModal = true;
+        editingBookingId = id;
+        showBookingModal = true;
     }
 
-    private void CloseModal() => showModal = false;
+    private void CloseBookingModal()
+    {
+        showBookingModal = false;
+        editingBookingId = null;
+    }
 
     private async Task HandleBookingSaved()
     {
-        var wasEditing = editingId is not null;
-        showModal = false;
+        var wasEditing = editingBookingId is not null;
+
+        showBookingModal = false;
         await LoadBookings();
-        ShowToast(wasEditing ? "Booking updated successfully." : "Booking added successfully.");
+
+        Toasts.Show(wasEditing
+            ? "Booking updated successfully."
+            : "Booking added successfully.", ToastService.ToastType.Success);
     }
 
     private async Task DeleteBooking(int id)
     {
-        var confirmed = await JSRuntime.InvokeAsync<bool>(
-            "confirm", "Are you sure you want to delete this booking? This cannot be undone.");
+         var confirmed = await Dialogs.ShowConfirmDialogAsync(
+        "Are you sure you want to delete this booking? This cannot be undone.",
+        "Delete Booking");
 
         if (!confirmed)
-        {
             return;
-        }
 
-        deletingId = id;
+        deletingBookingId = id;
         errorMessage = null;
 
         try
         {
             await BookingService.DeleteAsync(id);
             await LoadBookings();
-            ShowToast("Booking deleted successfully.");
+            Toasts.Show("Booking deleted successfully.", ToastService.ToastType.Success);
         }
         catch (Exception ex)
         {
@@ -243,31 +322,7 @@
         }
         finally
         {
-            deletingId = null;
+            deletingBookingId = null;
         }
-    }
-
-    private void BackToCalendar() => Navigation.NavigateTo("schedule/calendar-view");
-
-    private void ShowToast(string message)
-    {
-        toastMessage = message;
-        toastCts?.Cancel();
-        toastCts = new CancellationTokenSource();
-        var token = toastCts.Token;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(3000, token);
-                if (!token.IsCancellationRequested)
-                {
-                    toastMessage = null;
-                    await InvokeAsync(StateHasChanged);
-                }
-            }
-            catch (TaskCanceledException) { }
-        });
     }
 }

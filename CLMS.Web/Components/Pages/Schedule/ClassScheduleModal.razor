@@ -47,10 +47,30 @@
                             <option value="0">Select a course</option>
                             @foreach (var course in courses)
                             {
-                                <option value="@course.Id">@course.CourseCode — @course.CourseName</option>
+                                <option value="@course.Id">@course.CourseCode â€” @course.CourseName</option>
                             }
                         </InputSelect>
                         <ValidationMessage For="@(() => formModel.CourseId)" class="text-red-600 text-xs mt-1" />
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div class="flex-1 mb-4">
+                            <label class="block text-xs text-gray-600 mb-1.5">Section</label>
+                            <InputText @bind-Value="formModel.Section" placeholder="e.g. BSIT 2A" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b]" />
+                            <ValidationMessage For="@(() => formModel.Section)" class="text-red-600 text-xs mt-1" />
+                        </div>
+
+                        <div class="flex-1 mb-4">
+                            <label class="block text-xs text-gray-600 mb-1.5">Year Level</label>
+                            <InputSelect @bind-Value="formModel.YearLevel" class="w-full box-border px-2.5 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:border-[#7a1f2b]">
+                                <option value="0">Select year level</option>
+                                <option value="1">1st Year</option>
+                                <option value="2">2nd Year</option>
+                                <option value="3">3rd Year</option>
+                                <option value="4">4th Year</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => formModel.YearLevel)" class="text-red-600 text-xs mt-1" />
+                        </div>
                     </div>
 
                     <div class="flex gap-4">
@@ -199,7 +219,9 @@
                         AcademicTermId = schedule.AcademicTermId,
                         DayOfWeek = schedule.DayOfWeek,
                         TimeStart = schedule.TimeStart,
-                        TimeEnd = schedule.TimeEnd
+                        TimeEnd = schedule.TimeEnd,
+                        Section = schedule.Section,
+                        YearLevel = schedule.YearLevel
                     };
 
                     var matchingTerm = terms.FirstOrDefault(t => t.Id == schedule.AcademicTermId);
@@ -264,31 +286,12 @@
 
     private async Task Submit()
     {
-        generalError = null;
-
-        if (startTime is null)
+        if (!ValidateForm())
         {
-            generalError = "Invalid start time.";
             return;
         }
-
-        if (endTime is null)
-        {
-            generalError = "Invalid end time.";
-            return;
-        }
-
-        if (startTime >= endTime)
-        {
-            generalError = "Start time must be earlier than end time.";
-            return;
-        }
-
-        formModel.TimeStart = startTime.Value;
-        formModel.TimeEnd = endTime.Value;
-
+        if (isSaving) return;
         isSaving = true;
-
         try
         {
             if (ScheduleId is not null)
@@ -317,5 +320,69 @@
         }
     }
 
+    private bool ValidateForm()
+    {
+        generalError = null;
+
+        if (formModel.CourseId <= 0)
+        {
+            generalError = "Please select a course.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(formModel.Section))
+        {
+            generalError = "Please enter a section.";
+            return false;
+        }
+
+        if (formModel.YearLevel <= 0)
+        {
+            generalError = "Please select a year level.";
+            return false;
+        }
+
+        if (formModel.AcademicTermId <= 0)
+        {
+            generalError = "Please select an academic term.";
+            return false;
+        }
+
+        if (formModel.InstructorId == Guid.Empty)
+        {
+            generalError = "Please select an instructor.";
+            return false;
+        }
+
+        if (formModel.LaboratoryId <= 0)
+        {
+            generalError = "Please select a laboratory.";
+            return false;
+        }
+
+        if (startTime is null)
+        {
+            generalError = "Please select a valid start time.";
+            return false;
+        }
+
+        if (endTime is null)
+        {
+            generalError = "Please select a valid end time.";
+            return false;
+        }
+
+        if (startTime.Value >= endTime.Value)
+        {
+            generalError = "Start time must be earlier than end time.";
+            return false;
+        }
+
+        // Copy validated times into the DTO.
+        formModel.TimeStart = startTime.Value;
+        formModel.TimeEnd = endTime.Value;
+
+        return true;
+    }
     private async Task Close() => await OnClose.InvokeAsync();
 }

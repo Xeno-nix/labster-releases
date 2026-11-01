@@ -1,142 +1,271 @@
-@page "/schedules"
+@inject CLMS.Web.Services.ToastService Toasts
 @attribute [Authorize]
 @using CLMS.Application.Services
-@rendermode InteractiveServer
+@using CLMS.Web.Services
 @inject ClassScheduleService ScheduleService
-@inject IJSRuntime JSRuntime
-@inject NavigationManager Navigation
+@inject LaboratoryService LaboratoryService
+@inject DialogService Dialogs
 
-<PageTitle>Class Schedules</PageTitle>
+<div class="space-y-6">
+    @HeaderTemplate(HeaderActions)
 
-<div class="p-8 relative">
-
-    @if (!string.IsNullOrEmpty(toastMessage))
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
     {
-        <div class="fixed top-6 right-6 flex items-center gap-2.5 bg-[#1f7a3f] text-white px-[1.1rem] py-3 rounded-lg text-sm font-medium shadow-lg z-[2000] animate-[toast-in_0.2s_ease-out]">
-            <span class="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-white/25 text-xs font-bold">✓</span>
-            <span>@toastMessage</span>
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            @errorMessage
         </div>
     }
 
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <button type="button"
-                class="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-                @onclick="BackToCalendar">
-                ← Back to Calendar
-            </button>
-            <h3 class="m-0 text-2xl text-gray-800">Class Schedules</h3>
-            <p class="mt-1 mb-0 text-gray-500 text-sm">Manage recurring class schedules.</p>
-        </div>
-        <button type="button" class="px-4 py-2.5 bg-[#7a1f2b] text-white border-none rounded-md text-sm cursor-pointer hover:bg-[#651923] transition-colors" @onclick="OpenCreateForm">
-            + Add Class Schedule
-        </button>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <input type="text"
+               @bind="scheduleSearch"
+               @bind:event="oninput"
+               @bind:after="ResetSchedulePage"
+               placeholder="Search course, instructor, or laboratory..."
+               class="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary sm:max-w-sm" />
+
+        <select @bind="scheduleDayFilter"
+                @bind:after="ResetSchedulePage"
+                class="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary">
+            <option value="">All Days</option>
+            @foreach (var day in Enum.GetNames<DayOfWeek>())
+            {
+                <option value="@day">@day</option>
+            }
+        </select>
+
+        <select @bind="scheduleLabFilter"
+                @bind:after="ResetSchedulePage"
+                class="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary">
+            <option value="">All Laboratories</option>
+            @foreach (var lab in laboratories)
+            {
+                <option value="@lab.Name">@lab.Name</option>
+            }
+        </select>
+
+        <span class="text-sm text-muted sm:ml-auto">
+            @FilteredSchedules.Count() schedule(s)
+        </span>
     </div>
 
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="bg-[#fdecea] text-[#b3261e] border border-[#f5c2c0] rounded-md px-4 py-3 text-sm mb-5">@errorMessage</div>
-    }
-
-    @if (isLoading)
-    {
-        <p class="text-gray-500 text-sm py-4">Loading schedules...</p>
-    }
-    else if (!schedules.Any())
-    {
-        <div class="py-12 px-6 text-center bg-white border border-gray-200 rounded-lg">
-            <div class="mb-3 text-3xl opacity-35">📋</div>
-            <h5 class="m-0 text-gray-600 text-sm">No class schedules yet</h5>
-            <p class="mt-1.5 mb-4 text-gray-400 text-xs">Add your first class schedule to get started.</p>
-            <button type="button" class="px-3.5 py-2 bg-[#7a1f2b] text-white border-none rounded-md text-sm cursor-pointer hover:bg-[#651923]" @onclick="OpenCreateForm">
-                + Add Class Schedule
-            </button>
-        </div>
-    }
-    else
-    {
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
-            <table class="w-full border-collapse min-w-[700px]">
-                <thead>
-                    <tr>
-                        <th class="text-left px-[1.1rem] py-3.5 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide border-b border-gray-200">Course</th>
-                        <th class="text-left px-[1.1rem] py-3.5 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide border-b border-gray-200">Instructor</th>
-                        <th class="text-left px-[1.1rem] py-3.5 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide border-b border-gray-200">Laboratory</th>
-                        <th class="text-left px-[1.1rem] py-3.5 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide border-b border-gray-200">Day</th>
-                        <th class="text-left px-[1.1rem] py-3.5 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide border-b border-gray-200">Time</th>
-                        <th class="text-left px-[1.1rem] py-3.5 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide border-b border-gray-200">Term</th>
-                        <th class="text-left px-[1.1rem] py-3.5 bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wide border-b border-gray-200"></th>
+    <div class="overflow-hidden rounded-xl border border-black/10 bg-white">
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[850px] text-left">
+                <thead class="border-b border-black/10 bg-gray-50">
+                    <tr class="text-xs font-semibold uppercase tracking-wide text-muted">
+                        <th class="px-5 py-4">Course</th>
+                        <th class="px-5 py-4">Instructor</th>
+                        <th class="px-5 py-4">Laboratory</th>
+                        <th class="px-5 py-4">Day</th>
+                        <th class="px-5 py-4">Time</th>
+                        <th class="px-5 py-4">Term</th>
+                        <th class="px-5 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach (var schedule in schedules)
+                <tbody class="divide-y divide-black/5">
+                    @if (isLoadingSchedules)
                     {
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-[1.1rem] py-3.5 border-b border-gray-100 text-gray-700 text-sm align-middle">
-                                <span class="block text-[#7a1f2b] font-semibold">@schedule.CourseCode</span>
-                                <span class="block text-gray-400 text-xs mt-0.5">@schedule.CourseName</span>
+                        <tr>
+                            <td colspan="7" class="px-5 py-12 text-center text-sm text-muted">
+                                Loading schedules...
                             </td>
-                            <td class="px-[1.1rem] py-3.5 border-b border-gray-100 text-gray-700 text-sm align-middle">@schedule.InstructorName</td>
-                            <td class="px-[1.1rem] py-3.5 border-b border-gray-100 text-gray-700 text-sm align-middle">@schedule.LaboratoryName</td>
-                            <td class="px-[1.1rem] py-3.5 border-b border-gray-100 text-gray-700 text-sm align-middle">@schedule.DayOfWeek</td>
-                            <td class="px-[1.1rem] py-3.5 border-b border-gray-100 text-gray-700 text-sm align-middle">@schedule.TimeStart.ToString("hh:mm tt") - @schedule.TimeEnd.ToString("hh:mm tt")</td>
-                            <td class="px-[1.1rem] py-3.5 border-b border-gray-100 text-gray-700 text-sm align-middle">
-                                <span class="inline-block px-2 py-1 bg-gray-100 rounded text-gray-500 text-xs mr-1">@schedule.Semester semester</span>
-                                <span class="inline-block px-2 py-1 bg-gray-100 rounded text-gray-500 text-xs mr-1">@schedule.AcademicYear</span>
-                            </td>
-                            <td class="px-[1.1rem] py-3.5 border-b border-gray-100 text-right align-middle">
-                                <div class="flex gap-2 justify-end">
-                                    <button type="button" class="px-3.5 py-1.5 border border-gray-300 bg-white text-[#7a1f2b] rounded-md text-xs font-medium cursor-pointer hover:bg-[#fff8f8] hover:border-[#7a1f2b]" @onclick="() => OpenEditForm(schedule.Id)">
-                                        Edit
-                                    </button>
-                                    <button type="button"
-                                            class="px-3.5 py-1.5 border border-gray-300 bg-white text-[#b3261e] rounded-md text-xs font-medium cursor-pointer hover:bg-[#fdecea] hover:border-[#b3261e] disabled:opacity-60 disabled:cursor-default"
-                                            disabled="@(deletingId == schedule.Id)"
-                                            @onclick="() => DeleteSchedule(schedule.Id)">
-                                        @(deletingId == schedule.Id ? "Deleting..." : "Delete")
-                                    </button>
+                        </tr>
+                    }
+                    else if (!FilteredSchedules.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="px-5 py-14 text-center">
+                                <div class="flex flex-col items-center gap-2">
+                                    <span class="text-2xl">📋</span>
+                                    <p class="font-medium text-[#2c2c2c]">
+                                        @(schedules.Any() ? "No matching schedules" : "No class schedules added yet")
+                                    </p>
+                                    <p class="text-sm text-muted">
+                                        @(schedules.Any() ? "Try changing your search or filters." : "Add your first class schedule to get started.")
+                                    </p>
                                 </div>
                             </td>
                         </tr>
                     }
+                    else
+                    {
+                        @foreach (var schedule in SchedulePageItems)
+                        {
+                            <tr class="transition-colors hover:bg-gray-50/70">
+                                <td class="px-5 py-4">
+                                    <p class="text-sm font-medium text-[#2c2c2c]">
+                                        @schedule.CourseCode
+                                    </p>
+                                    <p class="mt-1 text-xs text-muted">
+                                        @schedule.CourseName
+                                    </p>
+                                </td>
+                                <td class="px-5 py-4 text-sm">
+                                    @schedule.InstructorName
+                                </td>
+                                <td class="px-5 py-4 text-sm">
+                                    @schedule.LaboratoryName
+                                </td>
+                                <td class="px-5 py-4 text-sm">
+                                    @schedule.DayOfWeek
+                                </td>
+                                <td class="whitespace-nowrap px-5 py-4 text-sm">
+                                    @schedule.TimeStart.ToString("hh:mm tt") - @schedule.TimeEnd.ToString("hh:mm tt")
+                                </td>
+                                <td class="px-5 py-4 text-sm">
+                                    <p>@schedule.Semester semester</p>
+                                    <p class="mt-1 text-xs text-muted">@schedule.AcademicYear</p>
+                                </td>
+                                <td class="px-5 py-4">
+                                    <div class="flex justify-end gap-1">
+                                        <button type="button"
+                                                @onclick="() => OpenEditSchedule(schedule.Id)"
+                                                class="rounded-lg p-2 text-muted hover:bg-gray-100 hover:text-primary">
+                                            Edit
+                                        </button>
+                                        <button type="button"
+                                                @onclick="() => DeleteSchedule(schedule.Id)"
+                                                disabled="@(deletingScheduleId == schedule.Id)"
+                                                class="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50">
+                                            @(deletingScheduleId == schedule.Id ? "Deleting..." : "Delete")
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
                 </tbody>
             </table>
         </div>
+
+        @if (!isLoadingSchedules && FilteredSchedules.Any())
+        {
+            <div class="flex flex-col justify-between gap-3 border-t border-black/10 px-5 py-3 sm:flex-row sm:items-center">
+                <p class="text-xs text-muted">
+                    Showing @ScheduleFirstItem–@ScheduleLastItem of @FilteredSchedules.Count() schedules
+                </p>
+                <div class="flex items-center gap-2">
+                    <button type="button"
+                            @onclick="() => ChangeSchedulePage(schedulePage - 1)"
+                            disabled="@(schedulePage <= 1)"
+                            class="rounded-lg border border-black/10 px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
+                        Previous
+                    </button>
+                    <span class="text-sm text-muted">
+                        Page @schedulePage of @ScheduleTotalPages
+                    </span>
+                    <button type="button"
+                            @onclick="() => ChangeSchedulePage(schedulePage + 1)"
+                            disabled="@(schedulePage >= ScheduleTotalPages)"
+                            class="rounded-lg border border-black/10 px-3 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
+                        Next
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (showScheduleModal)
+    {
+        <ClassScheduleModal @key="editingScheduleId"
+            ScheduleId="@editingScheduleId"
+            OnClose="CloseScheduleModal"
+            OnSaved="HandleScheduleSaved" />
     }
 </div>
 
-@if (showModal)
-{
-    <ClassScheduleModal ScheduleId="editingId"
-                         OnClose="CloseModal"
-                         OnSaved="HandleSaved" />
-}
-
 @code {
+    [Parameter, EditorRequired]
+    public RenderFragment<RenderFragment> HeaderTemplate { get; set; } = default!;
+
+    private RenderFragment HeaderActions => @<div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <button type="button"
+                @onclick="OpenCreateSchedule"
+                class="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90">
+            + Add Class Schedule
+
+        </button>
+    </div>;
+
+    private const int PageSize = 10;
+
     private IEnumerable<ClassScheduleDTO> schedules = Enumerable.Empty<ClassScheduleDTO>();
 
-    private bool isLoading = true;
-    private bool showModal;
-    private int? editingId;
-    private int? deletingId;
+    private List<(int Id, string Name)> laboratories = new();
+
+    private bool isLoadingSchedules = true;
+
+    private bool showScheduleModal;
+
+    private int? editingScheduleId;
+
+    private int? deletingScheduleId;
+
     private string? errorMessage;
 
-    private string? toastMessage;
-    private CancellationTokenSource? toastCts;
+    private string scheduleSearch = "";
+
+    private string scheduleDayFilter = "";
+
+    private string scheduleLabFilter = "";
+
+    private int schedulePage = 1;
+
+    private IEnumerable<ClassScheduleDTO> FilteredSchedules =>
+        schedules.Where(s =>
+            (string.IsNullOrWhiteSpace(scheduleSearch) ||
+             (s.CourseCode?.Contains(scheduleSearch, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (s.CourseName?.Contains(scheduleSearch, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (s.InstructorName?.Contains(scheduleSearch, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (s.LaboratoryName?.Contains(scheduleSearch, StringComparison.OrdinalIgnoreCase) ?? false))
+            &&
+            (string.IsNullOrWhiteSpace(scheduleDayFilter) ||
+             s.DayOfWeek.ToString().Equals(scheduleDayFilter, StringComparison.OrdinalIgnoreCase))
+            &&
+            (string.IsNullOrWhiteSpace(scheduleLabFilter) ||
+             s.LaboratoryName == scheduleLabFilter));
+
+    private int ScheduleTotalPages =>
+        Math.Max(1, (int)Math.Ceiling(FilteredSchedules.Count() / (double)PageSize));
+
+    private IEnumerable<ClassScheduleDTO> SchedulePageItems =>
+        FilteredSchedules.Skip((schedulePage - 1) * PageSize).Take(PageSize);
+
+    private int ScheduleFirstItem =>
+        FilteredSchedules.Any() ? ((schedulePage - 1) * PageSize) + 1 : 0;
+
+    private int ScheduleLastItem =>
+        Math.Min(schedulePage * PageSize, FilteredSchedules.Count());
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadLaboratories();
         await LoadSchedules();
+    }
+
+    private async Task LoadLaboratories()
+    {
+        try
+        {
+            var result = await LaboratoryService.GetAllAsync();
+            laboratories = result.Select(l => (Id: l.Id, Name: l.Name)).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Unable to load laboratories.";
+            Console.WriteLine(ex);
+        }
     }
 
     private async Task LoadSchedules()
     {
-        isLoading = true;
-        errorMessage = null;
+        isLoadingSchedules = true;
 
         try
         {
-            schedules = await ScheduleService.GetAllAsync();
+            schedules = (await ScheduleService.GetAllAsync()).ToList();
+            schedulePage = Math.Min(schedulePage, ScheduleTotalPages);
         }
         catch (Exception ex)
         {
@@ -145,50 +274,62 @@
         }
         finally
         {
-            isLoading = false;
+            isLoadingSchedules = false;
         }
     }
 
-    private void OpenCreateForm()
+    private void ResetSchedulePage() => schedulePage = 1;
+
+    private void ChangeSchedulePage(int page) =>
+        schedulePage = Math.Clamp(page, 1, ScheduleTotalPages);
+
+    private void OpenCreateSchedule()
     {
-        editingId = null;
-        showModal = true;
+        editingScheduleId = null;
+        showScheduleModal = true;
     }
 
-    private void OpenEditForm(int id)
+    private void OpenEditSchedule(int id)
     {
-        editingId = id;
-        showModal = true;
+        editingScheduleId = id;
+        showScheduleModal = true;
     }
 
-    private void CloseModal() => showModal = false;
-
-    private async Task HandleSaved()
+    private void CloseScheduleModal()
     {
-        var wasEditing = editingId is not null;
-        showModal = false;
+        showScheduleModal = false;
+        editingScheduleId = null;
+    }
+
+    private async Task HandleScheduleSaved()
+    {
+        var wasEditing = editingScheduleId is not null;
+
+        showScheduleModal = false;
         await LoadSchedules();
-        ShowToast(wasEditing ? "Class schedule updated successfully." : "Class schedule added successfully.");
+
+        Toasts.Show(wasEditing
+            ? "Class schedule updated successfully."
+            : "Class schedule added successfully.", ToastService.ToastType.Success);
     }
 
     private async Task DeleteSchedule(int id)
     {
-        var confirmed = await JSRuntime.InvokeAsync<bool>(
-            "confirm", "Are you sure you want to delete this class schedule? This cannot be undone.");
+        var confirmed = await Dialogs.ShowConfirmDialogAsync(
+        "Are you sure you want to delete this class schedule? This cannot be undone.",
+        "Delete Class Schedule");
 
         if (!confirmed)
-        {
-            return;
-        }
+        return;
 
-        deletingId = id;
+        deletingScheduleId = id;
         errorMessage = null;
 
         try
         {
             await ScheduleService.DeleteAsync(id);
             await LoadSchedules();
-            ShowToast("Class schedule deleted successfully.");
+            Toasts.Show("Class schedule deleted successfully.", ToastService.ToastType.Success);
         }
         catch (Exception ex)
         {
@@ -197,30 +338,7 @@
         }
         finally
         {
-            deletingId = null;
+            deletingScheduleId = null;
         }
-    }
-
-    private void BackToCalendar() => Navigation.NavigateTo("schedule/calendar-view");
-    private void ShowToast(string message)
-    {
-        toastMessage = message;
-        toastCts?.Cancel();
-        toastCts = new CancellationTokenSource();
-        var token = toastCts.Token;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(3000, token);
-                if (!token.IsCancellationRequested)
-                {
-                    toastMessage = null;
-                    await InvokeAsync(StateHasChanged);
-                }
-            }
-            catch (TaskCanceledException) { }
-        });
     }
 }

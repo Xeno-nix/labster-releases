@@ -1,4 +1,4 @@
-﻿@page "/class-lists"
+
 
 @using CLMS.Application.DTOs.Booking
 @using CLMS.Application.Services
@@ -235,6 +235,24 @@
 </div>
 
 @code {
+    [Parameter, EditorRequired]
+    public RenderFragment<RenderFragment> HeaderTemplate { get; set; } = default!;
+
+    private RenderFragment HeaderActions => @<div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div class="flex items-center gap-3">
+            <label class="text-sm text-muted" for="term-picker">Term</label>
+            <select id="term-picker"
+                    value="@SelectedTermId"
+                    @onchange="OnTermChanged"
+                    class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
+                @foreach (var term in Terms)
+                {
+                    <option value="@term.Id">@TermLabel(term)</option>
+                }
+            </select>
+        </div>
+    </div>;
+
     private IReadOnlyList<ClassListClassDTO> Classes = [];
     private IReadOnlyList<AcademicTermDTO> Terms = [];
 
