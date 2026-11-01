@@ -40,7 +40,7 @@
     </div>
 
     <div class="border-b border-black/10">
-        <nav class="flex gap-1">
+        <nav class="tab-strip flex gap-1">
             <button @onclick='() => ActiveTab = "equipment"'
                     class="px-5 py-3 text-sm font-medium transition-colors flex items-center gap-2 -mb-px @(ActiveTab == "equipment" ? "border-b-2 border-primary text-primary" : "text-muted hover:text-[#2c2c2c]")">
                 Equipment / Hardware
@@ -58,7 +58,7 @@
     {
         <div class="bg-white rounded-lg border border-black/10 shadow-sm">
             <div class="p-5 border-b border-black/10">
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="filter-bar flex flex-wrap items-center gap-3">
                     <input type="text" @bind="EqSearch" @bind:event="oninput"
                            placeholder="Search name, serial no., brand..."
                            class="flex-1 min-w-[180px] max-w-sm px-4 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
@@ -86,8 +86,10 @@
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full">
+            <p class="table-hint">Scroll sideways for more details. The first column stays visible.</p>
+
+            <div class="table-scroll overflow-x-auto" tabindex="0" role="region" aria-label="Scrollable records">
+                <table class="data-table table-wide w-full">
                     <thead class="bg-surface">
                         <tr>
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Equip. No.</th>
@@ -118,17 +120,17 @@
                                 <td class="px-5 py-3 text-sm text-[#2c2c2c]">@(item.NeedsPm ? "Yes" : "No")</td>
                                 <td class="px-5 py-3 text-sm text-[#2c2c2c]">@(item.NeedsCalibration ? "Yes" : "No")</td>
                                 <td class="px-5 py-3">
-                                    <div class="flex items-center gap-1">
+                                    <ActionMenu Label="Item actions">
                                         <button @onclick="() => OpenQr(item)" title="View / Print QR Code" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="qr-code" class="w-4 h-4 text-success"></i>
+                                            View / Print QR
                                         </button>
                                         <button @onclick="() => OpenEditEquipment(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="pencil" class="w-4 h-4 text-muted"></i>
+                                            Edit details
                                         </button>
                                         <button @onclick="() => OpenDeleteEquipment(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="trash-2" class="w-4 h-4 text-muted"></i>
+                                            Delete item
                                         </button>
-                                    </div>
+                                    </ActionMenu>
                                 </td>
                             </tr>
                         }
@@ -152,7 +154,7 @@
     {
         <div class="bg-white rounded-lg border border-black/10 shadow-sm">
             <div class="p-5 border-b border-black/10">
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="filter-bar flex flex-wrap items-center gap-3">
                     <input type="text" @bind="SupSearch" @bind:event="oninput"
                            placeholder="Search supply name..."
                            class="flex-1 min-w-[180px] max-w-sm px-4 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
@@ -173,8 +175,10 @@
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full">
+            <p class="table-hint">Scroll sideways for more details. The first column stays visible.</p>
+
+            <div class="table-scroll overflow-x-auto" tabindex="0" role="region" aria-label="Scrollable records">
+                <table class="data-table w-full">
                     <thead class="bg-surface">
                         <tr>
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Supply Name</th>
@@ -203,14 +207,14 @@
                                 </td>
                                 <td class="px-5 py-3 text-sm text-muted max-w-[160px] truncate">@(item.Remarks ?? "—")</td>
                                 <td class="px-5 py-3">
-                                    <div class="flex items-center gap-1">
+                                    <ActionMenu Label="Item actions">
                                         <button @onclick="() => OpenEditSupply(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="pencil" class="w-4 h-4 text-muted"></i>
+                                            Edit details
                                         </button>
                                         <button @onclick="() => OpenDeleteSupply(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="trash-2" class="w-4 h-4 text-muted"></i>
+                                            Delete item
                                         </button>
-                                    </div>
+                                    </ActionMenu>
                                 </td>
                             </tr>
                         }
@@ -233,7 +237,7 @@
 
     @if (ShowScanner)
     {
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @onclick="CloseScanner">
+        <UiSheet Label="Scan equipment" OnClose="CloseScanner" Compact="true">
             <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6" @onclick:stopPropagation="true">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-[#2c2c2c]">Scan equipment QR</h3>
@@ -321,12 +325,12 @@
                     <button type="button" @onclick="ScanEquipmentCode" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium">Scan</button>
                 </div>
             </div>
-        </div>
+        </UiSheet>
     }
 
     @if (ShowQr && SelectedEquipment is not null)
     {
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @onclick="CloseQr">
+        <UiSheet Label="Equipment details and assignment" OnClose="CloseQr" >
             <div class="bg-white rounded-xl w-full max-w-lg shadow-2xl p-6 max-h-[90vh] overflow-y-auto" @onclick:stopPropagation="true">
                 <div class="flex items-center justify-between mb-5">
                     <h3 class="text-lg font-semibold text-[#2c2c2c]">Equipment QR</h3>
@@ -424,7 +428,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </UiSheet>
     }
 </div>
 

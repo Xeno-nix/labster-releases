@@ -40,8 +40,9 @@
     </div>
 
     <div class="overflow-hidden rounded-xl border border-black/10 bg-white">
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[850px] text-left">
+        <p class="table-hint">Scroll sideways for more details. The first column stays visible.</p>
+        <div class="table-scroll overflow-x-auto" tabindex="0" role="region" aria-label="Scrollable records">
+            <table class="data-table w-full min-w-[850px] text-left">
                 <thead class="border-b border-black/10 bg-gray-50">
                     <tr class="text-xs font-semibold uppercase tracking-wide text-muted">
                         <th class="px-5 py-4">Requestor</th>
@@ -104,7 +105,7 @@
                                     </span>
                                 </td>
                                 <td class="px-5 py-4">
-                                    <div class="flex justify-end gap-1">
+                                    <ActionMenu Label="Booking actions">
                                         <button type="button"
                                                 @onclick="() => OpenEditBooking(booking.Id)"
                                                 title="Edit booking"
@@ -117,7 +118,7 @@
                                                 class="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50">
                                             @(deletingBookingId == booking.Id ? "Deleting..." : "Delete")
                                         </button>
-                                    </div>
+                                    </ActionMenu>
                                 </td>
                             </tr>
                         }

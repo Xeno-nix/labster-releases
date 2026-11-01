@@ -227,7 +227,7 @@
             <select id="term-picker"
                     value="@SelectedTermId"
                     @onchange="OnTermChanged"
-                    class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
+                    class="min-w-0 flex-1 sm:flex-none px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
                 @foreach (var term in Terms)
                 {
                     <option value="@term.Id">@TermLabel(term)</option>

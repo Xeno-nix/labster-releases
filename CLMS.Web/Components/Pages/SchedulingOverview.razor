@@ -8,7 +8,7 @@
 
 
 
-<div class="p-8 relative">
+<div class="dashboard relative">
 
     @if (!string.IsNullOrEmpty(toastMessage))
     {
@@ -21,13 +21,13 @@
     }
 
     <!-- PAGE HEADER -->
-    <div class="flex justify-between items-center mb-6">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
         <div>
             <h3 class="m-0 text-2xl text-gray-800">Dashboard</h3>
             <p class="mt-1 mb-0 text-gray-500 text-sm">Overview of your class schedules and bookings</p>
         </div>
 
-        <div class="flex gap-3">
+        <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white text-[#7a1f2b] border border-[#7a1f2b] rounded-md text-sm cursor-pointer hover:bg-[#fff8f8] transition-colors" @onclick="() => OpenBookingModal(SelectedDate)">
                 <i class="fa-solid fa-plus"></i> Add Booking
             </button>
@@ -38,25 +38,25 @@
     </div>
 
     <!-- MAIN CONTENT -->
-    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
 
         <!-- CALENDAR -->
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden lg:overflow-x-visible overflow-x-auto">
+        <div class="dashboard-calendar min-w-0 bg-white border border-gray-200 rounded-lg overflow-hidden">
 
             <!-- CALENDAR TOOLBAR -->
-            <div class="flex items-center justify-center gap-3 p-5 border-b border-gray-200 min-w-[650px] lg:min-w-0">
+            <div class="calendar-toolbar flex flex-wrap items-center justify-center gap-1 sm:gap-3 p-3 sm:p-5 border-b border-gray-200">
 
                 <button class="w-9.5 h-9.5 p-0 border border-gray-300 bg-white rounded-md text-gray-600 cursor-pointer text-[0.95rem] inline-flex items-center justify-center hover:bg-gray-100"
-                        @onclick="PreviousMonth">
+                        aria-label="Previous month" @onclick="PreviousMonth">
                     <i class="fa-solid fa-chevron-left"></i>
                 </button>
 
-                <div class="min-w-[190px] text-center">
-                    <h4 class="m-0 text-xl text-gray-800">@CurrentMonth.ToString("MMMM yyyy")</h4>
+                <div class="min-w-0 flex-1 sm:flex-none sm:min-w-[190px] text-center">
+                    <h4 class="m-0 text-base sm:text-xl text-gray-800">@CurrentMonth.ToString("MMMM yyyy")</h4>
                 </div>
 
                 <button class="w-9.5 h-9.5 p-0 border border-gray-300 bg-white rounded-md text-gray-600 cursor-pointer text-[0.95rem] inline-flex items-center justify-center hover:bg-gray-100"
-                        @onclick="NextMonth">
+                        aria-label="Next month" @onclick="NextMonth">
                     <i class="fa-solid fa-chevron-right"></i>
                 </button>
 
@@ -67,20 +67,21 @@
 
             </div>
 
+            <div class="sm:hidden flex gap-3 px-3 pb-2 text-xs text-muted"><span><span class="text-primary">●</span> Classes</span><span><span class="text-blue-700">●</span> Bookings</span></div>
             <!-- WEEK DAYS -->
-            <div class="grid grid-cols-7 border-b border-gray-200 min-w-[650px] lg:min-w-0">
+            <div class="calendar-weekdays grid grid-cols-7 border-b border-gray-200">
 
                 @foreach (var day in WeekDays)
                 {
                     <div class="py-3.5 px-2 text-center bg-gray-50 text-gray-600 text-[0.8rem] font-semibold border-r border-gray-200 last:border-r-0">
-                        @day
+                        <span class="hidden sm:inline">@day</span><span class="sm:hidden">@day[..1]</span>
                     </div>
                 }
 
             </div>
 
             <!-- CALENDAR -->
-            <div class="grid grid-cols-7 min-w-[650px] lg:min-w-0">
+            <div class="calendar-days grid grid-cols-7">
 
                 @foreach (var date in GetCalendarDays())
                 {
@@ -96,9 +97,10 @@
                     var dayBookings = GetBookingsForDate(date);
 
                     <button type="button"
-                            class="relative min-h-[100px] lg:min-h-[120px] p-2.5 border-0 border-r border-b border-gray-200 [&:nth-child(7n)]:border-r-0 text-left cursor-pointer font-sans transition-colors flex flex-col hover:bg-gray-50
+                            class="calendar-day relative min-w-0 min-h-[84px] sm:min-h-[120px] p-1 sm:p-2.5 border-0 border-r border-b border-gray-200 [&:nth-child(7n)]:border-r-0 text-left cursor-pointer font-sans transition-colors flex flex-col hover:bg-gray-50
                                 @(isCurrentMonth ? "bg-white" : "bg-gray-50")
                                 @(isSelected ? "bg-[#fff8f8] shadow-[inset_0_0_0_2px_#7a1f2b]" : "")"
+                            aria-label="@($"{date:dddd, MMMM d}: {daySchedules.Count()} classes, {dayBookings.Count()} bookings")" aria-pressed="@(isSelected ? "true" : "false")"
                             @onclick="() => SelectDate(date)">
 
                         <div class="w-[30px] h-[30px] flex items-center justify-center text-[0.85rem] rounded-full
@@ -109,26 +111,26 @@
 
                         @if (daySchedules.Any())
                         {
-                            <div class="inline-flex items-center gap-1.5 mt-2.5 px-1.5 py-1 bg-[#f7e9eb] text-[#7a1f2b] rounded text-[0.68rem] font-semibold self-start">
+                            <div class="calendar-count inline-flex items-center gap-1 sm:gap-1.5 mt-1 sm:mt-2.5 px-1.5 py-1 bg-[#f7e9eb] text-[#7a1f2b] rounded text-[0.68rem] font-semibold self-start">
                                 <span class="w-1.5 h-1.5 rounded-full bg-[#7a1f2b]"></span>
                                 <span>
                                     @daySchedules.Count()
-                                    @(daySchedules.Count() == 1
+                                    <span class="hidden sm:inline">@(daySchedules.Count() == 1
                                         ? "class"
-                                        : "classes")
+                                        : "classes")</span>
                                 </span>
                             </div>
                         }
 
                         @if (dayBookings.Any())
                         {
-                            <div class="inline-flex items-center gap-1.5 mt-auto px-1.5 py-1 bg-[#eef3fb] text-[#2a4d8f] rounded text-[0.68rem] font-semibold self-start">
+                            <div class="calendar-count inline-flex items-center gap-1 sm:gap-1.5 mt-auto px-1.5 py-1 bg-[#eef3fb] text-[#2a4d8f] rounded text-[0.68rem] font-semibold self-start">
                                 <span class="w-1.5 h-1.5 rounded-full bg-[#2a4d8f]"></span>
                                 <span>
                                     @dayBookings.Count()
-                                    @(dayBookings.Count() == 1
+                                    <span class="hidden sm:inline">@(dayBookings.Count() == 1
                                         ? "booking"
-                                        : "bookings")
+                                        : "bookings")</span>
                                 </span>
                             </div>
                         }
@@ -142,7 +144,7 @@
 
 
         <!-- SIDE PANEL -->
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden lg:sticky lg:top-4">
+        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden xl:sticky xl:top-4">
 
             <div class="flex justify-between items-start p-5 border-b border-gray-200">
 
@@ -188,11 +190,11 @@
                                         @schedule.CourseCode
                                     </div>
 
-                                    <button type="button"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-300 bg-gray-100 text-gray-700 rounded text-[0.72rem] cursor-pointer hover:bg-gray-200"
-                                            @onclick='() => Navigation.NavigateTo("/schedules")'>
-                                        <i class="fa-solid fa-pen-to-square"></i> Edit
-                                    </button>
+                                    <ActionMenu Label="Schedule actions">
+                                        <button type="button" @onclick='() => Navigation.NavigateTo("/schedules")'>
+                                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                                        </button>
+                                    </ActionMenu>
 
                                 </div>
 
@@ -255,11 +257,11 @@
                                         @booking.RequestorName
                                     </div>
 
-                                    <button type="button"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-300 bg-gray-100 text-gray-700 rounded text-[0.72rem] cursor-pointer hover:bg-gray-200"
-                                            @onclick='() => Navigation.NavigateTo("/bookings")'>
-                                        <i class="fa-solid fa-pen-to-square"></i> Edit
-                                    </button>
+                                    <ActionMenu Label="Booking actions">
+                                        <button type="button" @onclick='() => Navigation.NavigateTo("/bookings")'>
+                                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                                        </button>
+                                    </ActionMenu>
 
                                 </div>
 

@@ -1,0 +1,111 @@
+/* Shared mobile patterns. Unlayered rules intentionally override utility sizing. */
+.app-shell { height: 100dvh; }
+.page-body { min-width: 0; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+.app-shell :where(button, input:not([type=checkbox]):not([type=radio]), select),
+:is(.ui-sheet, .ui-dialog) :where(button, input:not([type=checkbox]):not([type=radio]), select) {
+    min-height: 2.75rem;
+}
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid #8b1538;
+    outline-offset: 3px;
+}
+.tab-strip { overflow-x: auto; white-space: nowrap; }
+.tab-strip > * { flex-shrink: 0; }
+.filter-bar { display: flex; flex-wrap: wrap; gap: .75rem; }
+.filter-bar > :is(input, select) { min-width: 0; max-width: 100%; }
+
+.table-scroll { overflow: auto; max-width: 100%; isolation: isolate; overscroll-behavior-x: contain; }
+.data-table { border-collapse: separate; border-spacing: 0; min-width: 40rem; }
+.data-table.table-wide { min-width: 72rem; }
+.data-table.table-roster { min-width: 28rem; }
+.data-table :is(th, td) { vertical-align: middle; }
+.data-table :is(th, td):first-child:not([colspan]) {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    min-width: 8rem;
+    max-width: 11rem;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    background: white;
+    border-right: 1px solid #e5e7eb;
+}
+.data-table th:first-child:not([colspan]) { z-index: 12; background: #f8f9fa; }
+.data-table tbody tr:hover > td:first-child { background: #f8f9fa; }
+.data-table td[colspan] { white-space: normal; }
+.table-hint { color: #6c757d; font-size: .75rem; padding: .5rem 1rem; border-bottom: 1px solid #e5e7eb; }
+
+.action-menu-trigger {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2.75rem; height: 2.75rem; flex-shrink: 0;
+    border: 1px solid #e5e7eb; border-radius: .625rem; background: white; color: #6c757d; cursor: pointer;
+}
+.action-menu-trigger:hover { background: #f8f9fa; color: #8b1538; }
+.action-menu-panel {
+    position: fixed; inset: auto; margin: 0; padding: .375rem; width: 13rem;
+    max-width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); overflow-y: auto;
+    border: 1px solid #e5e7eb; border-radius: .75rem; background: white; color: #2c2c2c;
+    box-shadow: 0 12px 32px #0002;
+}
+.action-menu-panel :is(button, a) {
+    display: flex; align-items: center; gap: .5rem; width: 100%; min-height: 2.75rem;
+    margin: 0; padding: .625rem .75rem; border: 0; border-radius: .375rem;
+    background: transparent; text-align: left; font-size: .875rem; white-space: normal;
+    text-decoration: none; cursor: pointer;
+}
+.action-menu-panel :is(button, a):hover { background: #f8f9fa; }
+.action-menu-panel .action-danger { color: #b3261e; }
+.action-menu-panel button:disabled { opacity: .5; cursor: default; }
+
+.ui-sheet, .ui-dialog { padding: 0; border: 0; color: #2c2c2c; background: white; overflow: auto; overscroll-behavior: contain; }
+.ui-sheet::backdrop, .ui-dialog::backdrop { background: rgb(15 23 42 / 45%); }
+.ui-sheet {
+    inset: auto 0 0; margin: 0; width: 100%; max-width: 100%; height: 92dvh; max-height: 92dvh;
+    border-radius: 1.25rem 1.25rem 0 0; box-shadow: 0 -8px 40px #0002;
+    padding-bottom: env(safe-area-inset-bottom); animation: sheet-enter 180ms ease-out;
+}
+.ui-sheet::before { content: ''; display: block; width: 2.5rem; height: .25rem; border-radius: 1rem; background: #d1d5db; margin: .625rem auto; }
+.sheet-content { min-width: 0; overflow-wrap: anywhere; }
+.sheet-content > :is(div, section) { width: 100%; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+.sheet-content :is(input, select, textarea) { max-width: 100%; min-width: 0; scroll-margin: 5rem 0; }
+.sheet-content .sheet-header { position: sticky; top: 0; z-index: 20; background: white; border-bottom: 1px solid #e5e7eb; gap: .75rem; }
+.sheet-header > :first-child { min-width: 0; }
+.sheet-header button { min-width: 2.75rem; flex-shrink: 0; }
+.sheet-content .sheet-footer { position: sticky; bottom: 0; z-index: 15; background: white; border-top: 1px solid #e5e7eb; padding: .875rem 0; margin-top: 1rem; flex-wrap: wrap; }
+.sheet-content .sheet-footer > button { flex: 1; }
+.sheet-content > div > .sheet-footer { padding-left: 1rem; padding-right: 1rem; }
+.sheet-content .sheet-header h2 { margin-bottom: 0; }
+.ui-dialog { margin: auto; width: min(28rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); border-radius: 1rem; }
+body:has(dialog[open]) .main-content { overflow: hidden; }
+.toast-container { max-width: calc(100vw - 1.5rem); z-index: 3500; }
+.toast-container > * { max-width: 100%; }
+.calendar-toolbar > button { min-width: 2.75rem; }
+.calendar-day { overflow: hidden; }
+.calendar-count { max-width: 100%; }
+
+@media (min-width: 40rem) {
+    .ui-sheet { inset: 0 0 0 auto; margin-left: auto; width: min(40rem, 90vw); height: 100dvh; max-height: 100dvh; border-radius: 1rem 0 0 1rem; }
+    .ui-sheet::before { display: none; }
+    .sheet-content .sheet-footer > button { flex: initial; }
+}
+@media (min-width: 64rem) { .table-hint { display: none; } }
+@media (max-width: 39.999rem) {
+    .page-body { padding: 1rem .75rem; }
+    .page-body h1, .page-body h3.text-2xl { font-size: 1.25rem; }
+    .filter-bar > :is(input, select), .filter-bar > .filter-search { flex: 1 1 100%; max-width: 100%; min-width: 0; }
+    .data-table :is(th, td) { padding: .625rem .75rem; font-size: .8125rem; }
+    .data-table :is(th, td):first-child:not([colspan]) { width: 8rem; min-width: 8rem; max-width: 8rem; }
+    .sheet-content .grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
+    .sheet-content .form-row { flex-direction: column; gap: 0; }
+    .sheet-content :is(.p-6, .px-6) { padding-left: 1rem; padding-right: 1rem; }
+    .sheet-content :is(input:not([type=checkbox]):not([type=radio]), select, textarea),
+    .page-body :is(input:not([type=checkbox]):not([type=radio]), select, textarea) { font-size: 1rem; }
+    .ui-sheet .sheet-footer { padding-bottom: max(.875rem, env(safe-area-inset-bottom)); }
+}
+@keyframes sheet-enter { from { opacity: 0; transform: translateY(1rem); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .ui-sheet { animation: none; } }
+@media print {
+    .table-hint, .action-menu-trigger, .action-menu-panel { display: none; }
+    .table-scroll { overflow: visible; }
+    .data-table :is(th, td):first-child { position: static; }
+}

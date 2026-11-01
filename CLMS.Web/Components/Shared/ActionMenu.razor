@@ -1,0 +1,16 @@
+<button type="button" class="action-menu-trigger" popovertarget="@_id" aria-label="@Label" title="@Label">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <circle cx="12" cy="5" r="2" />
+        <circle cx="12" cy="12" r="2" />
+        <circle cx="12" cy="19" r="2" />
+    </svg>
+</button>
+<div id="@_id" class="action-menu-panel" popover="auto" role="group" aria-label="@Label">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "More actions";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private readonly string _id = $"actions-{Guid.NewGuid():N}";
+}

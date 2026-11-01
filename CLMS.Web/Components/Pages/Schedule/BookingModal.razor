@@ -2,10 +2,11 @@
 @inject BookingService BookingService
 @inject LaboratoryService LaboratoryService
 
-<div class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/35 px-4 py-12">
+<UiSheet Label="Booking details" OnClose="Close" Busy="@isSaving">
     <div class="w-full max-w-[520px] rounded-xl border border-gray-200 bg-white" @onclick:stopPropagation="true">
-        <div class="flex items-center justify-between px-6 pb-2 pt-5">
+        <div class="sheet-header flex items-center justify-between px-6 pb-2 pt-5">
             <h5 class="m-0 text-base font-semibold">@(BookingId is not null ? "Edit Booking" : "New Booking")</h5>
+            <button type="button" aria-label="Close" class="rounded-lg p-2 hover:bg-surface" disabled="@isSaving" @onclick="Close">✕</button>
         </div>
         <div class="px-6 pb-6 pt-2">
             @if (!string.IsNullOrEmpty(errorMessage))
@@ -24,7 +25,7 @@
                 <EditForm Model="formModel" OnValidSubmit="SaveBooking">
                     <DataAnnotationsValidator />
 
-                    <div class="flex gap-4">
+                    <div class="form-row flex gap-4">
                         <div class="mb-4 flex-1">
                             <label class="mb-1.5 block text-xs text-gray-600">Requestor Name</label>
                             <InputText @bind-Value="formModel.RequestorName"
@@ -60,7 +61,7 @@
                                @bind="formModel.Date" @bind:format="yyyy-MM-dd" />
                     </div>
 
-                    <div class="flex gap-4">
+                    <div class="form-row flex gap-4">
                         <div class="mb-4 flex-1">
                             <label class="mb-1.5 block text-xs text-gray-600">Start Time</label>
                             <input type="time"
@@ -83,7 +84,7 @@
                         <ValidationMessage For="@(() => formModel.Purpose)" />
                     </div>
 
-                    <div class="mt-5 flex justify-end gap-3">
+                    <div class="sheet-footer mt-5 flex justify-end gap-3">
                         <button type="button"
                                 class="rounded-md border border-gray-300 bg-white px-5 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
                                 @onclick="Close">
@@ -99,7 +100,7 @@
             }
         </div>
     </div>
-</div>
+</UiSheet>
 
 @code {
     [Parameter] public int? BookingId { get; set; }
