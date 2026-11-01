@@ -1,5 +1,7 @@
 <Solution>
-  <Project Path="CLMS.Agent/CLMS.Agent.csproj" />
+  <Folder Name="/CLMS.Agent/">
+    <Project Path="CLMS.Agent/CLMS.Agent.csproj" />
+  </Folder>
   <Project Path="CLMS.Application/CLMS.Application.csproj" />
   <Project Path="CLMS.Domain/CLMS.Domain.csproj" />
   <Project Path="CLMS.Infrastructure/CLMS.Infrastructure.csproj" />
