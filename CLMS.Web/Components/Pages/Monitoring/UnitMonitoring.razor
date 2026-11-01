@@ -13,7 +13,7 @@
             <p class="text-xs text-muted" role="status">
                 @if (LastUpdatedUtc.HasValue)
                 {
-                    <span>Last loaded @UnitMonitoringDisplay.FormatUtc(LastUpdatedUtc). Updates every 15 seconds.</span>
+                    <span>Last loaded @UnitMonitoringDisplay.FormatUtc(LastUpdatedUtc). Updates every 5 seconds.</span>
                 }
                 else if (Loading)
                 {
@@ -61,7 +61,7 @@
                    class="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary" />
         </div>
         <div class="status-filters" role="group" aria-label="Filter by unit status">
-                    @foreach (var filter in new[] { "All", "Idle", "In use", "Offline", "No signal" })
+                    @foreach (var filter in new[] { "All", "Available", "In Use", "Offline" })
                     {
                         <button type="button" @onclick="() => SetStatus(filter)" aria-pressed="@(Status == filter)"
                                 class="rounded-lg px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary @(Status == filter ? "bg-primary text-white" : "bg-white text-gray-600 hover:bg-surface")">@filter</button>
@@ -106,6 +106,8 @@
 <UnitSummaryModal Show="ShowSummary" Units="LaboratoryUnits" ObservedAtUtc="ObservedAtUtc"
                   LaboratoryName="@(LaboratoryUnits.FirstOrDefault()?.Laboratory is string name && Laboratory.Length > 0 ? name : "All laboratories")"
                   OnClose="() => ShowSummary = false" />
+
+<UnitAvailabilityDebug Units="Units" OnChange="SetPreviewStatuses" />
 
 @code {
     [SupplyParameterFromQuery(Name = "lab")] public int? LabId { get; set; }

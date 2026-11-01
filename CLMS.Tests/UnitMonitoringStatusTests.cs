@@ -6,9 +6,26 @@ namespace CLMS.Tests;
 public class UnitMonitoringStatusTests
 {
     [Theory]
-    [InlineData(null, false, false, UnitMonitoringStatus.NoSignal)]
-    [InlineData(null, true, true, UnitMonitoringStatus.NoSignal)]
-    [InlineData(30, true, false, UnitMonitoringStatus.Idle)]
+    [InlineData(null, true, false)]
+    [InlineData(30, false, false)]
+    [InlineData(30, true, true)]
+    [InlineData(120, true, true)]
+    [InlineData(121, true, false)]
+    public void Availability_RequiresOnlineFlagAndRecentHeartbeat(int? ageSeconds, bool online, bool expected)
+    {
+        var now = new DateTime(2026, 11, 1, 4, 0, 0, DateTimeKind.Utc);
+        var unit = new UnitMonitoringDTO
+        {
+            IsOnline = online,
+            LastHeartbeatUtc = ageSeconds.HasValue ? now.AddSeconds(-ageSeconds.Value) : null
+        };
+        Assert.Equal(expected, unit.IsAvailableOnline(now));
+    }
+
+    [Theory]
+    [InlineData(null, false, false, UnitMonitoringStatus.Offline)]
+    [InlineData(null, true, true, UnitMonitoringStatus.Offline)]
+    [InlineData(30, true, false, UnitMonitoringStatus.Available)]
     [InlineData(30, true, true, UnitMonitoringStatus.InUse)]
     [InlineData(30, false, true, UnitMonitoringStatus.Offline)]
     [InlineData(120, true, true, UnitMonitoringStatus.InUse)]

@@ -1,6 +1,6 @@
 namespace CLMS.Application.DTOs.Monitoring;
 
-public enum UnitMonitoringStatus { NoSignal, Idle, InUse, Offline }
+public enum UnitMonitoringStatus { Available, InUse, Offline }
 
 public sealed class UnitMonitoringDTO
 {
@@ -16,13 +16,14 @@ public sealed class UnitMonitoringDTO
     public DateTime? SessionStartedUtc { get; init; }
     public string? CurrentUser { get; init; }
 
+    public bool IsAvailableOnline(DateTime nowUtc) => IsOnline && LastHeartbeatUtc.HasValue
+        && LastHeartbeatUtc.Value >= nowUtc - TimeSpan.FromMinutes(2);
+
     // Match the existing cleanup worker's two-minute heartbeat threshold.
     public UnitMonitoringStatus GetStatus(DateTime nowUtc)
     {
-        if (LastHeartbeatUtc is null)
-            return UnitMonitoringStatus.NoSignal;
-        if (!IsOnline || LastHeartbeatUtc < nowUtc - TimeSpan.FromMinutes(2))
+        if (!IsAvailableOnline(nowUtc))
             return UnitMonitoringStatus.Offline;
-        return SessionStartedUtc.HasValue ? UnitMonitoringStatus.InUse : UnitMonitoringStatus.Idle;
+        return SessionStartedUtc.HasValue ? UnitMonitoringStatus.InUse : UnitMonitoringStatus.Available;
     }
 }

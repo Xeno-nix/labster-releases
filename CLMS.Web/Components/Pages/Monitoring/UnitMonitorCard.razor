@@ -2,7 +2,7 @@
 @using CLMS.Application.DTOs.Monitoring
 
 <button type="button" @onclick="() => OnSelect.InvokeAsync(Unit)"
-        aria-haspopup="dialog" aria-label="@($"View {Unit.Name}, {Unit.Laboratory}, {Status.Label()}")"
+        aria-haspopup="dialog" aria-label="@($"View {Unit.Name}, {Unit.Laboratory}, {Unit.GetStatus(ObservedAtUtc).Label()}")"
         class="w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary @(Selected ? "border-primary bg-primary/5" : "border-black/10 bg-white hover:border-primary/50")">
     <div class="mb-5 flex items-center justify-between gap-3">
         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface text-primary" aria-hidden="true">
@@ -11,7 +11,7 @@
                 <path d="M8 21h8m-4-5v5" />
             </svg>
         </span>
-        <span class="rounded-full px-2.5 py-1 text-xs font-medium @Status.CssClass()">@Status.Label()</span>
+        <UnitAvailabilityBadge Status="@Unit.GetStatus(ObservedAtUtc)" />
     </div>
     <p class="font-heading font-semibold text-gray-800">@Unit.Name</p>
     <p class="mt-1 text-xs text-muted">@Unit.Laboratory</p>
@@ -26,5 +26,4 @@
     [Parameter] public DateTime ObservedAtUtc { get; set; }
     [Parameter] public bool Selected { get; set; }
     [Parameter] public EventCallback<UnitMonitoringDTO> OnSelect { get; set; }
-    private UnitMonitoringStatus Status => Unit.GetStatus(ObservedAtUtc);
 }
