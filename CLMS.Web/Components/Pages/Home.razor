@@ -18,59 +18,34 @@
 }
 else
 {
-    @* ── Row 1: KPI strip ───────────────────────────────────────────── *@
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white border border-gray-200 rounded-lg p-5">
+    <h1 class="mb-3 text-sm font-heading font-semibold uppercase tracking-wide text-muted">Current status</h1>
+    <div class="dashboard-metrics">
+        <div class="dashboard-metric" title="People currently in laboratories">
             <p class="text-sm text-muted">People in labs now</p>
-            <p class="text-3xl font-heading font-semibold text-gray-800 mt-1">@snapshot.ActiveNow</p>
+            <p class="text-2xl font-heading font-semibold text-gray-800">@snapshot.ActiveNow</p>
         </div>
-        <div class="bg-white border border-gray-200 rounded-lg p-5">
+        <div class="dashboard-metric" title="Sessions today">
             <p class="text-sm text-muted">Sessions today</p>
-            <p class="text-3xl font-heading font-semibold text-gray-800 mt-1">@snapshot.SessionsToday</p>
+            <p class="text-2xl font-heading font-semibold text-gray-800">@snapshot.SessionsToday</p>
         </div>
-        <div class="bg-white border border-gray-200 rounded-lg p-5">
+        <div class="dashboard-metric" title="Classes running now">
             <p class="text-sm text-muted">Classes running now</p>
-            <p class="text-3xl font-heading font-semibold text-gray-800 mt-1">@snapshot.ClassesRunningNow</p>
+            <p class="text-2xl font-heading font-semibold text-gray-800">@snapshot.ClassesRunningNow</p>
         </div>
-        <div class="bg-white border border-gray-200 rounded-lg p-5">
+        <div class="dashboard-metric" title="Items needing attention">
             <p class="text-sm text-muted">Needs attention</p>
-            <p class="text-3xl font-heading font-semibold @(snapshot.AttentionCount > 0 ? "text-error" : "text-success") mt-1">
+            <p class="text-2xl font-heading font-semibold @(snapshot.AttentionCount > 0 ? "text-error" : "text-success")">
                 @snapshot.AttentionCount
             </p>
         </div>
     </div>
 
-    <UnitAvailabilityPanel />
-
-    @* ── Row 2: occupancy + today's timeline ────────────────────────── *@
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        @* Live occupancy per lab *@
-        <div class="bg-white border border-gray-200 rounded-lg p-5">
-            <h4 class="text-base font-heading font-semibold text-gray-800 mb-4">Lab occupancy</h4>
-            @if (snapshot.Occupancy.Count == 0)
-            {
-                <p class="text-sm text-muted">No laboratories registered.</p>
-            }
-            else
-            {
-                @foreach (var lab in snapshot.Occupancy)
-                {
-                    <div class="mb-3 last:mb-0">
-                        <div class="flex justify-between text-sm mb-1">
-                            <span class="text-gray-700">@lab.LabName</span>
-                            <span class="text-muted">@lab.Active / @lab.TotalUnits units</span>
-                        </div>
-                        <div class="h-2 bg-surface rounded-full overflow-hidden">
-                            <div class="h-full bg-primary rounded-full transition-all"
-                                 style="width: @lab.Percent%"></div>
-                        </div>
-                    </div>
-                }
-            }
+    <div class="dashboard-columns">
+        <div class="dashboard-availability min-w-0">
+            <UnitAvailabilityPanel />
         </div>
 
-        @* Today's schedule + bookings, merged *@
-        <div class="bg-white border border-gray-200 rounded-lg p-5">
+        <div class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
             <h4 class="text-base font-heading font-semibold text-gray-800 mb-4">Today's timeline</h4>
             @if (snapshot.Timeline.Count == 0)
             {
@@ -80,14 +55,12 @@ else
             {
                 @foreach (var item in snapshot.Timeline)
                 {
-                    <div class="flex items-center gap-3 py-2 @(item.IsNow ? "border-l-4 border-primary pl-3 bg-surface rounded-r-lg" : "")">
-                        <span class="text-xs text-muted font-mono w-24 shrink-0">
-                            @item.StartTime.ToString("h:mm")–@item.EndTime.ToString("h:mm")
-                        </span>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm text-gray-800 truncate @(item.IsNow ? "font-semibold" : "")">@item.Title</p>
-                            <p class="text-xs text-muted truncate">@item.Subtitle · @item.LabName</p>
+                    <div class="min-w-0 border-b border-gray-100 py-3 last:border-b-0 @(item.IsNow ? "border-l-4 border-primary pl-3 bg-surface rounded-r-lg" : "")">
+                        <div class="min-w-0 break-words">
+                            <p class="text-sm text-gray-800 @(item.IsNow ? "font-semibold" : "")"><span class="font-medium whitespace-nowrap">@item.StartTime.ToString("hh:mm tt")</span> — @item.Title</p>
+                            <p class="mt-1 text-xs text-muted">@item.Subtitle · @item.LabName</p>
                         </div>
+                        <div class="mt-2 flex flex-wrap gap-1">
                         <span class="text-xs px-2 py-0.5 rounded-full shrink-0 @(item.IsClass ? "bg-info/10 text-info" : "bg-accent/20 text-gray-800")">
                             @(item.IsClass ? "Class" : "Booking")
                         </span>
@@ -95,14 +68,40 @@ else
                         {
                             <span class="text-xs px-2 py-0.5 rounded-full bg-primary text-white shrink-0">Now</span>
                         }
+                        </div>
                     </div>
                 }
             }
         </div>
-    </div>
+        <div class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
+            <h4 class="text-base font-heading font-semibold text-gray-800 mb-4">Lab occupancy</h4>
+            @if (snapshot.Occupancy.Count == 0)
+            {
+                <p class="text-sm text-muted">No laboratories registered.</p>
+            }
+            else
+            {
+                <div class="divide-y divide-gray-100">
+                    @foreach (var lab in snapshot.Occupancy)
+                    {
+                        <div class="min-w-0 py-3 first:pt-0 last:pb-0">
+                            <div class="flex flex-wrap justify-between gap-2 text-sm">
+                                <span class="text-gray-700 break-words">@lab.LabName</span>
+                                <span class="text-muted whitespace-nowrap">@lab.Active / @lab.TotalUnits units</span>
+                            </div>
+                            <div class="mt-2 h-2 overflow-hidden rounded-full bg-surface"
+                                 role="progressbar" aria-label="@($"{lab.LabName} occupancy")"
+                                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="@lab.Percent"
+                                 aria-valuetext="@($"{lab.Active} of {lab.TotalUnits} units")">
+                                <div class="h-full rounded-full bg-primary transition-all" style="width: @lab.Percent%"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
 
-    @* ── Row 3: needs attention ─────────────────────────────────────── *@
-    <div class="bg-white border border-gray-200 rounded-lg p-5">
+    <div class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
         <h4 class="text-base font-heading font-semibold text-gray-800 mb-3">Needs attention</h4>
         @if (snapshot.Attention.Count == 0)
         {
@@ -110,19 +109,20 @@ else
         }
         else
         {
-            <div class="flex flex-wrap gap-3">
+            <div class="flex flex-col gap-3">
                 @foreach (var item in snapshot.Attention)
                 {
                     <a href="@item.Href"
-                       class="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 hover:border-primary transition-colors">
-                        <span class="w-6 h-6 rounded-full bg-error/10 text-error text-xs font-semibold flex items-center justify-center">
+                       class="flex items-start gap-2 py-2 border-b border-gray-100 last:border-b-0 text-sm text-gray-700 hover:text-primary transition-colors">
+                        <span class="w-6 h-6 shrink-0 rounded-full bg-error/10 text-error text-xs font-semibold flex items-center justify-center">
                             @item.Count
                         </span>
-                        @item.Label
+                        <span class="min-w-0 break-words">@item.Label</span>
                     </a>
                 }
             </div>
         }
+    </div>
     </div>
 }
 

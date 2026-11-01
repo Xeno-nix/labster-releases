@@ -1,0 +1,45 @@
+.dashboard-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.dashboard-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .25rem;
+    min-width: 0;
+    padding: .875rem 1rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: .5rem;
+}
+
+.dashboard-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 1.25rem;
+}
+
+.dashboard-availability ::deep > section {
+    height: 100%;
+}
+
+@media (min-width: 1024px) {
+    .dashboard-metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .dashboard-columns {
+        grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+    }
+}
+
+@media (max-width: 359px) {
+    .dashboard-metrics {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
