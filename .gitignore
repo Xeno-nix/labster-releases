@@ -5,6 +5,7 @@
 
 # tailwind
 CLMS.Web/wwwroot/app.css
+CLMS.Web/App_Data/
 
 # dotenv files
 .env
@@ -486,3 +487,4 @@ $RECYCLE.BIN/
 
 
 agents.md
+AGENTS.md

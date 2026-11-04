@@ -1,8 +1,11 @@
 ﻿@inherits LayoutComponentBase
+@using CLMS.Web.Components.Notification
 
 @* Chrome-free layout for public-facing pages (currently just the logging terminal),
    mirroring Laravel's layouts/public.blade.php — no sidebar, matching resources/views/
    layouts/public.blade.php having none either. Pages opt into this via @layout. *@
+
+<ToastContainer/>
 
 @Body
 

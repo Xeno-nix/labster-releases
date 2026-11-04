@@ -1,13 +1,15 @@
-﻿@page "/login"
+@page "/login"
 @layout PublicLayout
 
 @rendermode InteractiveServer
 
 @using CLMS.Application.Identity.Services
 @using CLMS.Web.Models
+@using CLMS.Web.Services
 
 @inject AuthenticationService authService;
 @inject NavigationManager Navigation;
+@inject ToastService Toasts
 
 <PageTitle>CLMS - Login</PageTitle>
 
@@ -66,17 +68,7 @@
                 </button>
             </form>
         </div>
-        
-        @if (Error is "invalid")
-        {
-            <div class="rounded-lg px-2 py-4 w-full bg-error/80 shadow-lg pl-15 relative">
-                <svg height="24" width="24" viewBox="0 0 24 24" color="#ffffff" class="inline-block absolute left-5">
-                    <use href="@Assets["/svg/info.svg"]"></use>
-                </svg>
-                <p class="inline-block text-white">email or password is incorrect!</p>
-            </div>
-        }
-        
+
     </div>
 </div>
 <script>
@@ -101,9 +93,46 @@
     
     [SupplyParameterFromQuery(Name = "error")]
     private string? Error { get; set; }
-    
+
+    [SupplyParameterFromQuery(Name = "attemptsLeft")]
+    private int? AttemptsLeft { get; set; }
+
+    [SupplyParameterFromQuery(Name = "minutes")]
+    private int? LockoutMinutes { get; set; }
+
     private async Task HandleSubmit()
     {
         Navigation.NavigateTo("/auth/cookie-login");
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender || Error is null) return;
+
+        if (Error is "locked")
+        {
+            var retry = LockoutMinutes switch
+            {
+                null or < 1 => "Try again later.",
+                1 => "Try again in 1 minute.",
+                _ => $"Try again in {LockoutMinutes} minutes."
+            };
+            Toasts.Show($"Account temporarily locked. Too many failed login attempts. {retry}", ToastService.ToastType.Error);
+        }
+        else if (AttemptsLeft is > 0)
+        {
+            // heads-up: the account is close to being locked
+            Toasts.Show(AttemptsLeft == 1
+                    ? "Email or password is incorrect. This is your last attempt before your account is temporarily locked."
+                    : $"Email or password is incorrect. You have {AttemptsLeft} attempts left before your account is temporarily locked.",
+                ToastService.ToastType.Warning);
+        }
+        else
+        {
+            Toasts.Show("Email or password is incorrect.", ToastService.ToastType.Error);
+        }
+
+        // drop ?error=... so a refresh doesn't show the toast again
+        Navigation.NavigateTo("/login", replace: true);
     }
 }

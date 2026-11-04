@@ -14,6 +14,9 @@ public class User : AuditableEntity
     public string Email { get; set; }
     public Role UserRole { get; set; }
     public string PasswordHash { get; set; }
+    public int FailedLoginAttempts { get; set; }
+    public DateTime? LockoutEnd { get; set; } // UTC
+    public bool IsLockedOut => LockoutEnd.HasValue && LockoutEnd.Value > DateTime.UtcNow;
 
     public User(Guid id, Name firstName, Name lastName, string email, Role userRole , string passwordHash, DateTime? deletedAt = null)
     {

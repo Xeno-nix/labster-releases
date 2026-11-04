@@ -9,7 +9,17 @@ public abstract class MonitoringPageBase : ComponentBase, IDisposable
     [Inject] protected IUnitMonitoringRepository MonitoringRepository { get; set; } = default!;
     [Inject] protected ILogger<MonitoringPageBase> Logger { get; set; } = default!;
 
-    protected IReadOnlyList<UnitMonitoringDTO> Units { get; private set; } = [];
+    private IReadOnlyList<UnitMonitoringDTO> LiveUnits = [];
+    private IReadOnlyDictionary<Guid, UnitMonitoringStatus> PreviewStatuses = new Dictionary<Guid, UnitMonitoringStatus>();
+    protected IReadOnlyList<UnitMonitoringDTO> Units => PreviewStatuses.Count == 0 ? LiveUnits
+        : LiveUnits.Select(unit => PreviewStatuses.TryGetValue(unit.Id, out var status)
+            ? CLMS.Web.Models.UnitAvailabilityPreview.Apply(unit, status, ObservedAtUtc) : unit).ToList();
+
+    protected void SetPreviewStatuses(IReadOnlyDictionary<Guid, UnitMonitoringStatus> statuses)
+    {
+        PreviewStatuses = statuses;
+        OnDataUpdated();
+    }
     protected bool Loading { get; private set; }
     protected string? Error { get; private set; }
     protected DateTime? LastUpdatedUtc { get; private set; }
@@ -29,7 +39,7 @@ public abstract class MonitoringPageBase : ComponentBase, IDisposable
             var units = await MonitoringRepository.GetAllAsync(Lifetime.Token);
             if (Disposed)
                 return;
-            Units = units;
+            LiveUnits = units;
             LastUpdatedUtc = DateTime.UtcNow;
             Error = null;
         }
@@ -60,7 +70,7 @@ public abstract class MonitoringPageBase : ComponentBase, IDisposable
 
     private async Task RefreshLoopAsync()
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
         var cancellationToken = Lifetime.Token;
         try
         {

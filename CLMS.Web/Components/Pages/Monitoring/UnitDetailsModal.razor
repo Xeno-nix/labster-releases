@@ -33,7 +33,7 @@
                 <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Session user</dt><dd class="min-w-0 break-words text-right text-gray-600">@(Unit.CurrentUser ?? "Not identified")</dd></div>
                 <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Open session since</dt><dd class="text-right text-gray-600">@(Unit.SessionStartedUtc.HasValue ? UnitMonitoringDisplay.FormatUtc(Unit.SessionStartedUtc) : "No open session")</dd></div>
             </dl>
-            @if (Unit.SessionStartedUtc.HasValue && Status is UnitMonitoringStatus.Offline or UnitMonitoringStatus.NoSignal)
+            @if (Unit.SessionStartedUtc.HasValue && Status == UnitMonitoringStatus.Offline)
             {
                 <p class="mt-3 text-xs text-muted">An open session is recorded, but the unit has no fresh online signal.</p>
             }
@@ -69,5 +69,5 @@
     [Parameter] public UnitMonitoringDTO? Unit { get; set; }
     [Parameter] public DateTime ObservedAtUtc { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
-    private UnitMonitoringStatus Status => Unit?.GetStatus(ObservedAtUtc) ?? UnitMonitoringStatus.NoSignal;
+    private UnitMonitoringStatus Status => Unit?.GetStatus(ObservedAtUtc) ?? UnitMonitoringStatus.Offline;
 }

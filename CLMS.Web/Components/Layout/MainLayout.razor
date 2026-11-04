@@ -146,6 +146,16 @@
                         <span class="sidebar-link-text">Inventory</span>
                     </a>
                 </li>
+                <AuthorizeView Roles="Admin">
+                    <li>
+                        <a href="/admin/database-backups" class="@NavClass("/admin/database-backups", exact: true)">
+                            <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0" />
+                            </svg>
+                            Backup &amp; Restore
+                        </a>
+                    </li>
+                </AuthorizeView>
             </ul>
         </nav>
 
@@ -219,9 +229,6 @@
 </div>
 
 @code {
-    private bool IsUnitMonitoring => string.Equals(
-        new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/'), "/unit-monitoring", StringComparison.OrdinalIgnoreCase);
-
     private bool _sidebarCollapsed;
     private bool _mobileSidebarOpen;
 
@@ -234,6 +241,8 @@
         if (e.Key == "Escape")
             CloseMobileSidebar();
     }
+    private bool IsUnitMonitoring => string.Equals(
+        new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/'), "/unit-monitoring", StringComparison.OrdinalIgnoreCase);
 
     // Mirrors Laravel's request()->routeIs(...) ternary per nav item. Recomputed on
     // every navigation via NavigationManager, both for full page loads (static SSR
