@@ -11,7 +11,9 @@ namespace CLMS.Shared.Contracts;
 public sealed record ExternalLoginUserDto(
     Guid UserId,
     string Email,
-    Role UserRole);
+    Role UserRole,
+    bool PasswordChanged = true,
+    bool RequiresLink = false);
 
 /// <summary>
 /// 
@@ -22,4 +24,6 @@ public sealed record ExternalLoginUserDto(
 public sealed record ExternalLoginRequest(
     string Provider,
     string ProviderSubject,
-    string Email);
+    string Email,
+    bool EmailVerified = false,
+    string? HostedDomain = null);

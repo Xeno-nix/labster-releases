@@ -20,4 +20,6 @@ public interface IUserRepository
 
     /// <summary>Clears the failed attempt count and any lockout.</summary>
     Task<bool> ResetFailedLoginAttemptsAsync(Guid userId);
+    /// <summary>Updates credentials and the flag together, only if the active account's hash has not changed.</summary>
+    Task<bool> ChangePasswordAsync(Guid userId, string expectedHash, string newHash);
 }

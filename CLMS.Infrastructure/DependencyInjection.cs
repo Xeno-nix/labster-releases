@@ -44,7 +44,7 @@ public static class DependencyInjection
             .AddScoped<IAcademicTermRepository,AcademicTermRepository>()
             ;
         
-            services.AddHttpClient<IEmailService, EmailService>(client => client.Timeout = TimeSpan.FromSeconds(20));
+        services.AddHttpClient<IEmailService, EmailService>(client => client.Timeout = TimeSpan.FromSeconds(20));
   
         return services;
     }

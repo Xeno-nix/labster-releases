@@ -1,0 +1,26 @@
+@using CLMS.Web.Models
+
+@* The controller owns the URL and supplies only non-secret display data. Forms remain ordinary HTTP POSTs. *@
+<AccountLayout Title="Link your Google account">
+    <h1>Link your Google account</h1>
+    <p>Your organization Google email matches the Labster account <strong>@Model.Email</strong>.</p>
+    <p>Enter this account's Labster password to confirm linking. You can then use Google to sign in.</p>
+    @if (Model.Error is not null)
+    {
+        <p role="alert">@Model.Error</p>
+    }
+    <form method="post" action="/auth/google/link">
+        <AntiforgeryToken />
+        <label for="password">Labster password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+        <button type="submit">Link Google account and continue</button>
+    </form>
+    <form method="post" action="/auth/google/link/cancel">
+        <AntiforgeryToken />
+        <button class="secondary" type="submit">Cancel</button>
+    </form>
+</AccountLayout>
+
+@code {
+    [Parameter, EditorRequired] public AccountFormViewModel Model { get; set; } = default!;
+}

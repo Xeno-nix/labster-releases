@@ -14,6 +14,8 @@ public class User : AuditableEntity
     public string Email { get; set; }
     public Role UserRole { get; set; }
     public string PasswordHash { get; set; }
+    // Existing accounts start as changed; registration explicitly sets false for initial credentials.
+    public bool PasswordChanged { get; set; } = true;
     public int FailedLoginAttempts { get; set; }
     public DateTime? LockoutEnd { get; set; } // UTC
     public bool IsLockedOut => LockoutEnd.HasValue && LockoutEnd.Value > DateTime.UtcNow;

@@ -1,4 +1,5 @@
 ﻿using CLMS.Application.Identity.Interfaces;
+using CLMS.Application.Interfaces;
 using CLMS.Application.Persistence.Interfaces;
 using CLMS.Domain.Entities.Identity;
 using CLMS.Domain.ValueObjects;
@@ -14,240 +15,73 @@ public sealed class AuthenticationService(
     IRefreshTokenHasher refreshTokenHasher,
     IRefreshTokenRepository refreshTokenRepository,
     IExternalIdentityRepository externalIdentityRepository,
-    AccountOnboardingService onboarding)
+    ICurrentUser currentUser,
+    IEmailService emailService,
+    AccountOptions options)
 {
     private const int MaxSessions = 5;
-    
+        
     private const int MaxFailedLoginAttempts = 5;
     // start warning the user once this many attempts (or fewer) remain
     private const int LockoutWarningThreshold = 3;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
-    /// <summary>
-    /// Legacy application entry point: queues an invitation without issuing credentials.
-    /// </summary>
-    /// <param name="request">Administrator-supplied invitation details.</param>
-    /// <exception cref="InvalidOperationException">Email already been used.</exception>
-    public async Task RegisterAsync(RegisterDto request)
+    
+    /// <summary>Creates the account immediately. Email failure is a separate outcome, not a registration rollback.</summary>
+    public async Task<RegistrationResultDto> RegisterAsync(RegisterDto request)
     {
-        // Search if user with same email already exists
-        var existingUser = await userRepository.FindByEmailAsync(request.Email);
-
-        if (existingUser is not null)
+        // await currentUser.RequireAdminAsync();
+        var email = NormalizeEmail(request.Email);
+        if (await userRepository.FindByEmailAsync(email) is not null)
             throw new InvalidOperationException("A user with this email already exists.");
+        if (!Enum.IsDefined(request.UserRole) || string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
+            throw new InvalidOperationException("Provide a valid role and a password of at least 8 characters.");
+        if (!Uri.TryCreate(options.PublicUrl, UriKind.Absolute, out var url) ||
+            (url.Scheme != Uri.UriSchemeHttps && (options.RequireHttps || url.Scheme != Uri.UriSchemeHttp)) ||
+            !MailAddress.TryCreate(options.SupportEmail, out _))
+            throw new InvalidOperationException(options.RequireHttps
+                ? "Configure the public HTTPS URL and support email before registering users."
+                : "Configure a public HTTP or HTTPS URL and support email before registering users.");
 
-        // hash password
-        var passwordHash = passwordHasher.Hash(request.Password);
-
-        Console.WriteLine("RegisterUseCase : " + request.UserRole);
-        
-        // generate new user entity
-        var user = new User(
-            Guid.NewGuid(),
-            new Name(request.FirstName),
-            new Name(request.LastName),
-            request.MiddleName is not null
-                ? new Name(request.MiddleName)
-                : null,
-            request.Suffix is not null
-                ? new Name(request.Suffix)
-                : null,
-            request.Email,
-            request.UserRole,
-            passwordHash);
-
-        // Saves user entity
-        await userRepository.AddAsync(user);    
-    }
-
-    public async Task<AuthTokensDto> JwtLogin(AuthenticationRequestDto requestDto)
-    {
-        var userClaims = await AuthenticateUserAsync(requestDto);
-        return await IssueTokens(userClaims);
-        
-    }
-
-    public async Task<AuthTokensDto> IssueTokens(UserClaimsDto userClaims)
-    {
-        // generate access token
-        var accessToken = tokenService.GenerateAccessToken(userClaims);
-
-        // retrieve active refresh tokens and revoke if number is above MaxSessions (5)
-        var activeTokens =
-            await refreshTokenRepository.GetActiveByUserIdAsync(userClaims.UserId);
-
-        if (activeTokens.Count >= MaxSessions)
+        User user;
+        try
         {
-            var oldestToken = activeTokens[0];
-
-            oldestToken.Revoke();
-
-            await refreshTokenRepository.RevokeAsync(
-                oldestToken.Id,
-                oldestToken.RevokedAt!.Value);
+            user = new User(
+                Guid.NewGuid(), 
+                new Name(request.FirstName.Trim()), 
+                new Name(request.LastName.Trim()),
+                string.IsNullOrWhiteSpace(request.MiddleName) ? null : new Name(request.MiddleName.Trim()),
+                string.IsNullOrWhiteSpace(request.Suffix) ? null : new Name(request.Suffix.Trim()),
+                email, 
+                request.UserRole, 
+                passwordHasher.Hash(request.Password)) { PasswordChanged = false };
         }
-        
-        // generate refresh token 
-        var refreshToken = tokenService.GenerateRefreshToken();
-        
-        // hashing refresh token for storing
-        var refreshTokenHash = refreshTokenHasher.Hash(refreshToken);
-        
-        // constructing refresh token entity to be stored in the database.
-        // Includes refresh token hash and metadata.
-        var refreshTokenEntity = RefreshToken.Create(
-            userClaims.UserId,
-            refreshTokenHash,
-            DateTime.UtcNow.Add(tokenService.RefreshTokenLifetime)
-        );
+        catch (ArgumentException ex) { throw new InvalidOperationException(ex.Message); }
+        if (!await userRepository.AddAsync(user)) throw new InvalidOperationException("The account could not be created.");
 
-        // store refresh token
-        await refreshTokenRepository.AddAsync(
-            refreshTokenEntity);
-
-        // return response
-        return new AuthTokensDto(
-            accessToken,
-            refreshToken);
-    }
-    
-    /// <summary>
-    /// Retrieves external identity of an internally registered user.
-    /// If its linked internal account is deactivated or missing, throws an
-    /// UnauthorizedAccessException or InvalidOperationException.
-    /// </summary>
-    /// <param name="request"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    /// <exception cref="UnauthorizedAccessException"></exception>
-    /// <exception cref="InvalidOperationException"></exception>
-    public async Task<ExternalLoginUserDto> AuthenticateExternalUserAsync(
-        ExternalLoginRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        // retrieves provider
-        var provider = request.Provider.Trim().ToLowerInvariant();
-
-        // provider user id
-        if (string.IsNullOrWhiteSpace(request.ProviderSubject))
+        // The plaintext password exists only in the submitted request and this email, never in database storage or logs.
+        var body = $"<h1>Your Labster account is ready</h1><p>Hello {Encode(user.GetFullName())},</p>" +
+            $"<p>Your administrator registered your account.</p><p>Email: <strong>{Encode(email)}</strong><br>" +
+            $"Initial password: <strong>{Encode(request.Password)}</strong></p>" +
+            "<p><strong>You must change this password when you first sign in.</strong> Do not share your credentials.</p>" +
+            $"<p><a href=\"{Encode(options.PublicUrl.TrimEnd('/') + "/login")}\">Sign in to Labster</a></p>" +
+            $"<p>Need help? Contact <a href=\"mailto:{Encode(options.SupportEmail)}\">{Encode(options.SupportEmail)}</a>.</p>";
+        try
         {
-            throw new UnauthorizedAccessException(
-                "Invalid external identity.");
+            await emailService.SendEmailAsync(email, "Your Labster account credentials", body, CancellationToken.None);
+            return new(user.Id, true);
         }
-        
-        var identity = await externalIdentityRepository.FindAsync(
-            provider,
-            request.ProviderSubject,
-            cancellationToken);
-
-        //identity not exist
-        if (identity is null)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException)
         {
-            throw new UnauthorizedAccessException(
-                "No linked Google account found. Contact your SuperAdmin.");
-        }
-        
-        // external identity exist but no internal
-        var user = await userRepository.FindByIdAsync(identity.UserId)
-                   ?? throw new UnauthorizedAccessException(
-                       "The linked user account no longer exists.");
-        
-        // internal is deleted (soft)
-        if (user.DeletedAt.HasValue)
-        {
-            throw new UnauthorizedAccessException(
-                "This account is disabled.");
-        }
-        
-        return new ExternalLoginUserDto(
-            user.Id,
-            user.Email,
-            user.UserRole);
-    }
-
-    public async Task Logout(string refreshToken)
-    {
-        // hash refresh token for verification
-        var tokenHash = refreshTokenHasher.Hash(refreshToken);
-        
-        // search for token
-        var storedToken = await refreshTokenRepository.FindByHashAsync(tokenHash);
-
-        // end if token is null
-        if (storedToken is null)
-            return;
-
-        // if refresh token is not revoked 
-        if (!storedToken.IsRevoked)
-        {
-            storedToken.Revoke();
-
-            await refreshTokenRepository.RevokeAsync(storedToken.Id,DateTime.UtcNow);
+            // The administrator must see that the account already exists. Retrying registration would create a duplicate.
+            return new(user.Id, false);
         }
     }
-    
-    public async Task<AuthTokensDto> Refresh(string refreshToken)
+
+    public async Task<UserClaimsDto> AuthenticateUserAsync(AuthenticationRequestDto request)
     {
-        // hash refresh token and search if exists or if revoked
-        var tokenHash = refreshTokenHasher.Hash(refreshToken);
-        var storedToken = await refreshTokenRepository.FindByHashAsync(tokenHash);
+        var user = await userRepository.FindByEmailAsync(NormalizeEmail(request.Email));
         
-        // not logged in
-        if (storedToken is null)
-            throw new UnauthorizedAccessException("Invalid refresh token.");
-        
-        // expired or logged out
-        if (!storedToken.IsActive)
-            throw new UnauthorizedAccessException("Refresh token is expired or revoked.");
-        
-        // find user
-        var user = await userRepository.FindByIdAsync(storedToken.UserId);
-        
-        // user does not exist
-        // 
-        // NOTE : if mahitabo ni, something namali up or giallow ang delete pag
-        //        delete ug user which is NO! NO! NO!
-        if (user is null || user.DeletedAt.HasValue)
-            throw new UnauthorizedAccessException("User does not exist.");
-        
-        // Issue new access token 
-        var newAccessToken =
-            tokenService.GenerateAccessToken(new (user.Id,user.Email,user.UserRole));
-        
-        // Generate new refresh token
-        var newRefreshToken = tokenService.GenerateRefreshToken();
-
-        // Hash for storage
-        var newRefreshTokenHash = refreshTokenHasher.Hash(newRefreshToken);
-
-        // constructing refresh token entity to be stored in the database.
-        // Includes refresh token hash and metadata.
-        //
-        // Refresh token lifetime is 1 day
-        var newRefreshTokenEntity =
-            RefreshToken.Create(
-                user.Id,
-                newRefreshTokenHash,
-                DateTime.UtcNow.AddHours(tokenService.RefreshTokenLifetime.Hours));
-        
-        // revoked old token and store newly generated one
-        await refreshTokenRepository.RevokeAsync(storedToken.Id, DateTime.UtcNow);
-        await refreshTokenRepository.AddAsync(newRefreshTokenEntity);
-        
-        return new AuthTokensDto(newAccessToken,newRefreshToken);
-    }
-
-    /// <summary>
-    /// Verifies credential of user and returns user info
-    /// </summary>
-    /// <param name="requestDto"></param>
-    /// <returns></returns>
-    /// <exception cref="UnauthorizedAccessException"></exception>
-    public async Task<UserClaimsDto> AuthenticateUserAsync(AuthenticationRequestDto requestDto)
-    {
-        // find user by email
-        var user = await userRepository.FindByEmailAsync(requestDto.Email);
-
         // if user not found using email
         if (user is null || user.DeletedAt.HasValue) throw new InvalidCredentialsException("Invalid credentials.");
 
@@ -283,9 +117,123 @@ public sealed class AuthenticationService(
         if (user.FailedLoginAttempts != 0 || user.LockoutEnd is not null)
             await userRepository.ResetFailedLoginAttemptsAsync(user.Id);
         
-        return new UserClaimsDto(
-            user.Id,
-            user.Email,
-            user.UserRole);
-    } 
+        return Claims(user);
+    }
+
+    public async Task<AuthTokensDto> JwtLogin(AuthenticationRequestDto request) =>
+        await IssueTokens(await AuthenticateUserAsync(request));
+
+    public async Task<AuthTokensDto> IssueTokens(UserClaimsDto claims)
+    {
+        // Always re-read the flag here so callers cannot bypass the initial-password requirement with stale DTOs.
+        var user = await RequireActiveUser(claims.UserId);
+        if (!user.PasswordChanged) throw new PasswordChangeRequiredException();
+        var activeTokens = await refreshTokenRepository.GetActiveByUserIdAsync(user.Id);
+        if (activeTokens.Count >= MaxSessions)
+            await refreshTokenRepository.RevokeAsync(activeTokens[0].Id, DateTime.UtcNow);
+        var refreshToken = tokenService.GenerateRefreshToken();
+        await refreshTokenRepository.AddAsync(RefreshToken.Create(user.Id, refreshTokenHasher.Hash(refreshToken),
+            DateTime.UtcNow.Add(tokenService.RefreshTokenLifetime)));
+        return new(tokenService.GenerateAccessToken(Claims(user)), refreshToken);
+    }
+
+    public async Task<AuthTokensDto> Refresh(string refreshToken)
+    {
+        var stored = await refreshTokenRepository.FindByHashAsync(refreshTokenHasher.Hash(refreshToken));
+        if (stored is null || !stored.IsActive) throw new UnauthorizedAccessException("Invalid or expired refresh token.");
+        var user = await RequireActiveUser(stored.UserId);
+        if (!user.PasswordChanged) throw new PasswordChangeRequiredException();
+        var tokens = await IssueTokens(Claims(user));
+        await refreshTokenRepository.RevokeAsync(stored.Id, DateTime.UtcNow);
+        return tokens;
+    }
+
+    public async Task Logout(string refreshToken)
+    {
+        var stored = await refreshTokenRepository.FindByHashAsync(refreshTokenHasher.Hash(refreshToken));
+        if (stored is not null && !stored.IsRevoked)
+            await refreshTokenRepository.RevokeAsync(stored.Id, DateTime.UtcNow);
+    }
+
+    /// <summary>Google subjects take precedence. An email match only allows a password-confirmed link prompt.</summary>
+    public async Task<ExternalLoginUserDto> AuthenticateExternalUserAsync(ExternalLoginRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateGoogleIdentity(request);
+        var identity = await externalIdentityRepository.FindAsync("google", request.ProviderSubject, cancellationToken);
+        var user = identity is null
+            ? await userRepository.FindByEmailAsync(NormalizeEmail(request.Email))
+            : await userRepository.FindByIdAsync(identity.UserId);
+        // A linked but disabled/missing user never falls back to a different account with the same email.
+        if (user is null || user.DeletedAt.HasValue)
+            throw new UnauthorizedAccessException("This Google account is not registered in Labster. Contact your administrator.");
+        return new(user.Id, user.Email, user.UserRole, user.PasswordChanged, RequiresLink: identity is null);
+    }
+
+    /// <summary>The host supplies Google claims from its protected external cookie, not from form fields.</summary>
+    public async Task<ExternalLoginUserDto> LinkGoogleAsync(ExternalLoginRequest request, string password,
+        CancellationToken cancellationToken = default)
+    {
+        var candidate = await AuthenticateExternalUserAsync(request, cancellationToken);
+        var user = await RequireActiveUser(candidate.UserId);
+        if (string.IsNullOrEmpty(password) || !passwordHasher.Verify(password, user.PasswordHash))
+            throw new UnauthorizedAccessException("The Labster password is incorrect.");
+        await externalIdentityRepository.LinkGoogleAsync(user.Id, user.Email, request.ProviderSubject, user.PasswordHash, cancellationToken);
+        return new(user.Id, user.Email, user.UserRole, user.PasswordChanged);
+    }
+
+    /// <summary>Checks current credentials and updates the hash/flag with a concurrency check.</summary>
+    public async Task ChangePasswordAsync(Guid userId, ChangePasswordDto request)
+    {
+        var user = await RequireActiveUser(userId);
+        if (string.IsNullOrEmpty(request.CurrentPassword) || !passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
+            throw new InvalidOperationException("The current password is incorrect.");
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+            throw new InvalidOperationException("Choose a password of at least 8 characters.");
+        if (request.NewPassword != request.ConfirmPassword)
+            throw new InvalidOperationException("The password and confirmation password do not match.");
+        if (passwordHasher.Verify(request.NewPassword, user.PasswordHash))
+            throw new InvalidOperationException("Choose a password different from your current password.");
+        if (!await userRepository.ChangePasswordAsync(user.Id, user.PasswordHash, passwordHasher.Hash(request.NewPassword)))
+            throw new InvalidOperationException("The account changed. Sign in again and retry.");
+        foreach (var token in await refreshTokenRepository.GetActiveByUserIdAsync(user.Id))
+            await refreshTokenRepository.RevokeAsync(token.Id, DateTime.UtcNow);
+    }
+
+    public async Task<UserClaimsDto> GetActiveUserAsync(Guid userId) => Claims(await RequireActiveUser(userId));
+
+    private async Task<User> RequireActiveUser(Guid id)
+    {
+        var user = await userRepository.FindByIdAsync(id);
+        return user is null || user.DeletedAt.HasValue ? throw new UnauthorizedAccessException("This account is unavailable.") : user;
+    }
+
+    private void ValidateGoogleIdentity(ExternalLoginRequest request)
+    {
+        var email = NormalizeEmail(request.Email);
+        var domain = email[(email.LastIndexOf('@') + 1)..];
+        Console.WriteLine(!string.Equals(domain, request.HostedDomain, StringComparison.OrdinalIgnoreCase));
+        if (
+            // Provider is not google
+            !string.Equals(request.Provider, "google", StringComparison.OrdinalIgnoreCase) ||
+            // Is Empty
+            string.IsNullOrWhiteSpace(request.ProviderSubject) ||
+            // email is not verified
+            !request.EmailVerified ||
+            // TODO : Hosted Domain in validator
+            // !string.Equals(domain, request.HostedDomain, StringComparison.OrdinalIgnoreCase) ||
+            // allowed workspaces : usep.edu.ph && gmail.com
+            !options.AllowedWorkspaceDomains.Contains(domain, StringComparer.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Use a verified organization Google Workspace account to sign in.");
+    }
+
+    private static UserClaimsDto Claims(User user) => new(user.Id, user.Email, user.UserRole, user.PasswordChanged);
+    private static string NormalizeEmail(string email)
+    {
+        var trimmed = email?.Trim() ?? "";
+        if (!MailAddress.TryCreate(trimmed, out var parsed) || parsed.Address != trimmed || trimmed.Length > 254)
+            throw new InvalidOperationException("Enter a valid email address.");
+        return trimmed.ToLowerInvariant();
+    }
+    private static string Encode(string text) => WebUtility.HtmlEncode(text);
 }

@@ -30,6 +30,7 @@
                     method="post"
                     action="/auth/cookie-login"
                     class="space-y-2">
+                    <AntiforgeryToken />
                     <div>
                         <label class="block mb-2">Email Address</label>
                         <input
@@ -97,7 +98,11 @@
                     </a>
                 </form>
                 
-                @if (!String.IsNullOrWhiteSpace(Error) && 
+                @if (Navigation.ToAbsoluteUri(Navigation.Uri).Query.Contains("message=password_changed"))
+                {
+                    <p role="status" class="mt-5 rounded-lg border border-primary/20 p-4 text-sm">Password changed successfully. Sign in with your new password.</p>
+                }
+                @if (!String.IsNullOrWhiteSpace(Error) &&
                      Error is "invalid" or "google_account_not_authorized" or "google_verification_failed"
                      )
                 {
@@ -128,12 +133,12 @@
                             else if (Error is "google_account_not_authorized")
                             {
                                 <text>
-                                    Your Google account is not currently linked to a Labster account. Please sign in to your Labster account and link your Google account in Account Settings.
+                                    This Google account is not registered or is not an allowed organization account. Contact your administrator.
                                 </text>
                             }
                             else if (Error is "google_verification_failed")
                             {
-                                <text>Google sign-in was cancelled or could not be completed. Try again, or reopen your verification invitation.</text>
+                                <text>Google sign-in was cancelled or could not be completed. Try again with your organization account.</text>
                             }
                         </p>
                     </div> 
@@ -153,7 +158,6 @@
         
         let showPassword = passwordFld.getAttribute('type') === "password";
         
-        console.log(passwordFld);
         toggleShowPasswordBtnIcon.setAttribute('href',showPassword ? "/svg/eye-on.svg" : "/svg/eye-off.svg");
         passwordFld.setAttribute('type', showPassword ? "text" : "password") ;
         showPassword = !showPassword;

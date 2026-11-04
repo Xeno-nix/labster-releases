@@ -22,8 +22,16 @@ using Microsoft.AspNetCore.DataProtection;
 
 
 var builder = WebApplication.CreateBuilder(args);
+var isDevelopment = builder.Environment.IsDevelopment();
+var cookieSecurePolicy = isDevelopment ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddOptions<AccountOptions>()
+    .Bind(builder.Configuration.GetSection("Onboarding"))
+    // Apply after configuration so production cannot opt out of HTTPS through a setting.
+    .PostConfigure(options => options.RequireHttps = !isDevelopment);
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AccountOptions>>().Value);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -42,7 +50,8 @@ builder.Services
 // Api stuff, and JSON string <-> enum converters
 // from http requests
 builder.Services
-    .AddControllers()
+    // MVC's antiforgery attributes require ViewFeatures services, including for the small account forms.
+    .AddControllersWithViews()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(
@@ -84,7 +93,7 @@ builder.Services
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(
-                    builder.Configuration["Jwt:SecretKey"]!)
+                    builder.Configuration["Jwt:Key"]!)
             )
         };
     })
@@ -99,8 +108,18 @@ builder.Services
         options.SlidingExpiration = true;
         
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = cookieSecurePolicy;
         options.Cookie.SameSite = SameSiteMode.Lax;
+    })
+    .AddCookie(AuthenticationSchemes.PasswordChange, options =>
+    {
+        options.Cookie.Name = "CLMS.PasswordChange";
+        options.LoginPath = "/login";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = cookieSecurePolicy;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+        options.SlidingExpiration = false;
     })
     .AddCookie(AuthenticationSchemes.ExternalCookie, options =>
     {
@@ -110,7 +129,7 @@ builder.Services
         options.SlidingExpiration = false;
 
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = cookieSecurePolicy;
         options.Cookie.SameSite = SameSiteMode.Lax;
     })
     .AddGoogle(AuthenticationSchemes.Google, options =>
@@ -119,11 +138,28 @@ builder.Services
         options.ClientSecret = builder.Configuration["Google:ClientSecret"]!;
         options.SignInScheme = AuthenticationSchemes.ExternalCookie;
         options.CallbackPath = new PathString("/signin-google");
+        options.CorrelationCookie.SecurePolicy = cookieSecurePolicy;
+        // Google's top-level GET callback supports Lax; SameSite=None requires HTTPS in browsers.
+        if (isDevelopment) options.CorrelationCookie.SameSite = SameSiteMode.Lax;
         
-        options.Scope.Add("email");
-        options.Scope.Add("profile");
+        options.Scope.Add("email"); options.Scope.Add("profile");
         
         options.SaveTokens = false;
+        options.Events.OnCreatingTicket = context =>
+        {
+            // Use Google's authenticated user-info response, not browser-supplied form values.
+            if (context.User.TryGetProperty("hd", out var domain))
+                context.Identity!.AddClaim(new System.Security.Claims.Claim("google:hd", domain.GetString() ?? ""));
+            if (context.User.TryGetProperty("verified_email", out var verified) || context.User.TryGetProperty("email_verified", out verified))
+                context.Identity!.AddClaim(new System.Security.Claims.Claim("google:email_verified", verified.ToString()));
+            return Task.CompletedTask;
+        };
+        options.Events.OnRemoteFailure = async context =>
+        {
+            context.HandleResponse();
+            await context.HttpContext.SignOutAsync(AuthenticationSchemes.ExternalCookie);
+            context.Response.Redirect("/login?error=google_verification_failed");
+        };
     })
     ;
 
@@ -183,13 +219,12 @@ if (!app.Environment.IsDevelopment())
         createScopeForErrors: true);
 
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
 
 app.UseStatusCodePagesWithReExecute(
     "/not-found",
     createScopeForStatusCodePages: true);
-
-app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseRateLimiter();

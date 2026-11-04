@@ -175,6 +175,7 @@
                 <form
                     method="post"
                     action="/auth/cookie-logout">
+                    <AntiforgeryToken />
                     <button type="submit" title="Logout"
                             class="p-2 rounded-lg hover:bg-surface transition-colors flex-shrink-0 cursor-pointer">
                         <svg class="w-4 h-4 text-primary" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"

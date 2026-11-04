@@ -1,337 +1,103 @@
-using CLMS.Application.Persistence.Interfaces;
+﻿using CLMS.Application.Persistence.Interfaces;
 using CLMS.Domain.Entities.Identity;
-using CLMS.Infrastructure.Persistence.MySql;
 using CLMS.Domain.Enums;
 using CLMS.Domain.ValueObjects;
-using CLMS.Infrastructure.Persistence.MySql.Utils;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Persistence.MySql.Repositories;
 
 public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRepository
 {
+    private const string Columns = "user_id,first_name,last_name,middle_name,suffix,email,role_type,password_hash,password_changed,created_at,last_modified_at,deleted_at";
+
     public async Task<bool> AddAsync(User user)
     {
-        const string sql = """
-            INSERT INTO users
-            (
-                user_id,
-                first_name,
-                last_name,
-                middle_name,
-                suffix,
-                email,
-                password_hash,
-                role_type
-            )
-            VALUES
-            (
-                @Id,
-                @FirstName,
-                @LastName,
-                @MiddleName,
-                @Suffix,
-                @Email,
-                @PasswordHash,
-                @RoleType
-            );
-            """;
-
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync();
-
-        await using var command = new MySqlCommand(sql,connection);
-        
-        Console.WriteLine("UserRepository.AddAsync() : " + user.UserRole);
-        
-        command.AddParam("@Id", user.Id);
-        command.AddParam("@FirstName", user.FirstName.Value);
-        command.AddParam("@LastName", user.LastName.Value);
-        command.AddParam("@MiddleName", user.MiddleName?.Value);
-        command.AddParam("@Suffix", user.Suffix?.Value);
-        command.AddParam("@Email", user.Email);
-        command.AddParam("@PasswordHash", user.PasswordHash);
-        command.AddParam("@RoleType", user.UserRole.ToString());
-        
-        var rowsAffected = await command.ExecuteNonQueryAsync();
-        return rowsAffected == 1;
+        await using var c = connectionFactory.CreateConnection(); await c.OpenAsync();
+        await using var cmd = new MySqlCommand("""
+            INSERT INTO users(user_id,first_name,last_name,middle_name,suffix,email,password_hash,role_type,password_changed)
+            VALUES(@id,@first,@last,@middle,@suffix,@email,@hash,@role,@changed)
+            """, c);
+        AddDetails(cmd, user);
+        cmd.Parameters.AddWithValue("hash", user.PasswordHash);
+        cmd.Parameters.AddWithValue("changed", user.PasswordChanged);
+        try { return await cmd.ExecuteNonQueryAsync() == 1; }
+        catch (MySqlException ex) when (ex.Number == 1062)
+        { throw new InvalidOperationException("A user with this email already exists."); }
     }
 
     public async Task<bool> DeleteAsync(User user)
     {
-        const string sql = """
-            UPDATE users
-            SET
-                deleted_at = @DeletedAt
-            WHERE user_id = @UserId;
-        """;
-
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync();
-
-        await using var command =  new MySqlCommand(sql, connection);
-        command.AddParam("@UserId", user.Id);
-        command.AddParam("@DeletedAt", DateTime.UtcNow);
-        
-        var rowsAffected = await command.ExecuteNonQueryAsync();
-        return rowsAffected == 1;
+        await using var c = connectionFactory.CreateConnection(); await c.OpenAsync();
+        await using var cmd = new MySqlCommand("UPDATE users SET deleted_at=UTC_TIMESTAMP() WHERE user_id=@id", c);
+        cmd.Parameters.AddWithValue("id", user.Id);
+        return await cmd.ExecuteNonQueryAsync() == 1;
     }
 
     public async Task<IReadOnlyList<User>> FindAllAsync()
     {
-        var users =  new List<User>();
-        
-        const string sql = """
-            SELECT
-                user_id,
-                first_name,
-                last_name,
-                middle_name,
-                suffix,
-                email,
-                role_type,
-                password_hash,
-                deleted_at
-            FROM users;
-            """;
-
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync();
-        
-        await using var command = new MySqlCommand(sql, connection);
-        await using var reader = await command.ExecuteReaderAsync();
-
-        while (await reader.ReadAsync())
-        {
-            Name? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
-                ? null : 
-                new Name(reader.GetString("middle_name"));
-            
-            Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
-                ? null : 
-                new Name(reader.GetString("suffix"));
-
-            DateTime? deletedAt = reader.IsDBNull(reader.GetOrdinal("deleted_at"))
-                ? null :
-                reader.GetDateTime("deleted_at");
-            
-            users.Add(new(
-                reader.GetGuid("user_id"),
-                new Name(reader.GetString("first_name")),
-                new Name(reader.GetString("last_name")),
-                middleName,
-                suffix,
-                reader.GetString("email"),
-                Enum.Parse<Role>(reader.GetString("role_type"),true),
-                reader.GetString("password_hash"),
-                deletedAt 
-            ));
-        }
-
-        return users;
+        await using var c = connectionFactory.CreateConnection(); await c.OpenAsync();
+        await using var cmd = new MySqlCommand("SELECT " + Columns + " FROM users", c);
+        await using var r = await cmd.ExecuteReaderAsync();
+        var result = new List<User>();
+        while (await r.ReadAsync()) result.Add(ReadUser(r));
+        return result;
     }
 
     public async Task<IReadOnlyList<User>> FindAllByRoleAsync(Role role)
     {
-        var users =  new List<User>();
-        
-        const string sql = """
-           SELECT
-               user_id,
-               first_name,
-               last_name,
-               middle_name,
-               suffix,
-               email,
-               role_type,
-               password_hash
-           FROM users
-           WHERE role_type = @RoleType;
-           """;
-
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync();
-        
-        await using var command = new MySqlCommand(sql, connection);
-        command.AddParam("@RoleType", role.ToLowerCaseString());
-        
-        await using var reader = await command.ExecuteReaderAsync();
-
-        while (await reader.ReadAsync())
-        {
-            Name? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
-                ? null : 
-                new Name(reader.GetString("middle_name"));
-            
-            Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
-                ? null : 
-                new Name(reader.GetString("suffix"));
-            
-            users.Add(new(
-                reader.GetGuid("user_id"),
-                new Name(reader.GetString("first_name")),
-                new Name(reader.GetString("last_name")),
-                middleName,
-                suffix,
-                reader.GetString("email"),
-                Enum.Parse<Role>(reader.GetString("role_type"),true),
-                reader.GetString("password_hash")
-            ));
-        }
-
-        return users;
+        await using var c = connectionFactory.CreateConnection(); await c.OpenAsync();
+        await using var cmd = new MySqlCommand("SELECT " + Columns + " FROM users WHERE role_type=@role", c);
+        cmd.Parameters.AddWithValue("role", role.ToString());
+        await using var r = await cmd.ExecuteReaderAsync();
+        var result = new List<User>();
+        while (await r.ReadAsync()) result.Add(ReadUser(r));
+        return result;
     }
 
     public async Task<User?> FindByEmailAsync(string email)
     {
-        const string sql = """
-           SELECT
-               user_id,
-               first_name,
-               last_name,
-               middle_name,
-               suffix,
-               email,
-               role_type,
-               password_hash,
-               failed_login_attempts,
-               lockout_end
-           FROM users
-           WHERE email = @Email
-           LIMIT 1;
-           """;
-
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync();
-        
-        await using var command = new MySqlCommand(sql, connection);
-        command.AddParam("@Email", email);
-        
-        await using var reader = await command.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
-        {
-            Name? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
-                ? null : 
-                new Name(reader.GetString("middle_name"));
-            
-            Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
-                ? null : 
-                new Name(reader.GetString("suffix"));
-            
-            Console.WriteLine("UserRepository.FindByEmailAsync() : " + reader.GetString("role_type"));
-            
-            return new(
-                reader.GetGuid("user_id"),
-                new Name(reader.GetString("first_name")),
-                new Name(reader.GetString("last_name")),
-                middleName,
-                suffix,
-                reader.GetString("email"),
-                Enum.Parse<Role>(reader.GetString("role_type"),true),
-                reader.GetString("password_hash"),
-                reader.IsDBNull(reader.GetOrdinal("deleted_at")) ? null : reader.GetDateTime("deleted_at")
-            )
-            {
-                FailedLoginAttempts = reader.GetInt32("failed_login_attempts"),
-                LockoutEnd = reader.IsDBNull(reader.GetOrdinal("lockout_end"))
-                    ? null
-                    : reader.GetDateTime("lockout_end")
-            };
-        }
-
-        return null;
+        await using var c = connectionFactory.CreateConnection(); await c.OpenAsync();
+        await using var cmd = new MySqlCommand("SELECT " + Columns + " FROM users WHERE LOWER(TRIM(email))=@email LIMIT 1", c);
+        cmd.Parameters.AddWithValue("email", email.Trim().ToLowerInvariant());
+        await using var r = await cmd.ExecuteReaderAsync();
+        return await r.ReadAsync() ? ReadUser(r) : null;
     }
 
     public async Task<User?> FindByIdAsync(Guid id)
     {
-        const string sql = """
-           SELECT
-               user_id,
-               first_name,
-               last_name,
-               middle_name,
-               suffix,
-               email,
-               role_type,
-               password_hash,
-               created_at,
-               last_modified_at,
-               deleted_at
-           FROM users
-           WHERE user_id = @UserId
-           LIMIT 1;
-           """;
-
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync();
-        
-        await using var command = new MySqlCommand(sql, connection);
-        command.AddParam("@UserId", id);
-        
-        await using var reader = await command.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
-        {
-            Name? middleName = reader.IsDBNull(reader.GetOrdinal("middle_name")) 
-                ? null : 
-                new Name(reader.GetString("middle_name"));
-            
-            Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
-                ? null : 
-                new Name(reader.GetString("suffix"));
-            
-            return new(
-                reader.GetGuid("user_id"),
-                new Name(reader.GetString("first_name")),
-                new Name(reader.GetString("last_name")),
-                middleName,
-                suffix,
-                reader.GetString("email"),
-                Enum.Parse<Role>(reader.GetString("role_type"),true),
-                reader.GetString("password_hash"),
-                reader.GetDateTime("created_at"),
-                reader.GetDateTime("last_modified_at"),
-                reader.IsDBNull(reader.GetOrdinal("deleted_at")) ? null : reader.GetDateTime("deleted_at")
-            );
-        }
-
-        return null;
+        await using var c = connectionFactory.CreateConnection(); await c.OpenAsync();
+        await using var cmd = new MySqlCommand("SELECT " + Columns + " FROM users WHERE user_id=@id LIMIT 1", c);
+        cmd.Parameters.AddWithValue("id", id);
+        await using var r = await cmd.ExecuteReaderAsync();
+        return await r.ReadAsync() ? ReadUser(r) : null;
     }
 
     public async Task<bool> UpdateAsync(User user)
     {
-        const string sql = """
-            UPDATE users
-            SET
-                first_name = @FirstName,
-                last_name = @LastName,
-                middle_name = @MiddleName,
-                suffix = @Suffix,
-                email = @Email,
-                password_hash = @PasswordHash,
-                role_type = @RoleType
-            WHERE user_id = @Id;
-            """;
-
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync();
-
-        await using var command = new MySqlCommand(sql,connection);
-        
-        command.AddParam("@Id", user.Id);
-        command.AddParam("@FirstName", user.FirstName.Value);
-        command.AddParam("@LastName", user.LastName.Value);
-        command.AddParam("@MiddleName", user.MiddleName?.Value);
-        command.AddParam("@Suffix", user.Suffix?.Value);
-        command.AddParam("@Email", user.Email);
-        command.AddParam("@PasswordHash", user.PasswordHash);
-        command.AddParam("@RoleType", user.UserRole.ToLowerCaseString());
-
-        var rowsAffected = await command.ExecuteNonQueryAsync();
-        return rowsAffected == 1;
+        await using var c = connectionFactory.CreateConnection(); await c.OpenAsync();
+        // Profile edits must not overwrite a newer password or change its first-login flag.
+        await using var cmd = new MySqlCommand("""
+            UPDATE users SET first_name=@first,last_name=@last,middle_name=@middle,suffix=@suffix,email=@email,
+            role_type=@role,last_modified_at=UTC_TIMESTAMP() WHERE user_id=@id AND deleted_at IS NULL
+            """, c);
+        AddDetails(cmd, user);
+        return await cmd.ExecuteNonQueryAsync() == 1;
     }
 
+    public async Task<bool> ChangePasswordAsync(Guid userId, string expectedHash, string newHash)
+    {
+        await using var c = connectionFactory.CreateConnection(); await c.OpenAsync();
+        // Compare the previous hash exactly: only one concurrent password change may succeed.
+        await using var cmd = new MySqlCommand("""
+            UPDATE users SET password_hash=@newHash,password_changed=1,last_modified_at=UTC_TIMESTAMP()
+            WHERE user_id=@id AND deleted_at IS NULL AND BINARY password_hash=BINARY @expectedHash
+            """, c);
+        cmd.Parameters.AddWithValue("id", userId);
+        cmd.Parameters.AddWithValue("expectedHash", expectedHash);
+        cmd.Parameters.AddWithValue("newHash", newHash);
+        return await cmd.ExecuteNonQueryAsync() == 1;
+    }
+    
     public async Task<int> IncrementFailedLoginAttemptsAsync(Guid userId)
     {
         // the increment happens in SQL so concurrent failed logins can't overwrite each other's count
@@ -395,4 +161,35 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
         var rowsAffected = await command.ExecuteNonQueryAsync();
         return rowsAffected == 1;
     }
+
+    private static void AddDetails(MySqlCommand cmd, User user)
+    {
+        cmd.Parameters.AddWithValue("id", user.Id);
+        cmd.Parameters.AddWithValue("first", user.FirstName.Value);
+        cmd.Parameters.AddWithValue("last", user.LastName.Value);
+        cmd.Parameters.AddWithValue("middle", (object?)user.MiddleName?.Value ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("suffix", (object?)user.Suffix?.Value ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("email", user.Email);
+        cmd.Parameters.AddWithValue("role", user.UserRole.ToString());
+    }
+
+    private static User ReadUser(MySqlDataReader r) => 
+        new(r.GetGuid("user_id"), 
+        new Name(r.GetString("first_name")),
+        new Name(r.GetString("last_name")), 
+        r.IsDBNull(r.GetOrdinal("middle_name")) ? null : new Name(r.GetString("middle_name")),
+        r.IsDBNull(r.GetOrdinal("suffix")) ? null : new Name(r.GetString("suffix")),
+        r.GetString("email"),
+        Enum.Parse<Role>(r.GetString("role_type"), true),
+        r.GetString("password_hash"), 
+        r.GetDateTime("created_at"),
+        r.GetDateTime("last_modified_at"), 
+        r.IsDBNull(r.GetOrdinal("deleted_at")) ? null : r.GetDateTime("deleted_at"))
+        {
+            PasswordChanged = r.GetBoolean("password_changed"),
+            FailedLoginAttempts = r.GetInt32("failed_login_attempts"),
+            LockoutEnd = r.IsDBNull(r.GetOrdinal("lockout_end"))
+                ? null
+                : r.GetDateTime("lockout_end")
+        };
 }

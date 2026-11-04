@@ -7,4 +7,5 @@ public static class AuthenticationSchemes
     public const string Basic = "CLMS.Basic";
     public const string ExternalCookie = "CLMS.ExternalCookie";
     public const string Google = "CLMS.Google";
+    public const string PasswordChange = "CLMS.PasswordChange";
 }
