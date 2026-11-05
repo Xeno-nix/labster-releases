@@ -1,619 +1,151 @@
-﻿@page "/"
+@page "/"
 
 @using CLMS.Application.Services
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject ClassScheduleService ScheduleService
-@inject AcademicTermService AcademicTermService
-@inject BookingService BookingService
-@inject LaboratoryService LaboratoryService
-@inject NavigationManager Navigation
+@using System.Security.Claims
+@using CLMS.Application.DTOs.Dashboard
+
+@using Microsoft.AspNetCore.Components.Authorization
+@inject DashboardService DashboardService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Dashboard</PageTitle>
 
-<div class="p-8 relative">
-
-    @if (!string.IsNullOrEmpty(toastMessage))
-    {
-        <div class="fixed top-6 right-6 flex items-center gap-2.5 bg-[#1f7a3f] text-white px-4.5 py-3 rounded-lg text-sm font-medium shadow-lg z-[2000] animate-[toast-in_0.2s_ease-out]">
-            <span class="inline-flex items-center justify-center w-4.5 h-4.5 rounded-full bg-white/25 text-[0.65rem]">
-                <i class="fa-solid fa-check"></i>
-            </span>
-            <span>@toastMessage</span>
+@if (snapshot is null)
+{
+    <p class="text-sm text-muted">Loading dashboard…</p>
+}
+else
+{
+    <h1 class="mb-3 text-sm font-heading font-semibold uppercase tracking-wide text-muted">Current status</h1>
+    <div class="dashboard-metrics">
+        <div class="dashboard-metric" title="People currently in laboratories">
+            <p class="text-sm text-muted">People in labs now</p>
+            <p class="text-2xl font-heading font-semibold text-gray-800">@snapshot.ActiveNow</p>
         </div>
-    }
-
-    <!-- PAGE HEADER -->
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h3 class="m-0 text-2xl text-gray-800">Dashboard</h3>
-            <p class="mt-1 mb-0 text-gray-500 text-sm">Overview of your class schedules and bookings</p>
+        <div class="dashboard-metric" title="Sessions today">
+            <p class="text-sm text-muted">Sessions today</p>
+            <p class="text-2xl font-heading font-semibold text-gray-800">@snapshot.SessionsToday</p>
         </div>
-
-        <div class="flex gap-3">
-            <button type="button" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white text-[#7a1f2b] border border-[#7a1f2b] rounded-md text-sm cursor-pointer hover:bg-[#fff8f8] transition-colors" @onclick="() => OpenBookingModal(SelectedDate)">
-                <i class="fa-solid fa-plus"></i> Add Booking
-            </button>
-            <button type="button" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#7a1f2b] text-white border-none rounded-md text-sm cursor-pointer hover:bg-[#651923] transition-colors" @onclick="() => OpenCreateModal(null)">
-                <i class="fa-solid fa-plus"></i> Add Class Schedule
-            </button>
+        <div class="dashboard-metric" title="Classes running now">
+            <p class="text-sm text-muted">Classes running now</p>
+            <p class="text-2xl font-heading font-semibold text-gray-800">@snapshot.ClassesRunningNow</p>
+        </div>
+        <div class="dashboard-metric" title="Items needing attention">
+            <p class="text-sm text-muted">Needs attention</p>
+            <p class="text-2xl font-heading font-semibold @(snapshot.AttentionCount > 0 ? "text-error" : "text-success")">
+                @snapshot.AttentionCount
+            </p>
         </div>
     </div>
 
-    <!-- MAIN CONTENT -->
-    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
-
-        <!-- CALENDAR -->
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden lg:overflow-x-visible overflow-x-auto">
-
-            <!-- CALENDAR TOOLBAR -->
-            <div class="flex items-center justify-center gap-3 p-5 border-b border-gray-200 min-w-[650px] lg:min-w-0">
-
-                <button class="w-9.5 h-9.5 p-0 border border-gray-300 bg-white rounded-md text-gray-600 cursor-pointer text-[0.95rem] inline-flex items-center justify-center hover:bg-gray-100"
-                        @onclick="PreviousMonth">
-                    <i class="fa-solid fa-chevron-left"></i>
-                </button>
-
-                <div class="min-w-[190px] text-center">
-                    <h4 class="m-0 text-xl text-gray-800">@CurrentMonth.ToString("MMMM yyyy")</h4>
-                </div>
-
-                <button class="w-9.5 h-9.5 p-0 border border-gray-300 bg-white rounded-md text-gray-600 cursor-pointer text-[0.95rem] inline-flex items-center justify-center hover:bg-gray-100"
-                        @onclick="NextMonth">
-                    <i class="fa-solid fa-chevron-right"></i>
-                </button>
-
-                <button class="ml-2 px-3.5 py-2 border border-gray-300 bg-gray-50 rounded-md text-gray-600 cursor-pointer text-[0.8rem] hover:bg-gray-200"
-                        @onclick="GoToToday">
-                    Today
-                </button>
-
-            </div>
-
-            <!-- WEEK DAYS -->
-            <div class="grid grid-cols-7 border-b border-gray-200 min-w-[650px] lg:min-w-0">
-
-                @foreach (var day in WeekDays)
-                {
-                    <div class="py-3.5 px-2 text-center bg-gray-50 text-gray-600 text-[0.8rem] font-semibold border-r border-gray-200 last:border-r-0">
-                        @day
-                    </div>
-                }
-
-            </div>
-
-            <!-- CALENDAR -->
-            <div class="grid grid-cols-7 min-w-[650px] lg:min-w-0">
-
-                @foreach (var date in GetCalendarDays())
-                {
-                    var isCurrentMonth = date.Month == CurrentMonth.Month;
-                    var isSelected = SelectedDate.Date == date.Date;
-                    var isToday = date.Date == DateTime.Today;
-                    var isInAcademicTerm = IsDateInAcademicTerm(date);
-
-                    var daySchedules = isInAcademicTerm
-                        ? GetSchedulesForDate(date)
-                        : Enumerable.Empty<ClassScheduleDTO>();
-
-                    var dayBookings = GetBookingsForDate(date);
-
-                    <button type="button"
-                            class="relative min-h-[100px] lg:min-h-[120px] p-2.5 border-0 border-r border-b border-gray-200 [&:nth-child(7n)]:border-r-0 text-left cursor-pointer font-sans transition-colors flex flex-col hover:bg-gray-50
-                                @(isCurrentMonth ? "bg-white" : "bg-gray-50")
-                                @(isSelected ? "bg-[#fff8f8] shadow-[inset_0_0_0_2px_#7a1f2b]" : "")"
-                            @onclick="() => SelectDate(date)">
-
-                        <div class="w-[30px] h-[30px] flex items-center justify-center text-[0.85rem] rounded-full
-                            @(isCurrentMonth ? "text-gray-700" : "text-gray-400")
-                            @(isToday ? "bg-[#7a1f2b] text-white font-semibold" : "")">
-                            @date.Day
-                        </div>
-
-                        @if (daySchedules.Any())
-                        {
-                            <div class="inline-flex items-center gap-1.5 mt-2.5 px-1.5 py-1 bg-[#f7e9eb] text-[#7a1f2b] rounded text-[0.68rem] font-semibold self-start">
-                                <span class="w-1.5 h-1.5 rounded-full bg-[#7a1f2b]"></span>
-                                <span>
-                                    @daySchedules.Count()
-                                    @(daySchedules.Count() == 1
-                                        ? "class"
-                                        : "classes")
-                                </span>
-                            </div>
-                        }
-
-                        @if (dayBookings.Any())
-                        {
-                            <div class="inline-flex items-center gap-1.5 mt-auto px-1.5 py-1 bg-[#eef3fb] text-[#2a4d8f] rounded text-[0.68rem] font-semibold self-start">
-                                <span class="w-1.5 h-1.5 rounded-full bg-[#2a4d8f]"></span>
-                                <span>
-                                    @dayBookings.Count()
-                                    @(dayBookings.Count() == 1
-                                        ? "booking"
-                                        : "bookings")
-                                </span>
-                            </div>
-                        }
-
-                    </button>
-                }
-
-            </div>
-
+    <div class="dashboard-columns">
+        <div class="dashboard-availability min-w-0">
+            <UnitAvailabilityPanel />
         </div>
 
-
-        <!-- SIDE PANEL -->
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden lg:sticky lg:top-4">
-
-            <div class="flex justify-between items-start p-5 border-b border-gray-200">
-
-                <div>
-                    <h4 class="m-0 text-[#7a1f2b] text-[1.05rem]">
-                        @SelectedDate.ToString("dddd")
-                    </h4>
-
-                    <p class="mt-1 mb-0 text-gray-500 text-[0.8rem]">
-                        @SelectedDate.ToString("MMMM d, yyyy")
-                    </p>
-                </div>
-
-                <button type="button"
-                        class="w-[30px] h-[30px] p-0 border-none bg-transparent text-gray-400 cursor-pointer text-base rounded inline-flex items-center justify-center hover:bg-gray-100 hover:text-gray-700"
-                        @onclick="CloseDetails">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-
-            </div>
-
-
-            @if (SelectedDateSchedules.Any() || SelectedDateBookings.Any())
+        <div class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
+            <h4 class="text-base font-heading font-semibold text-gray-800 mb-4">Today's timeline</h4>
+            @if (snapshot.Timeline.Count == 0)
             {
-                @if (SelectedDateSchedules.Any())
-                {
-                    <div class="px-5 py-3 bg-gray-50 text-gray-500 text-[0.75rem] border-b border-gray-200">
-                        @SelectedDateSchedules.Count()
-                        @(SelectedDateSchedules.Count() == 1
-                            ? "class scheduled"
-                            : "classes scheduled")
-                    </div>
-
-                    <div class="flex flex-col gap-3 p-4">
-
-                        @foreach (var schedule in SelectedDateSchedules)
-                        {
-                            <div class="p-3.5 border border-gray-200 rounded-lg bg-white hover:border-[#d3b0b5]">
-
-                                <div class="flex justify-between items-center gap-2 mb-3">
-
-                                    <div class="text-[#7a1f2b] text-[0.95rem] font-bold">
-                                        @schedule.CourseCode
-                                    </div>
-
-                                    <button type="button"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-300 bg-gray-100 text-gray-700 rounded text-[0.72rem] cursor-pointer hover:bg-gray-200"
-                                            @onclick='() => Navigation.NavigateTo("/schedules")'>
-                                        <i class="fa-solid fa-pen-to-square"></i> Edit
-                                    </button>
-
-                                </div>
-
-                                <div class="flex items-center gap-2 mt-1.5 text-gray-600 text-[0.75rem]">
-                                    <span class="w-[18px] text-[#7a1f2b] text-center"><i class="fa-regular fa-clock"></i></span>
-                                    <span>
-                                        @FormatTime(schedule.TimeStart)
-                                        -
-                                        @FormatTime(schedule.TimeEnd)
-                                    </span>
-                                </div>
-
-                                <div class="flex items-center gap-2 mt-1.5 text-gray-600 text-[0.75rem]">
-                                    <span class="w-[18px] text-[#7a1f2b] text-center"><i class="fa-solid fa-building"></i></span>
-                                    <span>
-                                        @schedule.LaboratoryName
-                                    </span>
-                                </div>
-
-                                <div class="flex items-center gap-2 mt-1.5 text-gray-600 text-[0.75rem]">
-                                    <span class="w-[18px] text-[#7a1f2b] text-center"><i class="fa-solid fa-chalkboard-user"></i></span>
-                                    <span>
-                                        @schedule.InstructorName
-                                    </span>
-                                </div>
-
-                                <div class="flex gap-1.5 mt-3 pt-2.5 border-t border-gray-100">
-                                    <span class="px-1.5 py-1 bg-gray-100 rounded text-gray-500 text-[0.65rem]">
-                                        @schedule.Semester
-                                    </span>
-                                    <span class="px-1.5 py-1 bg-gray-100 rounded text-gray-500 text-[0.65rem]">
-                                        @schedule.AcademicYear
-                                    </span>
-                                </div>
-
-                            </div>
-                        }
-
-                    </div>
-                }
-
-                @if (SelectedDateBookings.Any())
-                {
-                    <div class="px-5 py-3 bg-[#f4f7fc] text-[#2a4d8f] text-[0.75rem] border-y border-gray-200">
-                        @SelectedDateBookings.Count()
-                        @(SelectedDateBookings.Count() == 1
-                            ? "booking scheduled"
-                            : "bookings scheduled")
-                    </div>
-
-                    <div class="flex flex-col gap-3 p-4">
-
-                        @foreach (var booking in SelectedDateBookings)
-                        {
-                            <div class="p-3.5 border border-gray-200 rounded-lg bg-white hover:border-[#b7c8e8]">
-
-                                <div class="flex justify-between items-center gap-2 mb-3">
-
-                                    <div class="text-[#2a4d8f] text-[0.95rem] font-bold">
-                                        @booking.RequestorName
-                                    </div>
-
-                                    <button type="button"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-300 bg-gray-100 text-gray-700 rounded text-[0.72rem] cursor-pointer hover:bg-gray-200"
-                                            @onclick='() => Navigation.NavigateTo("/bookings")'>
-                                        <i class="fa-solid fa-pen-to-square"></i> Edit
-                                    </button>
-
-                                </div>
-
-                                <div class="flex items-center gap-2 mt-1.5 text-gray-600 text-[0.75rem]">
-                                    <span class="w-[18px] text-[#2a4d8f] text-center"><i class="fa-regular fa-clock"></i></span>
-                                    <span>
-                                        @FormatTime(booking.StartTime)
-                                        -
-                                        @FormatTime(booking.EndTime)
-                                    </span>
-                                </div>
-
-                                <div class="flex items-center gap-2 mt-1.5 text-gray-600 text-[0.75rem]">
-                                    <span class="w-[18px] text-[#2a4d8f] text-center"><i class="fa-solid fa-building"></i></span>
-                                    <span>
-                                        @GetLaboratoryName(booking.LaboratoryId)
-                                    </span>
-                                </div>
-
-                                @if (!string.IsNullOrWhiteSpace(booking.Purpose))
-                                {
-                                    <div class="flex items-center gap-2 mt-1.5 text-gray-600 text-[0.75rem]">
-                                        <span class="w-[18px] text-[#2a4d8f] text-center"><i class="fa-solid fa-pen"></i></span>
-                                        <span>
-                                            @booking.Purpose
-                                        </span>
-                                    </div>
-                                }
-
-                            </div>
-                        }
-
-                    </div>
-                }
+                <p class="text-sm text-muted">Nothing scheduled today.</p>
             }
             else
             {
-                <div class="py-12 px-6 text-center">
-
-                    <div class="mb-3 text-3xl opacity-35 text-[#7a1f2b]">
-                        <i class="fa-regular fa-calendar-days"></i>
+                @foreach (var item in snapshot.Timeline)
+                {
+                    <div class="min-w-0 border-b border-gray-100 py-3 last:border-b-0 @(item.IsNow ? "border-l-4 border-primary pl-3 bg-surface rounded-r-lg" : "")">
+                        <div class="min-w-0 break-words">
+                            <p class="text-sm text-gray-800 @(item.IsNow ? "font-semibold" : "")"><span class="font-medium whitespace-nowrap">@item.StartTime.ToString("hh:mm tt")</span> — @item.Title</p>
+                            <p class="mt-1 text-xs text-muted">@item.Subtitle · @item.LabName</p>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-1">
+                        <span class="text-xs px-2 py-0.5 rounded-full shrink-0 @(item.IsClass ? "bg-info/10 text-info" : "bg-accent/20 text-gray-800")">
+                            @(item.IsClass ? "Class" : "Booking")
+                        </span>
+                        @if (item.IsNow)
+                        {
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-primary text-white shrink-0">Now</span>
+                        }
+                        </div>
                     </div>
-
-                    <h5 class="m-0 text-gray-600 text-sm">Nothing scheduled</h5>
-
-                    <p class="mt-1.5 mb-4 text-gray-400 text-[0.75rem] leading-relaxed">
-                        There are no classes or bookings for
-                        @SelectedDate.ToString("MMMM d, yyyy").
-                    </p>
-
-                    <div class="flex justify-center gap-2.5">
-                        <button type="button"
-                                class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#7a1f2b] text-white border-none rounded-md text-[0.75rem] cursor-pointer hover:bg-[#651923]"
-                                @onclick="() => OpenCreateModal(SelectedDate)">
-                            <i class="fa-solid fa-plus"></i> Add Schedule
-                        </button>
-                        <button type="button"
-                                class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white text-[#7a1f2b] border border-[#7a1f2b] rounded-md text-[0.75rem] cursor-pointer hover:bg-[#fff8f8]"
-                                @onclick="() => OpenBookingModal(SelectedDate)">
-                            <i class="fa-solid fa-plus"></i> Add Booking
-                        </button>
-                    </div>
-
+                }
+            }
+        </div>
+        <div class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
+            <h4 class="text-base font-heading font-semibold text-gray-800 mb-4">Lab occupancy</h4>
+            @if (snapshot.Occupancy.Count == 0)
+            {
+                <p class="text-sm text-muted">No laboratories registered.</p>
+            }
+            else
+            {
+                <div class="divide-y divide-gray-100">
+                    @foreach (var lab in snapshot.Occupancy)
+                    {
+                        <div class="min-w-0 py-3 first:pt-0 last:pb-0">
+                            <div class="flex flex-wrap justify-between gap-2 text-sm">
+                                <span class="text-gray-700 break-words">@lab.LabName</span>
+                                <span class="text-muted whitespace-nowrap">@lab.Active / @lab.TotalUnits units</span>
+                            </div>
+                            <div class="mt-2 h-2 overflow-hidden rounded-full bg-surface"
+                                 role="progressbar" aria-label="@($"{lab.LabName} occupancy")"
+                                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="@lab.Percent"
+                                 aria-valuetext="@($"{lab.Active} of {lab.TotalUnits} units")">
+                                <div class="h-full rounded-full bg-primary transition-all" style="width: @lab.Percent%"></div>
+                            </div>
+                        </div>
+                    }
                 </div>
             }
-
         </div>
 
+    <div class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
+        <h4 class="text-base font-heading font-semibold text-gray-800 mb-3">Needs attention</h4>
+        @if (snapshot.Attention.Count == 0)
+        {
+            <p class="text-sm text-success">All good — nothing needs attention.</p>
+        }
+        else
+        {
+            <div class="flex flex-col gap-3">
+                @foreach (var item in snapshot.Attention)
+                {
+                    <a href="@item.Href"
+                       class="flex items-start gap-2 py-2 border-b border-gray-100 last:border-b-0 text-sm text-gray-700 hover:text-primary transition-colors">
+                        <span class="w-6 h-6 shrink-0 rounded-full bg-error/10 text-error text-xs font-semibold flex items-center justify-center">
+                            @item.Count
+                        </span>
+                        <span class="min-w-0 break-words">@item.Label</span>
+                    </a>
+                }
+            </div>
+        }
     </div>
-
-</div>
-
-@if (showCreateModal)
-{
-    <ClassScheduleModal InitialDate="createModalDate"
-                         OnClose="CloseCreateModal"
-                         OnSaved="HandleScheduleSaved" />
+    </div>
 }
 
-@if (showBookingModal)
-{
-    <BookingModal InitialDate="bookingModalDate"
-                  OnClose="CloseBookingModal"
-                  OnSaved="HandleBookingSaved" />
-}
+<SchedulingOverview />
 
 @code {
-
-    private IEnumerable<ClassScheduleDTO> schedules =
-        Enumerable.Empty<ClassScheduleDTO>();
-
-    private IEnumerable<AcademicTermDTO> academicTerms =
-        Enumerable.Empty<AcademicTermDTO>();
-
-    private IEnumerable<BookingDTO> bookings =
-        Enumerable.Empty<BookingDTO>();
-
-    private IEnumerable<LaboratoryDTO> laboratories =
-        Enumerable.Empty<LaboratoryDTO>();
-
-
-    private DateTime CurrentMonth { get; set; } =
-        new DateTime(
-            DateTime.Today.Year,
-            DateTime.Today.Month,
-            1
-        );
-
-    private DateTime SelectedDate { get; set; } =
-        DateTime.Today;
-
-    private readonly string[] WeekDays =
-    {
-        "Sun",
-        "Mon",
-        "Tue",
-        "Wed",
-        "Thu",
-        "Fri",
-        "Sat"
-    };
-
-
-    private IEnumerable<ClassScheduleDTO> SelectedDateSchedules =>
-        GetSchedulesForDate(SelectedDate);
-
-    private IEnumerable<BookingDTO> SelectedDateBookings =>
-        GetBookingsForDate(SelectedDate);
-
-    private bool showCreateModal;
-    private DateTime? createModalDate;
-
-    private bool showBookingModal;
-    private DateTime? bookingModalDate;
-
-    private string? toastMessage;
-    private CancellationTokenSource? toastCts;
-
+    private DashboardSnapshotDTO? snapshot;
 
     protected override async Task OnInitializedAsync()
     {
-        schedules = await ScheduleService.GetAllAsync();
-        academicTerms = await AcademicTermService.GetAllAsync();
-        bookings = await BookingService.GetAllAsync();
-        laboratories = await LaboratoryService.GetAllAsync();
-    }
+        // Admin sees everything; Faculty is scoped to their own classes/sessions.
+        // Claims are set in AuthController.CookieLogin (NameIdentifier + Role).
+        Guid? facultyId = null;
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
 
-    private AcademicTermDTO? GetAcademicTermForDate(DateTime date)
-    {
-        var dateOnly = DateOnly.FromDateTime(date);
-
-        return academicTerms.FirstOrDefault(term =>
-            dateOnly >= term.StartDate &&
-            dateOnly <= term.EndDate);
-    }
-
-    private bool IsDateInAcademicTerm(DateTime date)
-    {
-        return GetAcademicTermForDate(date) != null;
-    }
-
-    private void PreviousMonth()
-    {
-        CurrentMonth = CurrentMonth.AddMonths(-1);
-    }
-
-
-    private void NextMonth()
-    {
-        CurrentMonth = CurrentMonth.AddMonths(1);
-    }
-
-
-    private void GoToToday()
-    {
-        CurrentMonth = new DateTime(
-            DateTime.Today.Year,
-            DateTime.Today.Month,
-            1
-        );
-
-        if (IsDateInAcademicTerm(DateTime.Today))
+        if (user.Identity?.IsAuthenticated == true && !user.IsInRole("Admin"))
         {
-            SelectedDate = DateTime.Today;
-        }
-    }
-
-
-    private void SelectDate(DateTime date)
-    {
-
-        SelectedDate = date;
-
-        if (date.Month != CurrentMonth.Month ||
-            date.Year != CurrentMonth.Year)
-        {
-            CurrentMonth = new DateTime(
-                date.Year,
-                date.Month,
-                1
-            );
-        }
-    }
-
-
-    private void CloseDetails()
-    {
-        SelectedDate = DateTime.MinValue;
-    }
-
-
-    private IEnumerable<ClassScheduleDTO> GetSchedulesForDate(DateTime date)
-    {
-        var academicTerm = GetAcademicTermForDate(date);
-
-        // No academic term covers this date,
-        // so there should be no schedules.
-        if (academicTerm == null)
-        {
-            return Enumerable.Empty<ClassScheduleDTO>();
+            var idClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (Guid.TryParse(idClaim, out var id))
+                facultyId = id;
         }
 
-        return schedules
-            .Where(schedule =>
-                schedule.AcademicTermId == academicTerm.Id)
-            .Where(schedule =>
-                schedule.DayOfWeek == date.DayOfWeek)
-            .OrderBy(schedule => schedule.TimeStart);
-
+        snapshot = await DashboardService.GetSnapshotAsync(facultyId);
     }
-
-    private IEnumerable<BookingDTO> GetBookingsForDate(DateTime date)
-    {
-        var dateOnly = DateOnly.FromDateTime(date);
-
-        return bookings
-            .Where(booking => booking.Date == dateOnly)
-            .OrderBy(booking => booking.StartTime);
-    }
-
-    private string GetLaboratoryName(int labId)
-        => laboratories.FirstOrDefault(l => l.Id == labId)?.Name ?? $"Lab {labId}";
-
-
-    private List<DateTime> GetCalendarDays()
-    {
-        var firstDayOfMonth = CurrentMonth;
-
-        int daysBeforeMonth =
-            (int)firstDayOfMonth.DayOfWeek;
-
-        var firstCalendarDay =
-            firstDayOfMonth.AddDays(-daysBeforeMonth);
-
-        int daysInMonth =
-            DateTime.DaysInMonth(
-                CurrentMonth.Year,
-                CurrentMonth.Month
-            );
-
-        int totalDays =
-            daysBeforeMonth + daysInMonth;
-
-        int remainingDays =
-            7 - (totalDays % 7);
-
-        if (remainingDays == 7)
-        {
-            remainingDays = 0;
-        }
-
-        totalDays += remainingDays;
-
-        var calendarDays = new List<DateTime>();
-
-        for (int i = 0; i < totalDays; i++)
-        {
-            calendarDays.Add(
-                firstCalendarDay.AddDays(i)
-            );
-        }
-
-        return calendarDays;
-    }
-
-
-    private string FormatTime(TimeOnly time)
-    {
-        return time.ToString(
-            "hh:mm tt",
-            CultureInfo.InvariantCulture
-        );
-    }
-
-
-    private void OpenCreateModal(DateTime? date)
-    {
-        createModalDate = date;
-        showCreateModal = true;
-    }
-
-    private void CloseCreateModal()
-    {
-        showCreateModal = false;
-    }
-
-    private async Task HandleScheduleSaved()
-    {
-        showCreateModal = false;
-        schedules = await ScheduleService.GetAllAsync();
-        ShowToast("Class schedule added successfully.");
-    }
-
-    private void OpenBookingModal(DateTime? date)
-    {
-        bookingModalDate = date;
-        showBookingModal = true;
-    }
-
-    private void CloseBookingModal()
-    {
-        showBookingModal = false;
-    }
-
-    private async Task HandleBookingSaved()
-    {
-        showBookingModal = false;
-        bookings = await BookingService.GetAllAsync();
-        ShowToast("Booking added successfully.");
-    }
-
-    private void ShowToast(string message)
-    {
-        toastMessage = message;
-        toastCts?.Cancel();
-        toastCts = new CancellationTokenSource();
-        var token = toastCts.Token;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(3000, token);
-                if (!token.IsCancellationRequested)
-                {
-                    toastMessage = null;
-                    await InvokeAsync(StateHasChanged);
-                }
-            }
-            catch (TaskCanceledException) { }
-        });
-    }
-
 }

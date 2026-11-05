@@ -1,0 +1,57 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<dialog @ref="Dialog" aria-labelledby="TitleId" @oncancel="Close" @oncancel:preventDefault="true" @onclick="Close"
+        class="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] @MaxWidthClass overflow-hidden rounded-xl border border-black/10 bg-white p-0 text-gray-800 backdrop:bg-black/50">
+    <div class="flex max-h-[calc(100dvh-2rem-2px)] flex-col" @onclick:stopPropagation="true">
+        <header class="flex shrink-0 items-center justify-between gap-4 border-b border-black/10 p-5">
+            <h2 id="@TitleId" class="text-lg text-primary">@Title</h2>
+            <button type="button" @onclick="Close" aria-label="Close dialog"
+                    class="rounded-lg p-2 hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+            </button>
+        </header>
+        <div class="min-h-0 overflow-y-auto p-5">@ChildContent</div>
+        <footer class="flex shrink-0 justify-end border-t border-black/10 px-5 py-4">
+            <button type="button" @onclick="Close" class="rounded-lg border border-black/10 px-5 py-2 text-sm hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary">Close</button>
+        </footer>
+    </div>
+</dialog>
+
+@code {
+    [Parameter] public bool Show { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string MaxWidthClass { get; set; } = "max-w-xl";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private readonly string TitleId = $"modal-title-{Guid.NewGuid():N}";
+    private ElementReference Dialog;
+    private IJSObjectReference? Module;
+    private bool WasShown;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Show == WasShown)
+            return;
+
+        Module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Shared/Modal.razor.js");
+        await Module.InvokeVoidAsync(Show ? "open" : "close", Dialog);
+        WasShown = Show;
+    }
+
+    private Task Close() => OnClose.InvokeAsync();
+
+    public async ValueTask DisposeAsync()
+    {
+        if (Module is null)
+            return;
+        try
+        {
+            await Module.InvokeVoidAsync("close", Dialog);
+            await Module.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { }
+        catch (TaskCanceledException) { }
+    }
+}

@@ -33,6 +33,8 @@ public static class DependencyInjection
             .AddScoped<ILogbookRepository,LogbookRepository>()
             .AddScoped<IEquipmentRepository,EquipmentRepository>()
             .AddScoped<ISupplyRepository,SupplyRepository>()
+            .AddScoped<IComputerUnitRepository, ComputerUnitRepository>()
+            .AddScoped<IUnitMonitoringRepository, UnitMonitoringRepository>()
             
             .AddScoped<IClassScheduleRepository,ClassScheduleRepository>()
             .AddScoped<IBookingRepository,BookingRepository>()

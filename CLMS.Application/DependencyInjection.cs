@@ -26,6 +26,7 @@ public static class DependencyInjection
             .AddScoped<UserService>()
             .AddScoped<CourseService>()
             .AddScoped<AcademicTermService>()
+            .AddScoped<DashboardService>()
             ;
     }
 }

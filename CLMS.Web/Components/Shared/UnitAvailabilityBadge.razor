@@ -1,0 +1,11 @@
+@using CLMS.Application.DTOs.Monitoring
+@using CLMS.Web.Models
+
+<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium @Status.CssClass()">
+    <span class="h-2 w-2 rounded-full @(Status switch { UnitMonitoringStatus.Available => "bg-success", UnitMonitoringStatus.InUse => "bg-info", _ => "bg-gray-500" })" aria-hidden="true"></span>
+    @Status.Label()
+</span>
+
+@code {
+    [Parameter] public UnitMonitoringStatus Status { get; set; } = UnitMonitoringStatus.Offline;
+}
