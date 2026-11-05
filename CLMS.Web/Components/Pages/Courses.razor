@@ -1,0 +1,173 @@
+@inject CLMS.Web.Services.ToastService Toasts
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using CLMS.Application.Services
+@inject CourseService CourseService
+@inject ILogger<Courses> Logger
+@inject CLMS.Web.Services.DialogService Dialogs
+
+
+
+<div class="space-y-6">
+    @HeaderTemplate(HeaderActions)
+
+    @if (loadError is not null)
+    {
+        <div role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            @loadError <button type="button" class="ml-2 underline" @onclick="Load">Retry</button>
+        </div>
+    }
+
+    @if (actionError is not null)
+    {
+        <div role="alert" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">@actionError</div>
+    }
+    <div class="overflow-hidden rounded-xl border border-black/10 bg-white">
+        <div class="flex flex-col gap-3 border-b border-black/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <h2 class="text-sm font-semibold text-gray-800">All Courses (@courses.Count)</h2>
+            <input type="search" aria-label="Search courses" placeholder="Search code or course name..." @bind="search" @bind:event="oninput" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none sm:w-72" />
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-surface text-xs uppercase text-muted"><tr><th scope="col" class="px-6 py-3">Course Code</th><th scope="col" class="px-6 py-3">Course Name</th><th scope="col" class="px-6 py-3 text-right">Actions</th></tr></thead>
+                <tbody class="divide-y divide-gray-100">
+                    @if (loading)
+                    {
+                        <tr><td colspan="3" class="px-6 py-12 text-center text-muted">Loading courses...</td></tr>
+                    }
+                    else if (!FilteredCourses.Any())
+                    {
+                        <tr><td colspan="3" class="px-6 py-12 text-center text-muted">@(courses.Count == 0 ? "No courses yet. Add a course to get started." : "No courses match your search.")</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var course in FilteredCourses)
+                        {
+                            <tr @key="course.Id" class="hover:bg-surface"><td class="px-6 py-4 font-medium text-primary">@course.CourseCode</td><td class="px-6 py-4 text-gray-800">@course.CourseName</td><td class="px-6 py-4 text-right whitespace-nowrap">
+                                    <button type="button" aria-label="Edit course" class="rounded-lg px-3 py-2 text-primary hover:bg-primary/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Edit(course)">Edit</button>
+                                    <button type="button" aria-label="Delete course" class="rounded-lg px-3 py-2 text-error hover:bg-error/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Delete(course)">Delete</button>
+                                </td></tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (showForm)
+{
+    <div class="fixed inset-0 z-[1000] flex items-start justify-center overflow-y-auto bg-black/35 p-4 sm:p-12">
+        <section role="dialog" aria-modal="true" aria-labelledby="course-title" class="w-full max-w-[520px] rounded-xl border border-gray-200 bg-white p-6">
+            <h2 id="course-title" class="mb-5 text-base font-semibold">@(editingId.HasValue ? "Edit Course" : "Add Course")</h2>
+            @if (formError is not null)
+            {
+                <div role="alert" class="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">@formError</div>
+            }
+            <EditForm Model="model" OnValidSubmit="Save">
+                <DataAnnotationsValidator />
+                <fieldset disabled="@saving" class="space-y-4">
+                    <div>
+                        <label for="course-code" class="mb-1.5 block text-xs text-gray-600">Course Code</label>
+                        <InputText id="course-code" @bind-Value="model.CourseCode" maxlength="50" placeholder="e.g. IT 101" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                        <ValidationMessage For="@(() => model.CourseCode)" class="mt-1 text-xs text-red-600" />
+                    </div>
+                    <div>
+                        <label for="course-name" class="mb-1.5 block text-xs text-gray-600">Course Name</label>
+                        <InputText id="course-name" @bind-Value="model.CourseName" maxlength="255" placeholder="e.g. Introduction to Computing" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                        <ValidationMessage For="@(() => model.CourseName)" class="mt-1 text-xs text-red-600" />
+                    </div>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" class="rounded-md border border-gray-300 px-5 py-2 text-sm text-gray-700 hover:bg-gray-100" @onclick="() => showForm = false">Cancel</button>
+                        <button type="submit" class="rounded-md bg-primary px-5 py-2 text-sm text-white hover:bg-primary-dark disabled:opacity-60">@(saving ? "Saving..." : editingId.HasValue ? "Save Changes" : "Add Course")</button>
+                    </div>
+                </fieldset>
+            </EditForm>
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public RenderFragment<RenderFragment> HeaderTemplate { get; set; } = default!;
+
+    private RenderFragment HeaderActions => @<div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <button type="button" class="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60" disabled="@(loading || deleting)" @onclick="OpenForm">+ Add Course</button>
+    </div>;
+
+    private List<CourseDTO> courses = [];
+    private CreateCourseDTO model = new();
+    private string search = string.Empty;
+    private string? loadError, formError;
+    private bool loading = true, saving, showForm;
+    private bool deleting;
+    private int? editingId;
+    private string? actionError;
+    private IEnumerable<CourseDTO> FilteredCourses => courses.Where(c => c.CourseCode.Contains(search, StringComparison.OrdinalIgnoreCase) || c.CourseName.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        loading = true;
+        loadError = null;
+        try { courses = (await CourseService.GetAllAsync()).ToList(); }
+        catch (Exception ex) { Logger.LogError(ex, "Unable to load courses"); loadError = "Unable to load courses. Please try again."; }
+        finally { loading = false; }
+    }
+
+    private void OpenForm()
+    {
+        editingId = null;
+        actionError = null;
+        model = new();
+        formError = null;
+        showForm = true;
+    }
+
+    private void Edit(CourseDTO course)
+    {
+        editingId = course.Id;
+        model = new() { CourseCode = course.CourseCode, CourseName = course.CourseName };
+        formError = actionError = null;
+        showForm = true;
+    }
+
+    private async Task Delete(CourseDTO course)
+    {
+        if (deleting) return;
+        deleting = true;
+        actionError = null;
+        try
+        {
+            if (!await Dialogs.ShowConfirmDialogAsync($"Delete {course.CourseCode} — {course.CourseName}? This cannot be undone.", "Delete Course")) return;
+            await CourseService.DeleteAsync(course.Id);
+            Toasts.Show("Course deleted successfully.", CLMS.Web.Services.ToastService.ToastType.Success);
+            await Load();
+        }
+        catch (InvalidOperationException ex) { actionError = ex.Message; }
+        catch (Exception ex) { Logger.LogError(ex, "Unable to delete Course"); actionError = "Unable to delete the Course. Please try again."; }
+        finally { deleting = false; }
+    }
+
+    private async Task Save()
+    {
+        if (saving) return;
+        saving = true;
+        formError = null;
+        try
+        {
+            if (editingId is int id)
+                await CourseService.UpdateAsync(id, model);
+            else
+                await CourseService.CreateAsync(model);
+            showForm = false;
+            search = string.Empty;
+            Toasts.Show(editingId.HasValue ? "Course updated successfully." : "Course added successfully.", CLMS.Web.Services.ToastService.ToastType.Success);
+            await Load();
+        }
+        catch (InvalidOperationException ex) { formError = ex.Message; }
+        catch (Exception ex) { Logger.LogError(ex, "Unable to create course"); formError = "Unable to save the course. Please try again."; }
+        finally { saving = false; }
+    }
+}

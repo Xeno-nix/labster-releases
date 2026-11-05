@@ -114,7 +114,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
             DateTime? deletedAt = reader.IsDBNull(reader.GetOrdinal("deleted_at"))
                 ? null :
                 reader.GetDateTime("deleted_at");
-            
+
             users.Add(new(
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
@@ -124,7 +124,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                 reader.GetString("email"),
                 Enum.Parse<Role>(reader.GetString("role_type"),true),
                 reader.GetString("password_hash"),
-                deletedAt 
+                deletedAt
             ));
         }
 
@@ -166,7 +166,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
             Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
                 ? null : 
                 new Name(reader.GetString("suffix"));
-            
+
             users.Add(new(
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
@@ -195,7 +195,9 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                suffix,
                email,
                role_type,
-               password_hash
+               password_hash,
+               failed_login_attempts,
+               lockout_end
            FROM users
            WHERE email = @Email
            LIMIT 1;
@@ -230,7 +232,13 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
                 reader.GetString("email"),
                 Enum.Parse<Role>(reader.GetString("role_type"),true),
                 reader.GetString("password_hash")
-            );
+            )
+            {
+                FailedLoginAttempts = reader.GetInt32("failed_login_attempts"),
+                LockoutEnd = reader.IsDBNull(reader.GetOrdinal("lockout_end"))
+                    ? null
+                    : reader.GetDateTime("lockout_end")
+            };
         }
 
         return null;
@@ -274,7 +282,7 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
             Name? suffix = reader.IsDBNull(reader.GetOrdinal("suffix")) 
                 ? null : 
                 new Name(reader.GetString("suffix"));
-            
+
             return new(
                 reader.GetGuid("user_id"),
                 new Name(reader.GetString("first_name")),
@@ -320,7 +328,71 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
         command.AddParam("@Email", user.Email);
         command.AddParam("@PasswordHash", user.PasswordHash);
         command.AddParam("@RoleType", user.UserRole.ToLowerCaseString());
-        
+
+        var rowsAffected = await command.ExecuteNonQueryAsync();
+        return rowsAffected == 1;
+    }
+
+    public async Task<int> IncrementFailedLoginAttemptsAsync(Guid userId)
+    {
+        // the increment happens in SQL so concurrent failed logins can't overwrite each other's count
+        const string sql = """
+            UPDATE users
+            SET failed_login_attempts = failed_login_attempts + 1
+            WHERE user_id = @UserId;
+
+            SELECT failed_login_attempts
+            FROM users
+            WHERE user_id = @UserId;
+            """;
+
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+        command.AddParam("@UserId", userId);
+
+        var result = await command.ExecuteScalarAsync();
+        return Convert.ToInt32(result);
+    }
+
+    public async Task<bool> LockOutAsync(Guid userId, DateTime lockoutEnd)
+    {
+        const string sql = """
+            UPDATE users
+            SET
+                failed_login_attempts = 0,
+                lockout_end = @LockoutEnd
+            WHERE user_id = @UserId;
+            """;
+
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+        command.AddParam("@UserId", userId);
+        command.AddParam("@LockoutEnd", lockoutEnd);
+
+        var rowsAffected = await command.ExecuteNonQueryAsync();
+        return rowsAffected == 1;
+    }
+
+    public async Task<bool> ResetFailedLoginAttemptsAsync(Guid userId)
+    {
+        const string sql = """
+            UPDATE users
+            SET
+                failed_login_attempts = 0,
+                lockout_end = NULL
+            WHERE user_id = @UserId;
+            """;
+
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var command = new MySqlCommand(sql, connection);
+        command.AddParam("@UserId", userId);
+
         var rowsAffected = await command.ExecuteNonQueryAsync();
         return rowsAffected == 1;
     }

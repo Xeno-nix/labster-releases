@@ -20,6 +20,8 @@ public static class DependencyInjection
             .AddScoped<SupplyService>()
             .AddScoped<LaboratoryService>()
             .AddScoped<ClassScheduleService>()
+            .AddScoped<ClassListCsvParser>()
+            .AddScoped<ClassListService>()
             .AddScoped<BookingService>()
             .AddScoped<UserService>()
             .AddScoped<CourseService>()

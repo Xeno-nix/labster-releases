@@ -1,0 +1,255 @@
+@using CLMS.Application.DTOs.Booking
+@using CLMS.Application.Services
+@using CLMS.Domain.Enums
+@using CLMS.Web.Services
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject ClassListService ClassListService
+@inject IJSRuntime JS
+@inject ToastService Toasts
+@inject DialogService Dialogs
+
+@if (IsLoading)
+{
+    <p class="text-muted text-sm py-4">Loading roster...</p>
+}
+else
+{
+    @if (ShowBackButton)
+    {
+        <button type="button"
+                class="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+                @onclick="OnBack">
+            ← All classes
+        </button>
+    }
+
+    <div class="@(Framed ? "bg-white rounded-lg border border-black/10 shadow-sm" : "")">
+        @if (ShowHeader)
+        {
+            <div class="p-6 border-b border-black/10">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div class="min-w-0">
+                        <h2 class="text-primary text-xl font-semibold">@Class.CourseCode — @Class.CourseName</h2>
+                        <p class="text-sm text-muted mt-1">
+                            @if (Class.IsGrouped)
+                            {
+                                <span>Year @Class.YearLevel &middot; Section @Class.Section</span>
+                            }
+                            else
+                            {
+                                <span>Year &amp; section not set</span>
+                            }
+                            <span>&nbsp;&middot;&nbsp;@Class.SlotsLabel</span>
+                        </p>
+                        @if (IsAdmin)
+                        {
+                            <p class="text-sm text-muted mt-0.5">Instructor: @Class.InstructorName</p>
+                        }
+                    </div>
+                    <div class="flex items-center gap-3 flex-shrink-0">
+                        <span class="inline-block px-2.5 py-1 rounded text-xs font-medium bg-primary/10 text-primary">@Roster.Count students</span>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                <div class="relative w-full sm:w-72">
+                    <input @bind="SearchQuery"
+                           @bind:event="oninput"
+                           placeholder="Search by ID or name..."
+                           class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                </div>
+                <div class="flex items-center justify-end gap-2 sm:ml-auto">
+                    <button type="button"
+                            class="flex items-center gap-2 px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm font-medium text-[#2c2c2c] hover:bg-black/5 transition-colors"
+                            title="Import students from a CSV file"
+                            @onclick="OpenImportModal">
+                        <i data-lucide="file-up" class="w-4 h-4"></i>
+                        @(Roster.Count > 0 ? "Import more students" : "Import CSV")
+                    </button>
+                    <button type="button"
+                            class="px-4 py-2.5 bg-[#7a1f2b] text-white border-none rounded-md text-sm cursor-pointer hover:bg-[#651923] transition-colors"
+                            @onclick="OpenAddModal">
+                        + Add Student
+                    </button>
+                </div>
+            </div>
+
+            @if (FilteredRoster.Count == 0)
+            {
+                <div class="py-10 text-center text-sm text-muted">
+                    <p>
+                        @(string.IsNullOrWhiteSpace(SearchQuery)
+                            ? "No students enrolled yet. Add or import the first student with the buttons above."
+                            : "No students match your search.")
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="roster-scroll">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-xs uppercase tracking-wide text-muted">
+                                <th class="sticky top-0 z-10 bg-white py-2.5 pr-4 font-medium border-b border-black/10">Student ID</th>
+                                <th class="sticky top-0 z-10 bg-white py-2.5 pr-4 font-medium border-b border-black/10">Name</th>
+                                <th class="sticky top-0 z-10 bg-white w-16 py-2.5 text-right font-medium border-b border-black/10">Remove</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var student in FilteredRoster)
+                            {
+                                <tr class="border-b border-black/5 last:border-0 hover:bg-surface/60">
+                                    <td class="py-3 pr-4 font-mono text-xs">@student.StudentId</td>
+                                    <td class="py-3 pr-4">@student.DisplayName</td>
+                                    <td class="py-3 text-right">
+                                        <button type="button"
+                                                class="p-1.5 rounded-lg text-muted hover:text-[#b3261e] hover:bg-red-50 transition-colors"
+                                                title="Remove from class"
+                                                @onclick="() => PromptRemoveAsync(student)">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <AddStudentModal Show="ShowAddModal"
+                     ScheduleId="@Class.RepresentativeScheduleId"
+                     UserId="@UserId"
+                     Role="@Role"
+                     OnDismiss="CloseAddModal"
+                     OnAdded="OnStudentAdded" />
+
+    <ClassListImportModal Show="ShowImportModal"
+                          ScheduleId="@Class.RepresentativeScheduleId"
+                          UserId="@UserId"
+                          Role="@Role"
+                          OnDismiss="CloseImportModal"
+                          OnCommitted="OnImportCommitted" />
+}
+
+@code {
+    [Parameter] public ClassListClassDTO Class { get; set; } = null!;
+    [Parameter] public Guid UserId { get; set; }
+    [Parameter] public Role Role { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+    [Parameter] public EventCallback OnClassChanged { get; set; }
+    [Parameter] public bool ShowBackButton { get; set; } = true;
+    [Parameter] public bool Framed { get; set; } = true;
+    [Parameter] public bool ShowHeader { get; set; } = true;
+
+    private IReadOnlyList<EnrolledStudentDTO> Roster { get; set; } = [];
+    private string SearchQuery { get; set; } = string.Empty;
+    private bool IsLoading { get; set; } = true;
+    private bool ShowAddModal { get; set; }
+    private bool ShowImportModal { get; set; }
+
+    private bool IsAdmin => Role == Role.Admin;
+
+    private IReadOnlyList<EnrolledStudentDTO> FilteredRoster
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SearchQuery))
+                return Roster;
+
+            var query = SearchQuery.Trim();
+            return Roster
+                .Where(s => s.StudentId.Contains(query, StringComparison.OrdinalIgnoreCase)
+                            || s.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRosterAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // ClassList.razor also re-runs this; icons inside modals and rows arrive after the
+        // initial page render, so re-scan after every render.
+        await JS.InvokeVoidAsync("lucide.createIcons");
+    }
+
+    private async Task LoadRosterAsync()
+    {
+        IsLoading = true;
+
+        try
+        {
+            Roster = await ClassListService.GetRosterAsync(UserId, Role, Class.RepresentativeScheduleId);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Could not load the roster. {ex.Message}", ToastService.ToastType.Error);
+            Roster = [];
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void OpenAddModal() => ShowAddModal = true;
+
+    private void CloseAddModal() => ShowAddModal = false;
+
+    private void OpenImportModal() => ShowImportModal = true;
+
+    private void CloseImportModal() => ShowImportModal = false;
+
+    /// <summary>
+    /// The modal stays open on its result step; the roster behind it is refreshed at once.
+    /// </summary>
+    private async Task OnImportCommitted(ClassListImportResult result)
+    {
+        Toasts.Show(result.Message, ToastService.ToastType.Success);
+        await LoadRosterAsync();
+        await OnClassChanged.InvokeAsync();
+    }
+
+    private async Task OnStudentAdded(string message)
+    {
+        Toasts.Show(message, ToastService.ToastType.Success);
+        ShowAddModal = false;
+        await LoadRosterAsync();
+        await OnClassChanged.InvokeAsync();
+    }
+
+    private async Task PromptRemoveAsync(EnrolledStudentDTO target)
+    {
+        var ok = await Dialogs.ShowConfirmDialogAsync(
+            $"Remove {target.DisplayName} ({target.StudentId}) from every meeting of this class? This cannot be undone.",
+            "Remove student from class?");
+
+        if (!ok) return;
+
+        try
+        {
+            var removed = await ClassListService.RemoveStudentAsync(
+                UserId, Role, Class.RepresentativeScheduleId, target.StudentId);
+
+            Toasts.Show(removed > 0
+                ? $"Removed {target.DisplayName} from the class."
+                : $"{target.DisplayName} wasn't on this roster.", ToastService.ToastType.Success);
+
+            await LoadRosterAsync();
+            await OnClassChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show(ex.Message, ToastService.ToastType.Error);
+        }
+    }
+}

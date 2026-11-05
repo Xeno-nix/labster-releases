@@ -9,7 +9,14 @@ public class UpsertClassScheduleDTO
 
     public int AcademicTermId { get; set; }
 
-    public string YearLevel { get; set; } = string.Empty;
+    /// <summary>
+    /// Year level (1-5) and section group a class's weekly meetings together so a class
+    /// list can be imported once and apply to every meeting. Nullable so existing
+    /// schedules keep working; null either one makes the schedule a group of one.
+    /// </summary>
+    public int? YearLevel { get; set; }
+
+    public string? Section { get; set; }
 
     public DayOfWeek DayOfWeek { get; set; }
 
