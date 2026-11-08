@@ -10,6 +10,7 @@ internal sealed class WindowsAccessMonitor(string statePath, Action<UnitAccessEv
 {
     private Checkpoint state = new();
 
+    /// <summary>Restores the checkpoint and emits startup only when the machine or recorded Windows boot has changed.</summary>
     public void Initialize()
     {
         if (File.Exists(statePath))
@@ -32,6 +33,7 @@ internal sealed class WindowsAccessMonitor(string statePath, Action<UnitAccessEv
         }
     }
 
+    /// <summary>Reads up to 256 qualifying sign-in or unlock events after the checkpoint and advances it after each processed record.</summary>
     public int ReadAvailable()
     {
         using (var latestReader = new EventLogReader(new EventLogQuery("Security", PathType.LogName) { ReverseDirection = true }))
@@ -61,6 +63,7 @@ internal sealed class WindowsAccessMonitor(string statePath, Action<UnitAccessEv
         return count;
     }
 
+    /// <summary>Replaces the checkpoint file through a temporary file so later launches can resume from the recorded event cursor.</summary>
     private void Save()
     {
         File.WriteAllText(statePath + ".tmp", JsonSerializer.Serialize(state));

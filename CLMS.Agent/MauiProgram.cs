@@ -4,6 +4,7 @@ namespace CLMS.Agent;
 
 public static class MauiProgram
 {
+	/// <summary>Builds the MAUI application with its shared resources and development logging.</summary>
 	public static MauiApp CreateMauiApp()
 	{
 		var builder = MauiApp.CreateBuilder();

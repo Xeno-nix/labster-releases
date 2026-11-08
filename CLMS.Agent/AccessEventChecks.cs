@@ -2,12 +2,15 @@ namespace CLMS.Agent;
 
 internal static class AccessEventChecks
 {
+    /// <summary>Runs deterministic checks for event classification, account filtering, timestamps, and console formatting.</summary>
     public static int Run()
     {
+        // Fails the console self-test when a named assertion is not satisfied.
         static void Check(bool condition, string name)
         {
             if (!condition) throw new InvalidOperationException($"Check failed: {name}");
         }
+        // Builds simulated Windows event XML for the console self-tests.
         static string Xml(int type, string user = "Student", string sid = "S-1-5-21-123-1001") => $"""
             <Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
               <System><EventID>4624</EventID><TimeCreated SystemTime="2026-10-25T17:00:12Z" /></System>

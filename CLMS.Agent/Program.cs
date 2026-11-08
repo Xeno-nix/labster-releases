@@ -2,6 +2,8 @@ using CLMS.Agent;
 using System.Diagnostics.Eventing.Reader;
 using System.Security;
 
+// Console prototype entry point, linked into CLMS.Agent.Console and excluded from
+// MAUI. It supports local monitoring and self-tests without server authentication.
 if (args.Contains("--self-test")) return AccessEventChecks.Run();
 if (args.Contains("--help"))
 {

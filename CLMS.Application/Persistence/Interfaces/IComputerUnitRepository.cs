@@ -13,10 +13,10 @@ public interface IComputerUnitRepository
 
     /// <summary>
     /// Whether an active (non-deleted) unit already occupies this unit number in this lab.
-    /// Used to enforce uniqueness at the service layer instead of a DB constraint,
-    /// since deleted_at makes a plain UNIQUE(laboratory_id, unit_number) unreliable.
+    /// Registry uniqueness also includes deleted units, whose identities are reactivated.
     /// </summary>
     Task<bool> ExistsActiveAtLabAndNumberAsync(int laboratoryId, byte unitNumber, Guid? excludingId = null);
+    Task<bool> ExistsAtLabAndNumberAsync(int laboratoryId, byte unitNumber, Guid? excludingId = null);
 
     Task UpdateAsync(ComputerUnit computerUnit);
 

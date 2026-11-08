@@ -16,6 +16,9 @@ public static class DependencyInjection
         this IServiceCollection services)
     {
         services
+            .AddScoped<CLMS.Application.UnitRegistry.IUnitRegistryRepository, UnitRegistryRepository>()
+            .AddScoped<CLMS.Application.UnitRegistry.IAgentTokenService, AgentTokenService>()
+            .AddSingleton<CLMS.Application.UnitRegistry.IDeviceProofVerifier, DeviceProofVerifier>()
             .AddScoped<MySqlConnectionFactory>()
             
             .AddScoped<ITokenService, JwtAuthenticationService>()

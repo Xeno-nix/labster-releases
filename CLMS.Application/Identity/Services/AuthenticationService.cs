@@ -1,5 +1,8 @@
-﻿using CLMS.Application.Identity.Interfaces;
+﻿using System.Net;
+using System.Net.Mail;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Interfaces;
+using CLMS.Application.Identity.Exceptions;
 using CLMS.Application.Persistence.Interfaces;
 using CLMS.Domain.Entities.Identity;
 using CLMS.Domain.ValueObjects;
@@ -83,7 +86,7 @@ public sealed class AuthenticationService(
         var user = await userRepository.FindByEmailAsync(NormalizeEmail(request.Email));
         
         // if user not found using email
-        if (user is null || user.DeletedAt.HasValue) throw new InvalidCredentialsException("Invalid credentials.");
+        if (user is null || user.DeletedAt.HasValue) throw new InvalidCredentialsException();
 
         // refuse while locked, even if the password is correct
         if (user.IsLockedOut) throw new AccountLockedException(user.LockoutEnd!.Value);
@@ -91,7 +94,7 @@ public sealed class AuthenticationService(
         // checks if the password is correct for the user
         var passwordValid =
             passwordHasher.Verify(
-                requestDto.Password,
+                request.Password,
                 user.PasswordHash);
 
         // invalid password

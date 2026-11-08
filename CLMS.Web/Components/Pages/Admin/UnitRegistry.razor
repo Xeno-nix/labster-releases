@@ -1,0 +1,178 @@
+@page "/admin/unit-registry"
+@attribute [Authorize(Policy = "UnitRegistryAdmin")]
+@implements IAsyncDisposable
+@using CLMS.Application.UnitRegistry
+@using CLMS.Shared.Dtos
+@using CLMS.Web.Services
+@using CLMS.Web.Models
+@inject UnitRegistryService Registry
+@inject DialogService Dialogs
+@inject ToastService Toasts
+
+<PageTitle>Unit Registry | CLMS</PageTitle>
+<div class="space-y-6">
+    <header class="flex flex-wrap items-center justify-between gap-3">
+        <div><h1 class="text-primary text-2xl">Unit Registry</h1><p class="text-sm text-muted">Verify physical computers before approving their registration.</p></div>
+        <button class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50" disabled="@Busy" @onclick="LoadAsync">Refresh</button>
+    </header>
+    @if (Error is not null) { <p role="alert" class="rounded-lg bg-red-50 p-4 text-sm text-red-800">@Error</p> }
+    @if (Loading) { <p role="status" class="text-sm text-muted">Loading registry…</p> }
+    <section class="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center gap-3 border-b border-black/10 p-5">
+            <h2 class="font-semibold text-primary">Computer units</h2>
+            <select aria-label="Filter by laboratory" class="rounded-lg border border-black/10 bg-surface px-3 py-2 text-sm" @bind="LaboratoryFilter" @bind:after="FilterUnitsAsync">
+                <option value="">All laboratories</option>
+                @foreach (var lab in Laboratories) { <option value="@lab.Id">@lab.Name</option> }
+            </select>
+            <input type="search" aria-label="Search by unit number" placeholder="Search unit number" class="rounded-lg border border-black/10 bg-surface px-3 py-2 text-sm" @bind="Search" @bind:after="FilterUnitsAsync" />
+        </div>
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm">
+            <thead class="bg-surface text-xs uppercase text-muted"><tr>
+                <th class="px-5 py-3">Laboratory / Unit</th><th class="px-5 py-3">Hostname</th><th class="px-5 py-3">Operating system</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Last seen</th><th class="px-5 py-3">Actions</th>
+            </tr></thead>
+            <tbody class="divide-y divide-black/5">
+                @if (Units.Items.Count == 0 && !Loading) { <tr><td colspan="6" class="px-5 py-10 text-center text-muted">No computer units match these filters.</td></tr> }
+                @foreach (var unit in Units.Items)
+                {
+                    <tr @key="unit.Id" class="hover:bg-surface">
+                        <td class="px-5 py-3">@unit.Laboratory / @unit.UnitNumber</td><td class="px-5 py-3">@(unit.Hostname ?? "Not reported")</td>
+                        <td class="px-5 py-3">@(unit.OperatingSystem ?? "Not reported")</td>
+                        <td class="px-5 py-3"><span class="rounded-full bg-surface px-2 py-1">@UnitStatus(unit)</span></td>
+                        <td class="px-5 py-3">@UnitMonitoringDisplay.FormatUtc(unit.LastSeenUtc)</td>
+                        <td class="px-5 py-3"><button class="text-red-700 disabled:opacity-50" disabled="@Busy" @onclick="() => DeleteAsync(unit)">Delete</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table></div>
+        <div class="flex items-center justify-between gap-3 border-t border-black/10 p-4 text-sm">
+            <span>@Units.Total units · Page @UnitPage</span>
+            <div class="flex gap-3"><button disabled="@(Busy || UnitPage <= 1)" @onclick="() => ChangeUnitPage(-1)">Previous</button><button disabled="@(Busy || (long)UnitPage * PageSize >= Units.Total)" @onclick="() => ChangeUnitPage(1)">Next</button></div>
+        </div>
+    </section>
+    <section class="overflow-hidden rounded-lg border border-black/10 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center gap-3 border-b border-black/10 p-5">
+            <h2 class="font-semibold text-primary">Registration requests</h2>
+            <select aria-label="Registration status" class="rounded-lg border border-black/10 bg-surface px-3 py-2 text-sm" @bind="StatusFilter" @bind:after="FilterRegistrationsAsync">
+                <option>Pending</option><option>Approved</option><option>Rejected</option><option>Expired</option>
+            </select>
+        </div>
+        <div class="overflow-x-auto"><table class="w-full text-left text-sm">
+            <thead class="bg-surface text-xs uppercase text-muted"><tr><th class="px-5 py-3">Code</th><th class="px-5 py-3">Requested assignment</th><th class="px-5 py-3">Device</th><th class="px-5 py-3">Requested / Expires (UTC)</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Actions</th></tr></thead>
+            <tbody class="divide-y divide-black/5">
+                @if (Registrations.Items.Count == 0 && !Loading) { <tr><td colspan="6" class="px-5 py-10 text-center text-muted">No @StatusFilter.ToLowerInvariant() registration requests.</td></tr> }
+                @foreach (var request in Registrations.Items)
+                {
+                    var pending = request.Status == "Pending" && request.ExpiresAtUtc > DateTime.UtcNow;
+                    <tr @key="request.Id" class="hover:bg-surface">
+                        <td class="px-5 py-3 font-mono font-semibold tracking-wider">@request.Code</td><td class="px-5 py-3">@request.Laboratory / @request.UnitNumber</td>
+                        <td class="px-5 py-3">@request.Hostname<br /><span class="text-xs text-muted">@request.OperatingSystem · @request.AgentVersion</span><br /><span class="font-mono text-xs break-all">@request.KeyFingerprint</span></td>
+                        <td class="px-5 py-3 text-xs">@UnitMonitoringDisplay.FormatUtc(request.CreatedAtUtc)<br />@UnitMonitoringDisplay.FormatUtc(request.ExpiresAtUtc)</td>
+                        <td class="px-5 py-3">@(request.Status == "Pending" && !pending ? "Expired" : request.Status)</td>
+                        <td class="px-5 py-3"><div class="flex gap-3"><button class="text-primary disabled:opacity-50" disabled="@(Busy || !pending)" @onclick="() => DecideAsync(request, true)">Approve</button><button class="text-red-700 disabled:opacity-50" disabled="@(Busy || !pending)" @onclick="() => DecideAsync(request, false)">Reject</button></div></td>
+                    </tr>
+                }
+            </tbody>
+        </table></div>
+        <div class="flex items-center justify-between gap-3 border-t border-black/10 p-4 text-sm">
+            <span>@Registrations.Total requests · Page @RegistrationPage</span>
+            <div class="flex gap-3"><button disabled="@(Busy || RegistrationPage <= 1)" @onclick="() => ChangeRegistrationPage(-1)">Previous</button><button disabled="@(Busy || (long)RegistrationPage * PageSize >= Registrations.Total)" @onclick="() => ChangeRegistrationPage(1)">Next</button></div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private const int PageSize = 25;
+    private IReadOnlyList<RegistrationLaboratory> Laboratories = [];
+    private RegistryPage<RegistryUnit> Units = new([], 0, 1, PageSize);
+    private RegistryPage<RegistryRegistration> Registrations = new([], 0, 1, PageSize);
+    private string LaboratoryFilter = "", Search = "", StatusFilter = "Pending";
+    private string? Error;
+    private int UnitPage = 1, RegistrationPage = 1;
+    private bool Loading, Mutating, Confirming, Disposed;
+    private bool Busy => Loading || Mutating || Confirming;
+    private readonly CancellationTokenSource Lifetime = new();
+    private Task? Loop;
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) Loop = RefreshLoopAsync();
+        return Task.CompletedTask;
+    }
+    private async Task LoadAsync()
+    {
+        if (Loading || Disposed) return;
+        Loading = true;
+        try
+        {
+            Laboratories = await Registry.LaboratoriesAsync();
+            Units = await Registry.UnitsAsync(int.TryParse(LaboratoryFilter, out var id) ? id : null, Search, UnitPage, PageSize, Lifetime.Token);
+            var lastUnitPage = Math.Max(1, (int)Math.Ceiling(Units.Total / (double)PageSize));
+            if (UnitPage > lastUnitPage)
+            {
+                UnitPage = lastUnitPage;
+                Units = await Registry.UnitsAsync(int.TryParse(LaboratoryFilter, out id) ? id : null, Search, UnitPage, PageSize, Lifetime.Token);
+            }
+            Registrations = await Registry.RegistrationsAsync(StatusFilter, RegistrationPage, PageSize, Lifetime.Token);
+            var lastRegistrationPage = Math.Max(1, (int)Math.Ceiling(Registrations.Total / (double)PageSize));
+            if (RegistrationPage > lastRegistrationPage)
+            {
+                RegistrationPage = lastRegistrationPage;
+                Registrations = await Registry.RegistrationsAsync(StatusFilter, RegistrationPage, PageSize, Lifetime.Token);
+            }
+            Error = null;
+        }
+        catch (OperationCanceledException) when (Disposed) { }
+        catch { Error = "Could not refresh the registry. Previously loaded records remain visible. Try Refresh again."; }
+        finally { Loading = false; }
+    }
+    private async Task FilterUnitsAsync() { UnitPage = 1; await LoadAsync(); }
+    private async Task FilterRegistrationsAsync() { RegistrationPage = 1; await LoadAsync(); }
+    private async Task ChangeUnitPage(int delta) { UnitPage += delta; await LoadAsync(); }
+    private async Task ChangeRegistrationPage(int delta) { RegistrationPage += delta; await LoadAsync(); }
+    private async Task DeleteAsync(RegistryUnit unit)
+    {
+        if (Busy) return;
+        Confirming = true;
+        try
+        {
+            if (!await Dialogs.ShowConfirmDialogAsync($"Delete {unit.Laboratory} unit {unit.UnitNumber}? Its device credentials will be revoked. Historical records will be preserved.", "Delete computer unit")) return;
+            await MutateAsync(() => Registry.DeleteAsync(unit.Id, Lifetime.Token), "Computer unit deleted and credentials revoked.");
+        }
+        finally { Confirming = false; }
+    }
+    private async Task DecideAsync(RegistryRegistration request, bool approve)
+    {
+        if (Busy) return;
+        Confirming = true;
+        var message = approve ? $"Confirm that you have physically checked code {request.Code} on {request.Hostname}, requesting {request.Laboratory} unit {request.UnitNumber}. Approve this device?"
+            : $"Reject registration {request.Code} for {request.Laboratory} unit {request.UnitNumber}?";
+        try
+        {
+            if (!await Dialogs.ShowConfirmDialogAsync(message, approve ? "Verify physical registration code" : "Reject registration")) return;
+            await MutateAsync(() => Registry.DecideAsync(request.Id, approve, approve, Lifetime.Token), approve ? "Registration approved." : "Registration rejected.");
+        }
+        finally { Confirming = false; }
+    }
+    private async Task MutateAsync(Func<Task> action, string success)
+    {
+        Mutating = true;
+        try { await action(); Toasts.Show(success, ToastService.ToastType.Success); }
+        catch (RegistryException ex) { Toasts.Show(ex.Message, ToastService.ToastType.Warning); }
+        catch { Toasts.Show("The operation could not be completed. Refresh and try again.", ToastService.ToastType.Error); }
+        finally { Mutating = false; await LoadAsync(); }
+    }
+    private static string UnitStatus(RegistryUnit u) => !u.Enabled ? "Disabled" : !u.RegisteredAtUtc.HasValue ? "Unregistered" : u.Online ? "Online" : "Offline";
+    private async Task RefreshLoopAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        try { while (await timer.WaitForNextTickAsync(Lifetime.Token)) await InvokeAsync(async () => { if (!Busy) await LoadAsync(); if (!Disposed) StateHasChanged(); }); }
+        catch (OperationCanceledException) when (Disposed) { }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        await Lifetime.CancelAsync();
+        if (Loop is not null) await Loop;
+        Lifetime.Dispose();
+    }
+}

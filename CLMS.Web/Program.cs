@@ -32,9 +32,30 @@ builder.Services.AddOptions<AccountOptions>()
     // Apply after configuration so production cannot opt out of HTTPS through a setting.
     .PostConfigure(options => options.RequireHttps = !isDevelopment);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AccountOptions>>().Value);
+builder.Services.AddHostedService<DeviceChallengeCleanup>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        context.Request.Path.StartsWithSegments("/api/agent")
+            ? RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })
+            : RateLimitPartition.GetNoLimiter("other"));
+    options.OnRejected = async (context, ct) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        await Results.Problem(statusCode: 429, title: "Too many requests.",
+            extensions: new Dictionary<string, object?> { ["code"] = "rate_limited" }).ExecuteAsync(context.HttpContext);
+    };
+    foreach (var (name, limit) in new[] { ("AgentDiscovery", 30), ("AgentRegistration", 5),
+                 ("AgentPolling", 30), ("AgentClaim", 10), ("AgentAuthentication", 30), ("AgentHeartbeat", 10) })
+    {
+        var permits = builder.Configuration.GetValue<int?>($"AgentRateLimits:{name}") ?? limit;
+        options.AddPolicy(name, context => RateLimitPartition.GetFixedWindowLimiter(
+            (context.Connection.RemoteIpAddress?.ToString() ?? "unknown") + ":" +
+                (name is "AgentPolling" or "AgentClaim" ? context.Request.RouteValues["id"]?.ToString() : ""),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    }
     options.AddPolicy("GoogleLink", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -61,6 +82,12 @@ builder.Services
 // For JWT Options Configuration (Grabs config from user secrets)
 builder.Services.AddOptions<JwtOptions>()
     .Bind(builder.Configuration.GetSection("Jwt"))
+    .Validate(AgentTokenService.IsValidSigningConfiguration,
+        "JWT issuer/audience and an HS256/HS384/HS512 signing key of at least 32/48/64 bytes are required.")
+    .ValidateOnStart();
+builder.Services.AddOptions<AgentAuthOptions>().Bind(builder.Configuration.GetSection("AgentAuth"))
+    .Validate(o => o.AccessMinutes is >= 1 and <= 15 &&
+        !string.IsNullOrWhiteSpace(o.Audience) && o.Audience.Length <= 200 && !o.Audience.Any(char.IsControl) && o.Audience != builder.Configuration["Jwt:Audience"], "Invalid agent token settings.")
     .ValidateOnStart();
 
 // authentication && authorization
@@ -79,6 +106,7 @@ builder.Services
     })
     .AddJwtBearer(AuthenticationSchemes.Bearer, o =>
     {
+        o.Events = new JwtBearerEvents { OnTokenValidated = AgentAuthentication.RequireHuman };
         
         o.TokenValidationParameters = new TokenValidationParameters()
         {
@@ -97,6 +125,7 @@ builder.Services
             )
         };
     })
+    .AddJwtBearer(AuthenticationSchemes.AgentBearer, o => AgentAuthentication.Configure(o, builder.Configuration))
     .AddCookie(AuthenticationSchemes.Cookie, options =>
     {
         options.Cookie.Name = "CLMS.Auth";
@@ -167,6 +196,7 @@ builder.Services
 builder.Services
     .AddAuthorization(options =>
     {
+        AgentAuthentication.AddPolicies(options);
         // TODO SuperAdmin: replace Admin with the future SuperAdmin role.
         options.AddPolicy("RegisterUsers", policy => policy.RequireAuthenticatedUser().RequireRole("Admin"));
         options.AddPolicy("JwtPolicy", policy =>
@@ -210,21 +240,22 @@ builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddHostedService<DatabaseBackupWorker>();
 
 var app = builder.Build();
+app.UseMiddleware<UnitRegistryMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler(
+    app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api"), branch => branch.UseExceptionHandler(
         "/Error",
-        createScopeForErrors: true);
+        createScopeForErrors: true));
 
     app.UseHsts();
     app.UseHttpsRedirection();
 }
 
-app.UseStatusCodePagesWithReExecute(
+app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api"), branch => branch.UseStatusCodePagesWithReExecute(
     "/not-found",
-    createScopeForStatusCodePages: true);
+    createScopeForStatusCodePages: true));
 
 app.UseAuthentication();
 app.UseRateLimiter();

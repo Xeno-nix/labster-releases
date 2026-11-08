@@ -5,13 +5,16 @@ namespace CLMS.Agent;
 
 public sealed record UnitAccessEvent(string Event, DateTimeOffset OccurredUtc)
 {
+    /// <summary>Formats an access event with workstation labels and Philippine time for the console prototype.</summary>
     public string Format(string workstation, string laboratory)
     {
+        // Removes line breaks and field separators from display labels before formatting console output.
         static string Label(string value) => value.Replace('\r', ' ').Replace('\n', ' ').Replace('|', '/');
         var time = OccurredUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd hh:mm:ss tt", CultureInfo.InvariantCulture);
         return $"[{time} PH (UTC+8)] Workstation: {Label(workstation)} | Laboratory: {Label(laboratory)} | Event: {Event}";
     }
 
+    /// <summary>Classifies supported interactive Windows logon events, excluding system accounts and preserving the recorded UTC timestamp.</summary>
     public static UnitAccessEvent? FromSecurityXml(string xml)
     {
         XNamespace ns = "http://schemas.microsoft.com/win/2004/08/events/event";

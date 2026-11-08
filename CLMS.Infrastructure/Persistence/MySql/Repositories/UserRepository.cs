@@ -2,13 +2,14 @@
 using CLMS.Domain.Entities.Identity;
 using CLMS.Domain.Enums;
 using CLMS.Domain.ValueObjects;
+using CLMS.Infrastructure.Persistence.MySql.Utils;
 using MySqlConnector;
 
 namespace CLMS.Infrastructure.Persistence.MySql.Repositories;
 
 public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRepository
 {
-    private const string Columns = "user_id,first_name,last_name,middle_name,suffix,email,role_type,password_hash,password_changed,created_at,last_modified_at,deleted_at";
+    private const string Columns = "user_id,first_name,last_name,middle_name,suffix,email,role_type,password_hash,password_changed,created_at,last_modified_at,deleted_at,failed_login_attempts,lockout_end";
 
     public async Task<bool> AddAsync(User user)
     {

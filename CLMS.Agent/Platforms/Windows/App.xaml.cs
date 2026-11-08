@@ -19,6 +19,7 @@ public partial class App : MauiWinUIApplication
 		this.InitializeComponent();
 	}
 
+	/// <summary>Connects the Windows platform bootstrap to the shared MAUI application builder.</summary>
 	protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
 }
 

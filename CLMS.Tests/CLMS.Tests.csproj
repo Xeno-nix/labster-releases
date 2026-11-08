@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.12" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1">
       <PrivateAssets>all</PrivateAssets>
@@ -20,6 +21,8 @@
     <ProjectReference Include="..\CLMS.Application\CLMS.Application.csproj" />
     <ProjectReference Include="..\CLMS.Domain\CLMS.Domain.csproj" />
     <ProjectReference Include="..\CLMS.Web\CLMS.Web.csproj" />
+    <ProjectReference Include="..\CLMS.Agent.Core\CLMS.Agent.Core.csproj" />
+    <ProjectReference Include="..\CLMS.Agent.Service\CLMS.Agent.Service.csproj" />
   </ItemGroup>
 
 </Project>

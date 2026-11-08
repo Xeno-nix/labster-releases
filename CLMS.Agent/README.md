@@ -1,4 +1,14 @@
-# Console unit-access logging prototype
+# CLMS Agent
+
+The MAUI project now provides setup and registration UI for the separate machine
+service. See [Unit Registry deployment and API documentation](../docs/unit-registry.md).
+The service owns authentication, credentials, heartbeats, and Windows monitoring;
+closing the UI does not stop it.
+
+## Console unit-access logging prototype
+
+The original console prototype is preserved in `CLMS.Agent.Console`. Use
+`dotnet run --project CLMS.Agent.Console -- --self-test` or the command below.
 
 Run this agent **on the workstation being monitored**, separately from CLMS.Web.
 It prints the workstation, laboratory, event, and PH timestamp. No database writes,
@@ -7,7 +17,7 @@ server calls, user identities, or separate activity-log page are added.
 In an elevated Windows terminal:
 
 ```powershell
-dotnet run --project CLMS.Agent -- --unit-name LAB1-PC-01 --lab "Computer Laboratory 1"
+dotnet run --project CLMS.Agent.Console -- --unit-name LAB1-PC-01 --lab "Computer Laboratory 1"
 ```
 
 Without `--unit-name`, the Windows computer name is used. Laboratory defaults to
