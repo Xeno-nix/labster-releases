@@ -1,0 +1,41 @@
+@using CLMS.Web.Models
+
+<AccountLayout Title="Confirm 2FA setting">
+    <h1>Confirm 2FA setting</h1>
+    @if (Model.Error is not null) { <p role="alert">@Model.Error</p> }
+    @if (Model.Message is not null) { <p role="status">@Model.Message</p> }
+    @if (Model.Receipt is { } receipt)
+    {
+        <p>You are @(receipt.Enabled ? "enabling" : "disabling") email two-factor authentication.</p>
+        <p>Enter your current password and the six-digit code sent to your registered email.</p>
+        <p>The code expires at @receipt.Challenge.ExpiresAt.ToString("HH:mm:ss") UTC.</p>
+        <p>@(receipt.Enabled ? "Enabling signs you out of existing sessions." : "Disabling keeps this browser signed in and revokes other existing sessions.")</p>
+        <form method="post" action="/account/two-factor/confirm" data-enhance="false">
+            <AntiforgeryToken />
+            <input type="hidden" name="ChallengeCredential" value="@receipt.Challenge.ChallengeCredential" />
+            <label for="current-password">Current password</label>
+            <input id="current-password" name="CurrentPassword" type="password" autocomplete="current-password" maxlength="1024" required />
+            <label for="email-code">Email code</label>
+            <input id="email-code" name="Code" type="text" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" required />
+            <button type="submit">Confirm @(receipt.Enabled ? "enable" : "disable")</button>
+        </form>
+        <form method="post" action="/account/two-factor/resend" data-enhance="false">
+            <AntiforgeryToken />
+            <input type="hidden" name="credential" value="@receipt.Challenge.ChallengeCredential" />
+            <button type="submit" class="secondary" data-resend-at="@receipt.Challenge.ResendAfter.ToString("O")">Resend code</button>
+            <span data-resend-status role="status"></span>
+        </form>
+        <form method="post" action="/account/two-factor/cancel" data-enhance="false">
+            <AntiforgeryToken />
+            <input type="hidden" name="credential" value="@receipt.Challenge.ChallengeCredential" />
+            <button type="submit" class="secondary">Cancel change</button>
+        </form>
+    }
+    <p><a href="/account/settings">Back to account settings</a></p>
+    <p data-submit-status role="status"></p>
+    <script src="/js/account-security.js" defer></script>
+</AccountLayout>
+
+@code {
+    [Parameter, EditorRequired] public TwoFactorConfirmationModel Model { get; set; } = default!;
+}

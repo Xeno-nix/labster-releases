@@ -16,6 +16,12 @@ public static class DependencyInjection
         this IServiceCollection services)
     {
         services
+            .AddSingleton(TimeProvider.System)
+            .AddSingleton<IAccountSecurityCrypto, AccountSecurityCrypto>()
+            .AddSingleton<IResetTokenHasher>(sp => sp.GetRequiredService<IAccountSecurityCrypto>())
+            .AddSingleton<IEmailLoginChallenges, EmailLoginChallenges>()
+            .AddSingleton<IPasswordRecoveryQueue, PasswordRecoveryQueue>()
+            .AddScoped<IResetTokenRepository, ResetTokenRepository>()
             .AddScoped<CLMS.Application.UnitRegistry.IUnitRegistryRepository, UnitRegistryRepository>()
             .AddScoped<CLMS.Application.UnitRegistry.IAgentTokenService, AgentTokenService>()
             .AddSingleton<CLMS.Application.UnitRegistry.IDeviceProofVerifier, DeviceProofVerifier>()

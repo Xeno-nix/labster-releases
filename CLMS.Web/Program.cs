@@ -22,6 +22,9 @@ using Microsoft.AspNetCore.DataProtection;
 
 
 var builder = WebApplication.CreateBuilder(args);
+// Reset links carry bearer credentials. Prevent request URL and action-argument logging.
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker", LogLevel.Information);
 var isDevelopment = builder.Environment.IsDevelopment();
 var cookieSecurePolicy = isDevelopment ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
 builder.Services.AddHttpContextAccessor();
@@ -33,6 +36,8 @@ builder.Services.AddOptions<AccountOptions>()
     .PostConfigure(options => options.RequireHttps = !isDevelopment);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AccountOptions>>().Value);
 builder.Services.AddHostedService<DeviceChallengeCleanup>();
+builder.Services.AddHostedService<PasswordRecoveryWorker>();
+builder.Services.AddScoped<HumanSessionValidator>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -41,12 +46,7 @@ builder.Services.AddRateLimiter(options =>
             ? RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })
             : RateLimitPartition.GetNoLimiter("other"));
-    options.OnRejected = async (context, ct) =>
-    {
-        context.HttpContext.Response.Headers.RetryAfter = "60";
-        await Results.Problem(statusCode: 429, title: "Too many requests.",
-            extensions: new Dictionary<string, object?> { ["code"] = "rate_limited" }).ExecuteAsync(context.HttpContext);
-    };
+    options.OnRejected = PasswordRecoveryRateLimit.OnRejectedAsync;
     foreach (var (name, limit) in new[] { ("AgentDiscovery", 30), ("AgentRegistration", 5),
                  ("AgentPolling", 30), ("AgentClaim", 10), ("AgentAuthentication", 30), ("AgentHeartbeat", 10) })
     {
@@ -59,6 +59,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("GoogleLink", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy("PasswordRecovery", PasswordRecoveryRateLimit.ForClient);
 });
 
 // Add services to the container.
@@ -106,7 +107,7 @@ builder.Services
     })
     .AddJwtBearer(AuthenticationSchemes.Bearer, o =>
     {
-        o.Events = new JwtBearerEvents { OnTokenValidated = AgentAuthentication.RequireHuman };
+        o.Events = new JwtBearerEvents { OnTokenValidated = HumanSessionValidator.ValidateBearerAsync };
         
         o.TokenValidationParameters = new TokenValidationParameters()
         {
@@ -129,6 +130,7 @@ builder.Services
     .AddCookie(AuthenticationSchemes.Cookie, options =>
     {
         options.Cookie.Name = "CLMS.Auth";
+        options.Events.OnValidatePrincipal = HumanSessionValidator.ValidateCookieAsync;
         options.LoginPath = "/login";
         options.Cookie.Path = "/";
         options.AccessDeniedPath = "/access-denied";
@@ -143,11 +145,21 @@ builder.Services
     .AddCookie(AuthenticationSchemes.PasswordChange, options =>
     {
         options.Cookie.Name = "CLMS.PasswordChange";
+        options.Events.OnValidatePrincipal = HumanSessionValidator.ValidateCookieAsync;
         options.LoginPath = "/login";
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = cookieSecurePolicy;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+        options.SlidingExpiration = false;
+    })
+    .AddCookie(AuthenticationSchemes.TwoFactor, options =>
+    {
+        options.Cookie.Name = "CLMS.TwoFactor";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = cookieSecurePolicy;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
         options.SlidingExpiration = false;
     })
     .AddCookie(AuthenticationSchemes.ExternalCookie, options =>
@@ -219,6 +231,7 @@ builder.Services.AddHttpClient<EmailService>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<DialogService>();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, HumanRevalidatingStateProvider>();
 
 builder.Services.AddOptions<DatabaseBackupOptions>()
     .Bind(builder.Configuration.GetSection("DatabaseBackup"))
@@ -240,6 +253,18 @@ builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddHostedService<DatabaseBackupWorker>();
 
 var app = builder.Build();
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (!isDevelopment && !context.Request.IsHttps && (path.StartsWithSegments("/auth") || path.StartsWithSegments("/account") ||
+        path.StartsWithSegments("/api/auth") || path.StartsWithSegments("/forgot-password") || path.StartsWithSegments("/reset-password")))
+    {
+        context.Response.StatusCode = 400;
+        await context.Response.WriteAsync("HTTPS is required.");
+        return;
+    }
+    await next(context);
+});
 app.UseMiddleware<UnitRegistryMiddleware>();
 
 // Configure the HTTP request pipeline.

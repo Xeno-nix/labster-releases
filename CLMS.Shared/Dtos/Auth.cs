@@ -20,7 +20,12 @@ public sealed record UserClaimsDto(
     string Email,
     Role UserRole,
     bool PasswordChanged = true
-);
+)
+{
+    public string SecurityStamp { get; init; } = "";
+    public bool TwoFactorVerified { get; init; }
+    public bool TwoFactorEnabled { get; init; } = true;
+}
 
 /// <summary>The account is saved even when delivery fails. Never return its password in an API response.</summary>
 public sealed record RegistrationResultDto(Guid UserId, bool EmailSent);

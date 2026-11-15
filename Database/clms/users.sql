@@ -15,6 +15,9 @@
     created_at             datetime   default CURRENT_TIMESTAMP null,
     last_modified_at       datetime   default CURRENT_TIMESTAMP null,
     password_changed       tinyint(1) default 0                 not null,
+    failed_login_attempts   int default 0                        not null,
+    lockout_end            datetime                             null,
+    two_factor_enabled     boolean default true                 not null,
     constraint email
         unique (email)
 );

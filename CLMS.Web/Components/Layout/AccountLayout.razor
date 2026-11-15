@@ -11,6 +11,12 @@
         h1 { font-size:1.6rem; margin-top:0; } h1,a { color:#8b1538; }
         label,input { display:block; } input { box-sizing:border-box; width:100%; font:inherit; margin:.25rem 0 1rem; padding:.6rem; border:1px solid #aaa; border-radius:6px; }
         button { font:inherit; border:0; padding:.7rem 1rem; border-radius:6px; background:#8b1538; color:white; cursor:pointer; }
+        button:disabled { background:#d4d4d8; color:#52525b; cursor:not-allowed; opacity:.8; }
+        .recovery-send { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-width:12rem; }
+        .cooldown-clock { width:1.15rem; height:1.15rem; flex:none; }
+        .recovery-send:not(:disabled) .cooldown-clock { display:none; }
+        .cooldown-status { display:block; margin-top:.5rem; font-size:.9rem; color:#52525b; }
+        .password-help { font-size:.9rem; color:#52525b; margin-top:-.5rem; }
         .secondary { margin-top:.75rem; background:#eee; color:#333; } [role=alert] { padding:.75rem; background:#fff0f0; color:#9d1616; border-radius:6px; }
     </style>
 </head>
