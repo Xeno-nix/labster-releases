@@ -1,0 +1,10 @@
+@page "/account/settings"
+@attribute [Authorize]
+
+<PageTitle>Labster - Account settings</PageTitle>
+<main class="mx-auto max-w-2xl px-6 py-8">
+    <h1 class="mb-6 text-2xl text-primary">Account settings</h1>
+    <a class="text-primary underline" href="/account/change-password">Change password</a>
+    <p class="mt-4">To link your matching organization Google account, use Sign in with Google and confirm your Labster password.</p>
+    <a class="mt-2 inline-block text-primary underline" href="/auth/google/start">Sign in with Google</a>
+</main>

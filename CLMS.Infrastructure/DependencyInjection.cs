@@ -24,6 +24,7 @@ public static class DependencyInjection
             .AddScoped<IUserRepository,UserRepository>()
             .AddScoped<IRefreshTokenRepository,RefreshTokenRepository>() 
             .AddScoped<IRefreshTokenRepository,RefreshTokenRepository>()
+            .AddScoped<IExternalIdentityRepository, ExternalIdentityRepository>()
             
             .AddScoped<IDbConnectionFactory, DbConnectionFactoryAdapter>()
             .AddScoped<IEnrollmentRepository, EnrollmentRepository>()
@@ -42,8 +43,9 @@ public static class DependencyInjection
             .AddScoped<ILaboratoryRepository,LaboratoryRepository>()
             .AddScoped<ICourseRepository,CourseRepository>()
             .AddScoped<IAcademicTermRepository,AcademicTermRepository>()
-            .AddScoped<IEmailService,EmailService>()
             ;
+        
+        services.AddHttpClient<IEmailService, EmailService>(client => client.Timeout = TimeSpan.FromSeconds(20));
   
         return services;
     }

@@ -20,16 +20,15 @@ public class EmailService : IEmailService
     public async Task SendEmailAsync(
         string to,
         string subject,
-        string body)
+        string body,
+        CancellationToken cancellationToken = default)
     {
         var apiKey = _configuration["Brevo:ApiKey"];
         var senderEmail = _configuration["Brevo:SenderEmail"];
         var senderName = _configuration["Brevo:SenderName"];
 
-        _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Add(
-            "api-key",
-            apiKey);
+        if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(senderEmail))
+            throw new InvalidOperationException("Configure Brevo API key and sender before sending email.");
 
         var emailData = new
         {
@@ -52,10 +51,11 @@ public class EmailService : IEmailService
             htmlContent = body
         };
 
-        var response = await _httpClient.PostAsJsonAsync(
-            "https://api.brevo.com/v3/smtp/email",
-            emailData);
 
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.brevo.com/v3/smtp/email");
+        request.Headers.Add("api-key", apiKey);
+        request.Content = JsonContent.Create(emailData);
+        using var response = await _httpClient.SendAsync(request,cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 }

@@ -163,6 +163,7 @@
            Laravel's session('user_name', 'Administrator') etc. would show when
            unauthenticated. Logout button is not yet wired to anything. *@
         <div class="sidebar-footer p-4 border-t border-black/10">
+            <a href="/account/settings" class="block px-4 py-2 text-sm text-primary">Account settings</a>
             <div class="sidebar-profile flex items-center gap-3 px-4 py-3">
                 <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
                     AD
@@ -174,6 +175,7 @@
                 <form
                     method="post"
                     action="/auth/cookie-logout">
+                    <AntiforgeryToken />
                     <button type="submit" title="Logout"
                             class="p-2 rounded-lg hover:bg-surface transition-colors flex-shrink-0 cursor-pointer">
                         <svg class="w-4 h-4 text-primary" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -222,11 +224,11 @@
 
 </div>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+@* <div id="blazor-error-ui" data-nosnippet> *@
+@*     An unhandled error has occurred. *@
+@*     <a href="." class="reload">Reload</a> *@
+@*     <span class="dismiss">🗙</span> *@
+@* </div> *@
 
 @code {
     private bool _sidebarCollapsed;

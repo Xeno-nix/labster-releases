@@ -1,11 +1,13 @@
-﻿@page "/admin/users"
+@page "/admin/users"
 @page "/admin/users/register"
 @page "/admin/users/view"
 
-@attribute [Authorize]
+@attribute [Authorize(Policy = "RegisterUsers")]
 @rendermode InteractiveServer
+@implements IDisposable
 @using System.Security.Claims
 @using CLMS.Application.Identity.Services
+@using CLMS.Domain.Enums
 @using CLMS.Web.Components.Modals;
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.WebUtilities;
@@ -16,84 +18,98 @@
 
 <PageTitle>User Management</PageTitle>
 
-<div class="min-h-screen bg-white font-sans text-gray-800">
-    
-    <header class="border-b border-gray-200 bg-white">
-        <div class="mx-auto max-w-7xl px-6 py-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-primary text-2xl mb-1">User Management</h1>
-                </div>
+@{
+    var filteredUsers = FilteredUsers;
+    var totalPages = Math.Max(1, (int)Math.Ceiling(filteredUsers.Count / (double)PageSize));
+    var currentPage = Math.Clamp(_currentPage, 1, totalPages);
+    var pageUsers = filteredUsers.Skip((currentPage - 1) * PageSize).Take(PageSize).ToList();
+    var firstRow = filteredUsers.Count == 0 ? 0 : (currentPage - 1) * PageSize + 1;
+    var lastRow = Math.Min(currentPage * PageSize, filteredUsers.Count);
+    var lastPageButton = Math.Min(totalPages, Math.Max(1, currentPage - 2) + 4);
+    var firstPageButton = Math.Max(1, lastPageButton - 4);
+}
 
-                <!-- Register User -->
-                <button
-                    @onclick="OpenRegisterModal"
-                    class="rounded-lg bg-primary px-4 py-2.5
-                           text-sm font-medium text-white
-                           hover:bg-primary-dark">
-                    Register User
-                </button>
-            </div>
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h1 class="text-primary text-2xl mb-1">User Management</h1>
+            <p class="text-muted text-sm">Manage registered users and their roles</p>
         </div>
-    </header>
-    
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <button type="button"
+                    @onclick="OpenRegisterModal"
+                    class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20">
+                Register User
+            </button>
+        </div>
+    </div>
 
-    <RegisterModal
-        @bind-IsOpen="_showRegisterModal"
-        OnRegistered="LoadUsersAsync"/>
-    
-    <ViewUserModal
-        @bind-IsOpen="_showViewUserModal"
-        @bind-UserId="SelectedUserId"
-        />
+    <RegisterModal @bind-IsOpen="_showRegisterModal" OnRegistered="LoadUsersAsync" />
+    <ViewUserModal @bind-IsOpen="_showViewUserModal" @bind-UserId="SelectedUserId" />
 
-    
-    <main class="mx-auto max-w-7xl px-6 py-6">
-        <div class="overflow-hidden rounded-lgborder border-gray-200 bg-white">
-            
-            <!-- Table -->
-            <div class="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-gray-50 text-xs
-                                   uppercase text-muted">
+    <div class="bg-white rounded-lg border border-black/10 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-black/10 flex items-center gap-3 flex-wrap">
+            <div class="relative flex-1 min-w-[200px] max-w-md">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" aria-hidden="true">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.3-4.3" />
+                    </svg>
+                </span>
+                <input type="search" @bind="Search" @bind:event="oninput"
+                       aria-label="Search users by name or email" placeholder="Search by name or email..."
+                       class="w-full pl-10 pr-4 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+            </div>
+            <select @bind="RoleFilter" aria-label="Filter users by role"
+                    class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
+                <option value="">All Roles</option>
+                @foreach (var role in Enum.GetNames<Role>())
+                {
+                    <option value="@role">@role</option>
+                }
+            </select>
+            @if (HasFilters)
+            {
+                <button type="button" @onclick="ClearFilters"
+                        class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-muted">
+                    Clear
+                </button>
+            }
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-surface">
                     <tr>
-                        <th class="w-1/3 px-5 py-3">Name</th>
-                        <th class="w-1/3 px-5 py-3">Email</th>
-                        <th class="px-5 py-3">Role</th>
-                        <th class="px-5 py-3 text-center"></th>
+                        <th scope="col" class="w-1/3 px-5 py-3 text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Name</th>
+                        <th scope="col" class="w-1/3 px-5 py-3 text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Email</th>
+                        <th scope="col" class="px-5 py-3 text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Role</th>
+                        <th scope="col" class="px-5 py-3 text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide text-right">Actions</th>
                     </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                    @if (_users.Count <= 0)
+                </thead>
+                <tbody class="divide-y divide-black/5">
+                    @if (filteredUsers.Count == 0)
                     {
                         <tr>
-                            <td class="px-5 py-4 text-gray-500">There are currently no registered users...</td>
+                            <td colspan="4" class="px-5 py-12 text-center text-sm text-muted">
+                                @(_users.Count == 0 ? "No registered users to display." : "No users match your search or role filter.")
+                            </td>
                         </tr>
                     }
                     else
                     {
-                        @foreach (var user in _users)
+                        @foreach (var user in pageUsers)
                         {
-                            <tr class="hover:bg-gray-50">
-                                <!-- Name -->
-                                <td class="px-5 py-4">
-                                    <span class="font-medium text-gray-900">@user.FullName</span>
-                                </td>
-                                <!-- Email -->
-                                <td class="px-5 py-4 text-muted">@user.Email</td>
-                                <!-- Role -->
-                                <td class="px-5 py-4">
-                                    @user.Role
-                                </td>
-                                <!-- Actions -->
-                                <td class="px-5 py-4">
-                                    <div class="flex justify-center gap-2">
-                                        <button
-                                            @onclick="() => ViewUser(user.Id)"
-                                            class="rounded-md px-3 py-1.5
-                                                       text-xs font-medium
-                                                       text-primary
-                                                       hover:bg-primary/10">
+                            <tr @key="user.Id" class="hover:bg-surface transition-colors">
+                                <td class="px-5 py-3 text-sm font-medium text-[#2c2c2c]">@user.FullName</td>
+                                <td class="px-5 py-3 text-sm text-muted">@user.Email</td>
+                                <td class="px-5 py-3 text-sm text-[#2c2c2c]">@user.Role</td>
+                                <td class="px-5 py-3">
+                                    <div class="flex justify-end">
+                                        <button type="button"
+                                                @onclick="() => ViewUser(user.Id)"
+                                                aria-label="View @user.FullName"
+                                                class="px-3 py-1.5 border border-black/10 rounded-lg text-sm text-primary hover:bg-surface transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20">
                                             View
                                         </button>
                                     </div>
@@ -101,13 +117,63 @@
                             </tr>
                         }
                     }
-                    </tbody>
-                </table>
-            </div>
+                </tbody>
+            </table>
         </div>
-    </main>
+        <div class="p-4 border-t border-black/10 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
+                <p class="text-sm text-muted" role="status">
+                    Showing @firstRow–@lastRow of @filteredUsers.Count @(filteredUsers.Count == 1 ? "user" : "users")
+                    @if (HasFilters)
+                    {
+                        <span>(@_users.Count total)</span>
+                    }
+                </p>
+                <label class="flex items-center gap-2 text-sm text-muted">
+                    Rows per page
+                    <select @bind="PageSize"
+                            class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                </label>
+            </div>
+            @if (totalPages > 1)
+            {
+                <nav aria-label="Users table pagination" class="flex items-center gap-1 flex-wrap">
+                    @if (currentPage > 1)
+                    {
+                        <button type="button" @onclick="() => ChangePage(currentPage - 1)"
+                                class="px-3 py-1.5 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-[#2c2c2c]">
+                            Previous
+                        </button>
+                    }
+                    @for (var page = firstPageButton; page <= lastPageButton; page++)
+                    {
+                        var pageNumber = page;
+                        @if (pageNumber == currentPage)
+                        {
+                            <span aria-current="page" class="px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium">@pageNumber</span>
+                        }
+                        else
+                        {
+                            <button type="button" @onclick="() => ChangePage(pageNumber)" aria-label="Go to page @pageNumber"
+                                    class="px-3 py-1.5 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-[#2c2c2c]">@pageNumber</button>
+                        }
+                    }
+                    @if (currentPage < totalPages)
+                    {
+                        <button type="button" @onclick="() => ChangePage(currentPage + 1)"
+                                class="px-3 py-1.5 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-[#2c2c2c]">
+                            Next
+                        </button>
+                    }
+                </nav>
+            }
+        </div>
+    </div>
 </div>
-
 
 @code {
 
@@ -115,6 +181,48 @@
     private bool _showRegisterModal;
     private bool _showViewUserModal;
     private Guid? _currentUserId;
+    private string _search = "";
+    private string _roleFilter = "";
+    private int _pageSize = 10;
+    private int _currentPage = 1;
+
+    private string Search
+    {
+        get => _search;
+        set { _search = value; _currentPage = 1; }
+    }
+
+    private string RoleFilter
+    {
+        get => _roleFilter;
+        set { _roleFilter = value; _currentPage = 1; }
+    }
+
+    private int PageSize
+    {
+        get => _pageSize;
+        set { _pageSize = value; _currentPage = 1; }
+    }
+
+    private bool HasFilters => !string.IsNullOrWhiteSpace(Search) || !string.IsNullOrEmpty(RoleFilter);
+
+    private List<UserRow> FilteredUsers => _users
+        .Where(user => string.IsNullOrWhiteSpace(Search) ||
+                       user.FullName.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                       user.Email.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase))
+        .Where(user => string.IsNullOrEmpty(RoleFilter) || user.Role == RoleFilter)
+        .OrderBy(user => user.FullName, StringComparer.OrdinalIgnoreCase)
+        .ThenBy(user => user.Email, StringComparer.OrdinalIgnoreCase)
+        .ThenBy(user => user.Id)
+        .ToList();
+
+    private void ChangePage(int page) => _currentPage = page;
+
+    private void ClearFilters()
+    {
+        Search = "";
+        RoleFilter = "";
+    }
     
     [Parameter]
     public Guid? SelectedUserId { get; set; }

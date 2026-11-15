@@ -1,4 +1,4 @@
-﻿@rendermode InteractiveServer
+@rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
 @using CLMS.Shared.Dtos
@@ -6,13 +6,14 @@
 @using CLMS.Domain.Enums
 
 @inject AuthenticationService AuthService;
+@inject CLMS.Web.Services.ToastService Toast;
 @inject NavigationManager Navigation;
 
 @if (IsOpen)
 {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
 
-        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+        <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl">
             <div class="flex items-center justify-between
                         border-b border-gray-200 px-6 py-4">
                 <h2 class="text-xl text-gray-900">Register User</h2>
@@ -35,6 +36,7 @@
                                 <label class="mb-1 block text-sm font-medium text-gray-700">First Name</label>
 
                                 <InputText
+                                    readonly="@AccountCreated"
                                     @bind-Value="Model.FirstName"
                                     class="w-full rounded-lg border border-gray-300
                                            px-3 py-2 text-sm outline-none
@@ -54,6 +56,7 @@
                                 </label>
 
                                 <InputText
+                                    readonly="@AccountCreated"
                                     @bind-Value="Model.LastName"
                                     class="w-full rounded-lg border border-gray-300
                                            px-3 py-2 text-sm outline-none
@@ -76,6 +79,7 @@
                                 </label>
 
                                 <InputText
+                                    readonly="@AccountCreated"
                                     @bind-Value="Model.MiddleName"
                                     class="w-full rounded-lg border border-gray-300
                                            px-3 py-2 text-sm outline-none
@@ -94,6 +98,7 @@
                                 </label>
 
                                 <InputText
+                                    readonly="@AccountCreated"
                                     @bind-Value="Model.Suffix"
                                     placeholder="Jr., Sr., III"
                                     class="w-full rounded-lg border border-gray-300
@@ -122,6 +127,7 @@
 
                                 <InputText
                                     type="email"
+                                    readonly="@AccountCreated"
                                     @bind-Value="Model.Email"
                                     class="w-full rounded-lg border border-gray-300
                                            px-3 py-2 text-sm outline-none
@@ -140,7 +146,7 @@
                                     Role
                                 </label>
 
-                                <InputSelect
+                                <InputSelect disabled="@AccountCreated"
                                     @bind-Value="Model.UserRole"
                                     class="w-full rounded-lg border border-gray-300
                                            bg-white px-3 py-2 text-sm outline-none
@@ -159,49 +165,27 @@
                             </div>
 
 
-                            <!-- Password -->
-                            <div class="sm:col-span-2">
-                                <label class="mb-1 block text-sm font-medium text-gray-700">
-                                    Password
-                                </label>
 
-                                <InputText
-                                    type="password"
-                                    @bind-Value="Model.Password"
-                                    class="w-full rounded-lg border border-gray-300
-                                           px-3 py-2 text-sm outline-none
-                                           focus:border-primary
-                                           focus:ring-2 focus:ring-primary/20" />
-
-                                <ValidationMessage
-                                    For="() => Model.Password"
-                                    class="mt-1 text-xs text-error" />
-                            </div>
-                            
-                            <!-- Confirm Password -->
-                            <div class="sm:col-span-2">
-                                <label class="mb-1 block text-sm font-medium text-gray-700">
-                                    Confirm Password
-                                </label>
-
-                                <InputText
-                                    type="password"
-                                    @bind-Value="Model.ConfirmPassword"
-                                    class="w-full rounded-lg border border-gray-300
-                                           px-3 py-2 text-sm outline-none
-                                           focus:border-primary
-                                           focus:ring-2 focus:ring-primary/20" />
-
-                                <ValidationMessage
-                                    For="() => Model.ConfirmPassword"
-                                    class="mt-1 text-xs text-error" />
-                            </div>
 
                         </div>
 
                     </div>
 
 
+                    <div class="grid grid-cols-1 gap-4 px-0 sm:grid-cols-2">
+                        <div>
+                            <label for="register-password" class="mb-1 block text-sm font-medium">Initial password</label>
+                            <InputText id="register-password" type="@(ShowPasswords ? "text" : "password")" @bind-Value="Model.Password" readonly="@AccountCreated" autocomplete="new-password" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                            <ValidationMessage For="() => Model.Password" class="mt-1 text-xs text-error" />
+                        </div>
+                        <div>
+                            <label for="register-confirm-password" class="mb-1 block text-sm font-medium">Confirm password</label>
+                            <InputText id="register-confirm-password" type="@(ShowPasswords ? "text" : "password")" @bind-Value="Model.ConfirmPassword" readonly="@AccountCreated" autocomplete="new-password" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                            <ValidationMessage For="() => Model.ConfirmPassword" class="mt-1 text-xs text-error" />
+                        </div>
+                        <button type="button" aria-pressed="@ShowPasswords" @onclick="() => ShowPasswords = !ShowPasswords" class="text-left text-sm text-primary underline">@(ShowPasswords ? "Hide passwords" : "Show passwords")</button>
+                    </div>
+                    <p class="text-sm text-muted">The account is created immediately. Its credentials and support contact are emailed to the user, who must change the initial password when signing in.</p>
                     <!-- =================================================
                          APPLICATION ERROR
                          ================================================= -->
@@ -235,7 +219,7 @@
 
                     <button
                         type="submit"
-                        disabled="@IsSubmitting"
+                        disabled="@(IsSubmitting || AccountCreated)"
                         class="rounded-lg bg-primary px-4 py-2.5
                                text-sm font-medium text-white
                                hover:bg-primary-dark
@@ -280,7 +264,8 @@
     private RegisterFormModel Model = new();
     private string? ErrorMessage;
     private bool IsSubmitting;
-
+    private bool AccountCreated;
+    private bool ShowPasswords;
 
     // =============================================================
     // SUBMIT
@@ -288,7 +273,7 @@
     
     private async Task HandleSubmit()
     {
-        if (IsSubmitting)
+        if (IsSubmitting || AccountCreated)
             return;
 
         IsSubmitting = true;
@@ -306,15 +291,21 @@
                 Model.Password
             );
 
-            await AuthService.RegisterAsync(request);
+            var result = await AuthService.RegisterAsync(request);
+            AccountCreated = true;
 
             // Tell parent that registration succeeded.
             await OnRegistered.InvokeAsync();
 
-            // Close modal.
+            if (!result.EmailSent)
+            {
+                ErrorMessage = "Account created, but the credentials email could not be sent. Record these credentials and contact the user. Do not register this account again.";
+                return;
+            }
+            Toast.Show("Account created. Credentials email sent.", CLMS.Web.Services.ToastService.ToastType.Success);
             await Close();
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
         {
             // For example:
             // "A user with this email already exists."
@@ -343,7 +334,6 @@
         public string Email { get; set; } = string.Empty;
 
         public Role UserRole { get; set; }
-
         [Required(ErrorMessage = "Password is required.")]
         [MinLength(8)]
         public string Password { get; set; } = string.Empty;
@@ -361,6 +351,8 @@
     {
         Navigation.NavigateTo("/admin/users");
         Model = new();
+        AccountCreated = false;
+        ShowPasswords = false;
         ErrorMessage = null;
 
         await IsOpenChanged.InvokeAsync(false);

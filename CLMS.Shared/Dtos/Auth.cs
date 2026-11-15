@@ -18,8 +18,14 @@ public sealed record AuthenticationRequestDto(
 public sealed record UserClaimsDto(
     Guid UserId,
     string Email,
-    Role UserRole
+    Role UserRole,
+    bool PasswordChanged = true
 );
+
+/// <summary>The account is saved even when delivery fails. Never return its password in an API response.</summary>
+public sealed record RegistrationResultDto(Guid UserId, bool EmailSent);
+
+public sealed record ChangePasswordDto(string CurrentPassword, string NewPassword, string ConfirmPassword);
 
 public sealed record AuthTokensDto(
     string AccessToken,
