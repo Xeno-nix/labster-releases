@@ -9,10 +9,13 @@ public sealed class UnitMonitoringRepository(MySqlConnectionFactory connectionFa
 {
     public async Task<IReadOnlyList<UnitMonitoringDTO>> GetAllAsync(CancellationToken cancellationToken = default)
     {
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
         // Select one open session per PC, including legacy rows, without duplicating cards.
         const string sql = """
             SELECT u.computer_unit_id, u.unit_name, u.unit_number, u.laboratory_id,
-                   l.lab_name, u.serial_number, a.ip_address, a.last_heartbeat,
+                   l.lab_name, a.ip_address, a.last_heartbeat,
                    a.is_online, s.time_in AS session_started,
                    CASE WHEN s.student_id IS NOT NULL
                         THEN NULLIF(TRIM(CONCAT_WS(' ', st.first_name, st.last_name)), '')
@@ -33,8 +36,6 @@ public sealed class UnitMonitoringRepository(MySqlConnectionFactory connectionFa
             ORDER BY l.lab_name, u.unit_number, u.unit_name;
             """;
 
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
         await using var command = new MySqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var units = new List<UnitMonitoringDTO>();
@@ -47,7 +48,6 @@ public sealed class UnitMonitoringRepository(MySqlConnectionFactory connectionFa
                 Number = reader.GetByte("unit_number"),
                 LaboratoryId = reader.GetInt32("laboratory_id"),
                 Laboratory = reader.GetString("lab_name"),
-                SerialNumber = ReadText(reader, "serial_number"),
                 IpAddress = ReadText(reader, "ip_address"),
                 LastHeartbeatUtc = ReadUtc(reader, "last_heartbeat"),
                 IsOnline = !reader.IsDBNull(reader.GetOrdinal("is_online")) && reader.GetBoolean("is_online"),

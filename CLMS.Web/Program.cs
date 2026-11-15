@@ -11,6 +11,9 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using CLMS.Infrastructure.DatabaseMaintenance;
+using CLMS.Shared.Dtos;
+using CLMS.Web.Hubs;
+using CLMS.Web.Services.AgentConnections;
 
 
 
@@ -109,6 +112,8 @@ builder.Services.AddHttpClient<EmailService>();
 
 // web stuff
 builder.Services.AddScoped<ToastService>();
+builder.Services.AddSingleton<CLMS.Web.Services.ScreenCasting.LabScreenCastService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<CLMS.Web.Services.ScreenCasting.LabScreenCastService>());
 builder.Services.AddScoped<DialogService>();
 builder.Services.AddCascadingAuthenticationState();
 
@@ -131,6 +136,8 @@ builder.Services.AddOptions<DatabaseBackupOptions>()
 builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddHostedService<DatabaseBackupWorker>();
 
+builder.Services.AddAgentConnections(builder.Configuration);
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -143,9 +150,11 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseStatusCodePagesWithReExecute(
-    "/not-found",
-    createScopeForStatusCodePages: true);
+// Hub clients must receive protocol status codes, not an HTML page re-execution.
+// Re-executing a failed negotiate POST against a Razor page can mask a 401 as a 400.
+app.UseWhen(context => !context.Request.Path.StartsWithSegments(AgentConnectionProtocol.HubPath)
+    && !context.Request.Path.StartsWithSegments(ScreenCastProtocol.FrameRoutePrefix), branch =>
+    branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 
 app.UseHttpsRedirection();
 
@@ -154,6 +163,12 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapControllers();
+app.MapHub<AgentConnectionHub>(AgentConnectionProtocol.HubPath,
+    options =>
+    {
+        options.CloseOnAuthenticationExpiration = true;
+        options.ApplicationMaxBufferSize = ScreenCastProtocol.MaximumHubMessageBytes;
+    }).DisableAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

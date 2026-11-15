@@ -8,6 +8,7 @@ public abstract class MonitoringPageBase : ComponentBase, IDisposable
 {
     [Inject] protected IUnitMonitoringRepository MonitoringRepository { get; set; } = default!;
     [Inject] protected ILogger<MonitoringPageBase> Logger { get; set; } = default!;
+    [Inject] protected CLMS.Web.Services.AgentConnections.AgentPresenceStore AgentPresence { get; set; } = default!;
 
     private IReadOnlyList<UnitMonitoringDTO> LiveUnits = [];
     private IReadOnlyDictionary<Guid, UnitMonitoringStatus> PreviewStatuses = new Dictionary<Guid, UnitMonitoringStatus>();
@@ -39,7 +40,9 @@ public abstract class MonitoringPageBase : ComponentBase, IDisposable
             var units = await MonitoringRepository.GetAllAsync(Lifetime.Token);
             if (Disposed)
                 return;
-            LiveUnits = units;
+            var presence = AgentPresence.Snapshot();
+            LiveUnits = units.Select(unit => CLMS.Web.Models.UnitMonitoringPresence.Apply(unit,
+                presence.GetValueOrDefault(unit.Id))).ToList();
             LastUpdatedUtc = DateTime.UtcNow;
             Error = null;
         }
