@@ -33,7 +33,8 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
         {
             await DisconnectCoreAsync();
             Publish(new("Connecting"));
-            lifetime = new CancellationTokenSource();
+            // Initial token acquisition must honor the connection-attempt deadline and Pause.
+            lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             var connectionLifetime = lifetime.Token;
             var hub = new HubConnectionBuilder()
                 .WithUrl(new Uri(server, AgentConnectionProtocol.HubPath.TrimStart('/')), options =>

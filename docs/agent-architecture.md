@@ -113,7 +113,7 @@ Generated `App.xaml.xsg.cs` remains MAUI output. Edit authored XAML/C#; never co
 ### Integration verification (2026-11-15, Windows)
 
 - Isolated MAUI Windows build succeeded, as did the device-key check harness build.
-- Filtered .NET regression suite: 130 discovered, 127 passed, three native opt-in checks skipped. Registry/JWT separation, cached-hub and frame-read revocation, enrollment/rotation recovery, token renewal/reset, runtime cancellation, presence, capture lifecycle, and lab/monitoring behavior are covered.
+- Filtered .NET regression suite: 131 discovered, 128 passed, three native opt-in checks skipped. Registry/JWT separation, cached-hub and frame-read revocation, enrollment/rotation recovery, token renewal/reset, runtime cancellation, cancellation during concrete transport token acquisition, presence, capture lifecycle, and lab/monitoring behavior are covered.
 - Browser verification: five lab-lease tests, ten preview tests, and screen-wall sizing checks passed. The preview test harness supplies a deterministic mock Blob body rather than depending on Node 26 native stream scheduling.
 - A temporary current-user Windows key was created, reopened and used to verify signatures in separate processes, then deleted. Private export denial is also checked.
 - XML, conflict-marker, and relative documentation-link checks passed. MySQL/native database-tool integration, interactive native capture/menu/startup, and Mac builds/runtime checks were not performed. No installed service, live registry, or production schema was modified.

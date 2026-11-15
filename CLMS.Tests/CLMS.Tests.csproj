@@ -33,6 +33,7 @@
     <Compile Include="..\CLMS.Agent\Models\AgentConnectionSnapshot.cs" Link="Agent\AgentConnectionSnapshot.cs" />
     <Compile Include="..\CLMS.Agent\Services\AgentRuntimeService.cs" Link="Agent\AgentRuntimeService.cs" />
     <Compile Include="..\CLMS.Agent\Services\AgentConnectionErrors.cs" Link="Agent\AgentConnectionErrors.cs" />
+    <Compile Include="../CLMS.Agent/Services/AgentConnectionService.cs" Link="Agent/AgentConnectionService.cs" />
     <Compile Include="..\CLMS.Agent\Services\IAgentConnectionTransport.cs" Link="Agent\IAgentConnectionTransport.cs" />
     <Compile Include="../CLMS.Agent/Services/Identity/*.cs" Exclude="../CLMS.Agent/Services/Identity/UserAgentVault.cs" Link="Agent/Identity/%(Filename)%(Extension)" />
     <Compile Include="../CLMS.Agent/Services/Monitoring/*.cs" Exclude="../CLMS.Agent/Services/Monitoring/AccessMonitoringService.cs" Link="Agent/Monitoring/%(Filename)%(Extension)" />
