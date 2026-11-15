@@ -13,6 +13,34 @@ namespace CLMS.Tests;
 public sealed class AgentCoordinatorTests
 {
     [Fact]
+    public async Task TransportTokenRequestsShareRenewalAndNeverExposeTokensInStatusOrVault()
+    {
+        using var f = new Fixture();
+        using var agent = await f.Enroll();
+        f.Clock.Now = f.Clock.Now.AddMinutes(14);
+        var tokens = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => agent.GetAccessTokenAsync()));
+        Assert.All(tokens, token => Assert.False(string.IsNullOrEmpty(token)));
+        Assert.Single(tokens.Distinct());
+        Assert.Equal(2, f.Server.Authentications);
+        Assert.DoesNotContain("AccessToken", JsonSerializer.Serialize(agent.Status));
+        Assert.DoesNotContain("AccessToken", JsonSerializer.Serialize(f.Vault.State));
+    }
+
+    [Fact]
+    public async Task ResetDropsTheCachedTokenAndRetiresTheOldKeyBeforeReenrollment()
+    {
+        using var f = new Fixture();
+        using var agent = await f.Enroll();
+        var oldKey = f.Vault.State!.KeyId!;
+        Assert.NotNull(await agent.GetAccessTokenAsync());
+        await agent.ResetAsync(default);
+        Assert.Null(await agent.GetAccessTokenAsync());
+        Assert.Null(f.Vault.State!.Identity);
+        Assert.Equal("RegistrationRequired", agent.Status.Phase);
+        await Assert.ThrowsAnyAsync<Exception>(() => f.Keys.PublicKeyAsync(oldKey, default));
+    }
+
+    [Fact]
     public async Task ApprovalAndRestartAfterMonthsAuthenticateWithoutAnotherRegistration()
     {
         using var f = new Fixture();
@@ -168,15 +196,10 @@ public sealed class AgentCoordinatorTests
         f.Server.Offline = false;
         await agent.TickAsync(default);
         Assert.True(agent.Status.CanRegister);
-        using var stream = new MemoryStream();
-        await AgentIpc.WriteAsync(stream, new IpcResponse(agent.Status), default);
-        var json = System.Text.Encoding.UTF8.GetString(stream.ToArray());
+        var json = JsonSerializer.Serialize(agent.Status);
         Assert.DoesNotContain("privateKey", json);
         Assert.DoesNotContain("accessToken", json);
-        stream.Position = 0;
-        Assert.Equal("RegistrationRequired", (await AgentIpc.ReadAsync<IpcResponse>(stream, default)).Status!.Phase);
-        using var oversized = new MemoryStream([0x7f, 0xff, 0xff, 0xff]);
-        await Assert.ThrowsAsync<IOException>(() => AgentIpc.ReadAsync<IpcResponse>(oversized, default));
+        Assert.Equal("RegistrationRequired", JsonSerializer.Deserialize<AgentStatus>(json)!.Phase);
     }
 
     [Theory]

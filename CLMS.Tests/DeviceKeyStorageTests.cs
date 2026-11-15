@@ -12,10 +12,20 @@ public sealed class DeviceKeyStorageTests
 {
     [Fact]
     [SupportedOSPlatform("windows")]
-    public async Task DesktopIdentityCannotCreateWindowsServiceKeys()
+    public async Task DesktopIdentityCanCreateAndDeleteItsOwnNonExportableKey()
     {
-        if (!OperatingSystem.IsWindows() || WindowsIdentity.GetCurrent().IsSystem) return;
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new WindowsDeviceKeyStore().CreateAsync(Guid.NewGuid().ToString("N"), default));
+        if (!OperatingSystem.IsWindows()) return;
+        var keys = new WindowsDeviceKeyStore();
+        var id = Guid.NewGuid().ToString("N");
+        try
+        {
+            Assert.NotEmpty(await keys.CreateAsync(id, default));
+            using var native = CngKey.Open("CLMS.Agent.Device." + id);
+            Assert.False(native.IsMachineKey);
+            Assert.Equal(CngExportPolicies.None, native.ExportPolicy);
+            Assert.Throws<CryptographicException>(() => native.Export(CngKeyBlobFormat.Pkcs8PrivateBlob));
+        }
+        finally { await keys.DeleteAsync(id, default); }
     }
 
     [NativeDeviceKeyFact]
@@ -38,7 +48,7 @@ public sealed class DeviceKeyStorageTests
                 DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
             if (OperatingSystem.IsWindows())
             {
-                using var native = CngKey.Open("CLMS.Agent.Device." + id, CngProvider.MicrosoftSoftwareKeyStorageProvider, CngKeyOpenOptions.MachineKey);
+                using var native = CngKey.Open("CLMS.Agent.Device." + id, CngProvider.MicrosoftSoftwareKeyStorageProvider, CngKeyOpenOptions.UserKey);
                 Assert.Equal(CngExportPolicies.None, native.ExportPolicy);
                 Assert.Throws<CryptographicException>(() => native.Export(CngKeyBlobFormat.Pkcs8PrivateBlob));
             }
@@ -54,6 +64,6 @@ public sealed class NativeDeviceKeyFactAttribute : FactAttribute
     {
         if (Environment.GetEnvironmentVariable("CLMS_NATIVE_DEVICE_KEYS") != "1" ||
             !OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
-            Skip = "Set CLMS_NATIVE_DEVICE_KEYS=1 and run under LocalSystem on Windows or root on macOS for native key checks.";
+            Skip = "Set CLMS_NATIVE_DEVICE_KEYS=1 and run as the enrolled desktop user for native key checks.";
     }
 }

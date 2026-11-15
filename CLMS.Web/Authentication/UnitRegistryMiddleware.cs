@@ -8,7 +8,8 @@ public sealed class UnitRegistryMiddleware(RequestDelegate next, ILogger<UnitReg
     public async Task InvokeAsync(HttpContext context)
     {
         if (!context.Request.Path.StartsWithSegments("/api/agent") &&
-            !context.Request.Path.StartsWithSegments("/api/admin"))
+            !context.Request.Path.StartsWithSegments("/api/admin") &&
+            !context.Request.Path.StartsWithSegments("/hubs/agents"))
         {
             await next(context);
             return;

@@ -35,7 +35,7 @@ public sealed class MacAccessMonitoringTests
         restarted.Acknowledge(report.Id);
         Assert.Empty(f.Outbox().Pending);
         Assert.Single(f.Events, e => e.Kind == "Sign-in");
-        Assert.Contains(f.Events, e => e.Source == "SessionCompanion/Observed/BestEffort");
+        Assert.Contains(f.Events, e => e.Source == "DesktopSession/Observed/BestEffort");
     }
 
     [Fact]
@@ -142,45 +142,6 @@ public sealed class MacAccessMonitoringTests
     }
 
     [Fact]
-    public async Task OutageAndLostResponseRetryTheSameObservationUntilItIsCheckpointed()
-    {
-        using var f = new Fixture(); var box = f.Outbox(); box.ObserveConsole(true, Now);
-        var report = Assert.Single(box.Pending); var journal = f.Journal();
-        var attempts = 0; var warnings = 0; var delays = new List<TimeSpan>();
-        using var stop = new CancellationTokenSource();
-        await MacAccessPublisher.RunAsync(() => box.Pending.FirstOrDefault(), id => { box.Acknowledge(id); stop.Cancel(); }, async e =>
-        {
-            Assert.Equal(report.Id, e.Id);
-            if (++attempts == 1) throw new IOException("Simulated unavailable service.");
-            var result = await journal.AcceptAsync(e, f.Peer, f.Boot, Now, default);
-            if (attempts == 2) throw new IOException("Simulated lost acknowledgement after checkpoint.");
-            Assert.Equal(AccessReceipt.Duplicate, result);
-            return new();
-        }, () => warnings++, stop.Token, (duration, _) => { delays.Add(duration); return Task.CompletedTask; });
-        Assert.Equal(3, attempts);
-        Assert.Equal(2, warnings);
-        Assert.All(delays, d => Assert.InRange(d.TotalSeconds, 1, 60));
-        Assert.Empty(box.Pending);
-        Assert.Single(f.Events, e => e.Kind == "Sign-in");
-    }
-
-    [Fact]
-    public async Task TransientRejectionsRetainTheOutboxButInvalidReportsAreRemoved()
-    {
-        using var f = new Fixture(); var box = f.Outbox(); box.ObserveConsole(true, Now);
-        var attempts = 0;
-        using var stop = new CancellationTokenSource();
-        await MacAccessPublisher.RunAsync(() => box.Pending.FirstOrDefault(), id => { box.Acknowledge(id); stop.Cancel(); }, _ =>
-        {
-            var code = ++attempts switch { 1 => "access_session_inactive", 2 => "access_event_rate_limited", _ => "access_event_invalid" };
-            Assert.Single(box.Pending);
-            return Task.FromResult(new IpcResponse(Error: "Controlled rejection.", ErrorCode: code));
-        }, () => { }, stop.Token, (_, _) => Task.CompletedTask);
-        Assert.Equal(3, attempts);
-        Assert.Empty(f.Outbox().Pending);
-    }
-
-    [Fact]
     public async Task CorruptOrOversizedCheckpointsFailVisiblyWithoutReplayingActivity()
     {
         using var f = new Fixture();
@@ -225,23 +186,18 @@ public sealed class MacAccessMonitoringTests
     {
         using var f = new Fixture(); using var stop = new CancellationTokenSource(); stop.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => f.Journal().InitializeAsync(f.Boot, stop.Token));
-        await MacAccessPublisher.RunAsync(() => throw new InvalidOperationException("Must not read after cancellation."), _ => { },
-            _ => throw new InvalidOperationException("Must not send after cancellation."), () => { }, stop.Token);
         Assert.Empty(f.Events);
     }
 
     [Fact]
-    public async Task LocalEventPayloadRoundTripsWithoutUserNamesOrCredentials()
+    public void LocalObservationPayloadContainsNoUserNamesOrCredentials()
     {
-        using var f = new Fixture(); using var stream = new MemoryStream();
+        using var f = new Fixture();
         var report = f.Report();
-        await AgentIpc.WriteAsync(stream, new IpcRequest("access-event", AccessEvent: report), default);
-        var json = System.Text.Encoding.UTF8.GetString(stream.ToArray());
+        var json = JsonSerializer.Serialize(report);
         Assert.DoesNotContain("userId", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("token", json, StringComparison.OrdinalIgnoreCase);
-        stream.Position = 0;
-        Assert.Equal(report, (await AgentIpc.ReadAsync<IpcRequest>(stream, default)).AccessEvent);
-        Assert.Null(JsonSerializer.Deserialize<IpcRequest>("{\"Command\":\"status\"}")!.AccessEvent);
+        Assert.Equal(report, JsonSerializer.Deserialize<MacAccessEvent>(json));
     }
 
     private sealed class Fixture : IDisposable

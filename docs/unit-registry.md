@@ -12,27 +12,11 @@ key survives and its credential/unit is still active.
 
 ## Deployment and the existing registered device
 
-1. Back up the database and stop CLMS.Web during the schema change. Select the CLMS
-   database and apply `Database/migrations/2026-11-08-persistent-device-authentication.sql`
-   once, using the MySQL client without `--force`. It upgrades the current Unit Registry
-   schema; it is not a migration for a pre-registry database. MySQL DDL commits
-   implicitly, so an interrupted migration must be inspected before retrying.
-2. Deploy the updated server and service/UI together. Existing agent refresh records
-   are revoked but retained for history; human `refresh_tokens` are untouched.
-   Legacy pending registrations without public keys become Expired. The current
-   schema exports in `Database/clms` include the new tables and registration columns;
-   import `device_credentials` before `unit_registrations` when creating a fresh schema.
-3. Soft-delete the existing registered unit in Unit Registry. Reset its local service
-   state, restart the updated service, and register/approve it once using the physical
-   code. Approval reuses the original computer-unit GUID and historical records.
-   Legacy vaults display RecoveryRequired; they are never silently upgraded or trusted.
-4. Future restarts and long holidays require no administrator action. Lost keys,
-   revoked credentials, or a deliberately reset/reimaged computer require recovery.
+The current agent is one per-user MAUI application; the previous machine service and IPC deployment are retired. Read [the integrated architecture](agent-architecture.md) for actor locations, storage, monitoring, and capture lifetimes.
 
-The migration has only been tested against disposable databases, not applied to the
-live CLMS database. The development signing secret must be supplied securely in
-production. The existing JWT signing configuration supports HS256/384/512; use at
-least 32/48/64 random bytes respectively, and never log or commit credentials.
+Existing registry installations still need `2026-11-08-persistent-device-authentication.sql` if that schema upgrade has not already been applied. This architecture consolidation adds no migration. Do not apply an existing migration twice or modify a live database merely to test the rewrite. Preserve the production signing configuration.
+
+There is one existing registered device. Manually revoke/soft-delete its old assignment in Unit Registry, stop and uninstall the installed service and companion/startup jobs, and re-enroll using the new desktop application. Approval reuses the computer-unit GUID/history through the existing registry recovery flow. No old machine key is exported or imported.
 
 ## Configuration and HTTPS
 
@@ -55,13 +39,12 @@ instances. Proxy deployments must configure trusted forwarded headers explicitly
 
 All agent and registry API routes require HTTPS, including Development. HTTP is
 rejected, not redirected. Use a certificate whose SAN matches the server hostname,
-and trust its issuer in each machine's system trust store. A developer's per-user
-certificate trust does not establish trust for LocalSystem/root. Never bypass TLS
+and trust its issuer in the enrolled OS user's trust store. The desktop app runs as that user; the retired LocalSystem/root service must not keep running alongside it. Never bypass TLS
 validation. Keep this service within the intended LAN exposure boundary.
 
 ## Registration and proof protocol
 
-The service journals a local key reference before generating a non-exportable key.
+The agent journals a local key reference before generating a non-exportable key.
 Only canonical base64url DER SubjectPublicKeyInfo for ECDSA P-256 is submitted.
 Private keys, other curves, RSA, trailing DER bytes, and malformed encodings are rejected.
 The public key and SHA-256 fingerprint are immutable for that registration request.
@@ -77,7 +60,7 @@ Approval creates/reactivates the existing unit, increments its generation, revok
 previous credentials, and associates an inactive public-key credential. Completion
 requires the registration secret and a fresh signed completion challenge. The
 transaction activates the key and records completion exactly once. Before sending
-completion, the service persists the identity identifiers. A lost response is
+completion, the agent persists the identity identifiers. A lost response is
 recovered by private status polling and ordinary authentication, without another
 activation or approval. Approved but uncompleted assignments remain reserved until
 an administrator deletes the unit. Rejected/expired retries generate new keys.
@@ -106,7 +89,7 @@ base64url of 32 bytes. The context is the zero GUID for authentication, registra
 ID for completion, or client-journaled operation ID for rotation. Purposes are
 `authenticate`, `complete`, `rotate-current`, and `rotate-replacement`. Both rotation
 proofs bind the current credential and the replacement fingerprint, with different
-purposes. The service checks returned identity, audience, and context before signing.
+purposes. The agent checks returned identity, audience, and context before signing.
 
 Sign the complete payload using ECDSA/SHA-256. Transmit the 64-byte IEEE P1363 `r || s`
 signature as unpadded base64url. The macOS provider converts its native DER signature
@@ -132,162 +115,25 @@ are pruned after 24 hours by an hourly worker, at most 10,000 rows per pass. Ser
 unit/credential IDs, and denied attempts using trace IDs only. No logging path includes
 tokens, registration secrets, signatures, or private key material.
 
-## Background service behavior and storage
+## Desktop runtime, storage, and deployment
 
-The service authenticates at startup and one minute before JWT expiry. JWTs remain
-in memory and are reacquired after every service restart. A semaphore serializes
-registration, authentication, rotation, and heartbeat operations. An unauthorized
-heartbeat triggers one authentication retry. Network/TLS/timeouts/503/429 preserve
-the device identity and use bounded exponential backoff (2–60 seconds with jitter,
-or bounded Retry-After). Revoked/unavailable identities enter RecoveryRequired;
-key/vault failures display StorageError and retain recovery information.
+The MAUI runtime polls enrollment and authenticates with a persistent private key. JWTs remain in memory, renew one minute before expiry, and are reacquired after restart. Registration, proof acquisition, rotation, reset, and heartbeat operations share the coordinator gate. Network/TLS/429/503 failures preserve identity and use bounded retry/backoff. Revocation requires recovery; lost or inaccessible keys never cause silent re-enrollment.
 
-Windows uses signing-only CNG machine keys in Microsoft Software Key Storage Provider,
-with private export forbidden and key ACL restricted to LocalSystem. The service is
-an automatic LocalSystem service. DPAPI machine-protects the metadata snapshot in
-`%ProgramData%/CLMS/Agent/credentials.dpapi`; the directory permits SYSTEM and
-administrators. Windows monitoring retains its local checkpoint and event-log output.
+Windows uses non-exportable current-user CNG P-256 keys and a DPAPI CurrentUser metadata vault under `%LOCALAPPDATA%/CLMS/Agent`. Mac uses non-extractable keys and metadata in the user's default login Keychain with signed-app access control. Keep a stable application signing identity across Mac upgrades. Settings observes a credential-free status object; token acquisition is internal to the transport/coordinator. The owning OS user can invoke rotation or reset. Rotation keeps the existing dual-proof and durable journal protocol; reset does not revoke server credentials.
 
-macOS uses permanent, sensitive, non-exportable P-256 keys in the System Keychain,
-through native Security.framework APIs. The root daemon uses an access list trusting
-its signed executable, independent of an interactive login or MAUI SecureStorage.
-Keep a stable Developer ID designated requirement across signed service upgrades.
-Key storage/signing fails closed if the native provider or protection is unavailable.
-The service snapshot is also in System Keychain; filesystem state is under
-`/Library/Application Support/CLMS/Agent`.
-
-The MAUI UI never owns keys or JWTs. Windows named-pipe clients are checked through
-identification tokens, after reverting impersonation; the UI verifies the service
-using read-only SCM identity/configuration checks. macOS uses the root-owned staff-group
-Unix socket; the UI verifies its root peer. Ordinary UI commands expose only registration
-and connection status, never credentials. Rotation additionally requires an enabled
-Windows administrator SID (elevation) or root UID on macOS.
-
-## Install, reset, and rotate
-
-On Windows with the .NET 10 MAUI workload:
+On Windows:
 
 ```powershell
-dotnet publish CLMS.Agent.Service -c Release -r win-x64 --self-contained true -o artifacts/agent-service
-dotnet publish CLMS.Agent -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained true -o artifacts/agent-ui
+dotnet publish CLMS.Agent/CLMS.Agent.csproj -c Release -r win-x64 --self-contained true -o artifacts/agent-desktop
 ```
 
-Run `CLMS.Agent.Service/Deployment/Install-Agent.ps1` elevated with
-`-ServicePublishPath artifacts/agent-service -UiPublishPath artifacts/agent-ui`.
-Installed binaries do not automatically follow IDE output. The installer preserves
-identity state. Closing MAUI or logging out does not stop the service.
+Install the resulting application in a stable directory and use its login-startup control. On macOS publish the MAUI project for `net10.0-maccatalyst` with the corresponding architecture, sign the app with the stable Developer ID, and notarize distribution. Install it in Applications before enabling login startup. Capture requires macOS 15.2+ and Screen Recording permission. There is no service installer or root launchd job in this deployment.
 
-For local reset, first revoke/soft-delete the server unit, stop the service, run its
-installed executable with `--reset` elevated, then restart the service. Reset removes
-local identity references and queues retired-key deletion for the service identity
-on its next startup. Local reset alone cannot revoke server credentials. An uninstall
-without another startup can leave protected retired keys; revoke the server identity
-before retiring or reimaging a machine.
+Rotation and reset are available in settings. Before resetting or retiring a device, revoke its server credential as an administrator. Local reset clears the cached JWT and journals retirement/deletion of its keys. After a lost rotation response, the coordinator probes the replacement first and only deletes the old key after durable confirmation.
 
-For normal rotation, leave the service running and invoke the installed executable
-with `--rotate-key` in an elevated, waiting process. For example, in elevated PowerShell:
+Access monitoring now runs in-process. Windows needs event-log read permissions and successful Audit Logon; unavailable monitoring is shown without breaking authentication/capture. Mac observes kernel boot metadata, graphical session sign-in, and best-effort foreground lock/unlock notifications on the MAUI main run loop. Checkpoints/outbox and bounded `access-events.jsonl` are private to the OS user. No usernames or authentication credentials are logged. Hiding settings leaves monitoring active; logout/Quit ends it. Logged-out/pre-login coverage and reconstruction of missed Mac events are not provided.
 
-```powershell
-$process = Start-Process -FilePath "$env:ProgramFiles\CLMS\Service\CLMS.Agent.Service.exe" -ArgumentList '--rotate-key' -WindowStyle Hidden -Wait -PassThru
-$process.ExitCode
-```
-
-Rotation needs proof from both keys, never just the JWT. The service journals both
-keys before the exchange. After a lost response or restart it tries the replacement
-first, then the current identity. The old key is deleted only after the replacement
-identity is durably confirmed. Transient failures retain this journal for retry.
-
-On macOS publish the self-contained service for `osx-arm64` or `osx-x64` and MAUI for
-`net10.0-maccatalyst` with the corresponding runtime. Sign the service apphost, nested
-runtime binaries, and `.app` using your stable Developer ID, then notarize distribution.
-Run `sudo sh CLMS.Agent.Service/Deployment/install-macos.sh SERVICE_PUBLISH_DIR CLMS.Agent.app`.
-The UI is the existing enterprise unsandboxed companion; root launchd owns the service.
-Rotate using `sudo /Library/CLMS/Service/CLMS.Agent.Service --rotate-key`. For reset,
-boot out the daemon, run `--reset` as root, then bootstrap it again.
-
-The installer does not configure Windows Audit Logon. macOS access monitoring is
-provided by the root daemon and the existing Aqua companion, as described below.
-
-## macOS access monitoring
-
-The daemon records `Startup` using native `kern.boottime` and deduplicates by
-`kern.bootsessionuuid`. Boot detection works before anyone logs in. A service restart
-or clock adjustment does not create another startup for the same boot UUID.
-
-The existing `--watch-ui` Aqua LaunchAgent also observes the primary graphical
-session, independently of MAUI. It records the first observed `Sign-in` once per
-boot/audit-session ID. Restarting the companion or switching back to an existing
-session does not count as a new sign-in. A new login creates a new audit session.
-
-Unlock tracking is **best effort**, using the undocumented distributed notifications
-`com.apple.screenIsLocked` and `com.apple.screenIsUnlocked`. It requires an observed
-foreground lock followed by unlock. Initial unlocked state, repeated notifications,
-sleep/wake alone, and a companion restart do not manufacture unlock events. When a
-session switches out, its prior lock hint is discarded. These notifications may be
-missed or spoofed, and their names/behavior can change after macOS updates. They are
-operational observations, never device-authentication or authorization evidence.
-Apple discusses this limitation in its [screen-lock API guidance](https://developer.apple.com/forums/thread/850327).
-
-Core Foundation notifications are pumped on the companion's main thread. UI prompting
-and IPC delivery run independently; closing MAUI leaves the companion active. SSH,
-unauthenticated loginwindow, root, and non-graphical reporting sessions are rejected.
-The service verifies the socket UID and audit token (`LOCAL_PEERTOKEN`) against
-read-only audit-session metadata and the primary console. This reads session metadata;
-it does not turn on BSM auditing, modify audit policy, require Endpoint Security
-entitlements, or require Full Disk Access. An unavailable native check fails closed
-for observation delivery without stopping device authentication or heartbeats.
-
-Observed sign-in/unlock timestamps are observation times, not reconstructed historical
-login times. They appear in `/var/log/clms-agent.log` with source
-`SessionCompanion/Observed/BestEffort`. Startup uses source `KernelBootTime`.
-No usernames or user IDs are included in emitted records. The root-owned checkpoint
-is `/Library/Application Support/CLMS/Agent/mac-access-checkpoint.json`, separate
-from authentication state and the Windows checkpoint.
-
-The user's private directory is `~/Library/Application Support/CLMS/Agent` (mode 0700).
-It contains `session-events.json` (0600), the companion process lock, and bounded
-`session-monitor.log` diagnostics (with one `.previous` file, 256 KiB each). The
-installer sets umask 077 for both launchd jobs. Diagnostics contain fixed health
-messages, not usernames, event payloads, or credentials.
-
-The outbox holds at most 256 observations for the current boot/session and drops the
-oldest on overflow with a diagnostic. It retains event IDs across network/service
-failures. Delivery retries with bounded backoff and drains at most one observation
-per second. The service acknowledges after saving its checkpoint, remembers 1,024
-recent event IDs plus up to 4,096 sign-in sessions per boot, and limits reporting to
-60 requests per minute. Reports from a switched-out session remain queued until that
-session is primary again. Previous-boot/session or invalid reports are discarded;
-unverified peers, rate limits, and temporary storage failures are retried.
-
-Like Windows event logging, a crash between emitting a log entry and checkpointing
-can repeat an entry. Long-delayed retries beyond the bounded ID history can also
-repeat an unlock observation. Events while the companion is stopped cannot be
-recovered from system history, and reinstalling with an already active login records
-only the time that login was first observed by this implementation.
-
-After installing/updating, log out and log back in to start the updated Aqua companion;
-boot out and bootstrap the root daemon through the normal installer. The installed
-service is not updated by building in Rider. No new production helper executable,
-server API, database migration, or MAUI permission is required for monitoring.
-
-Run portable monitoring checks on either development OS:
-
-```powershell
-dotnet test CLMS.Tests --no-restore --filter FullyQualifiedName~MacAccess
-```
-
-On a Mac, run the native ABI/socket checks in a GUI terminal (the peer test needs the
-root identity used by the daemon):
-
-```sh
-sudo env CLMS_MAC_MONITOR_NATIVE=1 dotnet test CLMS.Tests --filter FullyQualifiedName~MacAccessNativeTests
-```
-
-Before release, build the macOS service/MAUI targets on a Mac and verify reboot,
-service restart, companion restart, login/logout, fast user switching, lock/unlock,
-sleep/wake without locking, service downtime/reconnect, MAUI closure, and unauthorized
-IPC rejection. Confirm the two source labels and absence of personal identities in
-logs. Native notification and launchd behavior cannot be validated on Windows.
+Run shared tests and browser checks described in [agent-architecture.md](agent-architecture.md). Native Keychain, capture, startup, signing, and Mac ABI tests require a real Mac. Database integration tests require a disposable configured MySQL database. Building in Rider does not update installed binaries or stop an old installed machine service.
 
 ## API reference
 

@@ -4,8 +4,8 @@
              x:Class="CLMS.Agent.Views.MainPage" x:Name="RegistrationPage" Title="CLMS Agent">
     <ScrollView><VerticalStackLayout Padding="32" Spacing="18" MaximumWidthRequest="640">
         <Label Text="Computer Laboratory Management System" FontSize="24" FontAttributes="Bold" />
-        <Label x:Name="PhaseLabel" Text="Connecting to the agent service…" FontSize="20" FontAttributes="Bold" />
-        <Label x:Name="MessageLabel" Text="Checking local service status." FontSize="14" />
+        <Label x:Name="PhaseLabel" Text="Starting agent" FontSize="20" FontAttributes="Bold" />
+        <Label x:Name="MessageLabel" Text="Loading this user's enrollment." FontSize="14" />
         <Label x:Name="ErrorLabel" IsVisible="False" TextColor="#B91C1C" />
         <VerticalStackLayout x:Name="ServerPanel" IsVisible="False" Spacing="10">
             <Label Text="HTTPS server address" /><Entry x:Name="ServerEntry" Placeholder="https://clms.lab:7443" Keyboard="Url" />
@@ -28,6 +28,21 @@
         </VerticalStackLayout>
         <Label x:Name="UnitLabel" IsVisible="False" />
         <Button x:Name="RetryButton" Text="Start a new registration" IsVisible="False" Clicked="RetryClicked" />
-        <Button x:Name="RefreshStatusButton" Text="Refresh status" Clicked="RefreshClicked" /><ActivityIndicator x:Name="Activity" IsVisible="False" />
+        <Button x:Name="RefreshStatusButton" Text="Refresh status" Clicked="RefreshClicked" />
+        <Label x:Name="RuntimeLabel" />
+        <Label x:Name="ConnectionLabel" />
+        <Label x:Name="SharingLabel" />
+        <Label x:Name="MonitoringLabel" />
+        <Button x:Name="ConnectButton" Text="Reconnect" Clicked="ConnectClicked" />
+        <Button x:Name="PauseButton" Text="Pause connection" Clicked="PauseClicked" />
+        <Button x:Name="StopSharingButton" Text="Stop screen sharing" Clicked="StopSharingClicked" />
+        <Button x:Name="RotateButton" Text="Rotate device key" Clicked="RotateClicked" />
+        <Button x:Name="ResetButton" Text="Reset local enrollment" Clicked="ResetClicked" />
+        <Label Text="Start at this user's login" /><Switch x:Name="StartupSwitch" Toggled="StartupChanged" />
+        <Label x:Name="StartupLabel" />
+        <Label Text="Start with settings hidden after enrollment" /><Switch x:Name="HiddenSwitch" Toggled="HiddenChanged" />
+        <Button Text="Hide settings" Clicked="HideClicked" />
+        <Button Text="Quit agent" Clicked="QuitClicked" />
+        <ActivityIndicator x:Name="Activity" IsVisible="False" />
     </VerticalStackLayout></ScrollView>
 </ContentPage>

@@ -1,8 +1,17 @@
 using Foundation;
+using UIKit;
+
 namespace CLMS.Agent;
+
 [Register("AppDelegate")]
-public sealed class AppDelegate : MauiUIApplicationDelegate
+public class AppDelegate : MauiUIApplicationDelegate
 {
-    /// <summary>Connects the Mac Catalyst application delegate to the shared MAUI builder.</summary>
     protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+
+    public override void BuildMenu(IUIMenuBuilder builder)
+    {
+        base.BuildMenu(builder);
+        // The settings scene stays alive while the agent runs; Hide and Quit remain available.
+        builder.RemoveMenu(UIMenuIdentifier.Close.GetConstant()!);
+    }
 }

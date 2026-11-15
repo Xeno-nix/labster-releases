@@ -61,7 +61,7 @@
                    class="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary" />
         </div>
         <div class="status-filters" role="group" aria-label="Filter by unit status">
-                    @foreach (var filter in new[] { "All", "Available", "In Use", "Offline" })
+                    @foreach (var filter in new[] { "All", "Online", "Offline" })
                     {
                         <button type="button" @onclick="() => SetStatus(filter)" aria-pressed="@(Status == filter)"
                                 class="rounded-lg px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary @(Status == filter ? "bg-primary text-white" : "bg-white text-gray-600 hover:bg-surface")">@filter</button>

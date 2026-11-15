@@ -25,7 +25,7 @@ if (!verifier.VerifyData(payload, DeviceProtocol.Decode(signature, 64), HashAlgo
     DSASignatureFormat.IeeeP1363FixedFieldConcatenation)) throw new CryptographicException("Native signing verification failed.");
 if (OperatingSystem.IsWindows())
 {
-    using var key = CngKey.Open("CLMS.Agent.Device." + args[1], CngProvider.MicrosoftSoftwareKeyStorageProvider, CngKeyOpenOptions.MachineKey);
+    using var key = CngKey.Open("CLMS.Agent.Device." + args[1], CngProvider.MicrosoftSoftwareKeyStorageProvider, CngKeyOpenOptions.UserKey);
     try
     {
         var unexpected = key.Export(CngKeyBlobFormat.Pkcs8PrivateBlob);

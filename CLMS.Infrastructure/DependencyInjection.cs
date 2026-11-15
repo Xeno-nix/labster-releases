@@ -45,6 +45,7 @@ public static class DependencyInjection
             .AddScoped<ISupplyRepository,SupplyRepository>()
             .AddScoped<IComputerUnitRepository, ComputerUnitRepository>()
             .AddScoped<IUnitMonitoringRepository, UnitMonitoringRepository>()
+            .AddScoped<IScreenCastRepository, ScreenCastRepository>()
             
             .AddScoped<IClassScheduleRepository,ClassScheduleRepository>()
             .AddScoped<IBookingRepository,BookingRepository>()

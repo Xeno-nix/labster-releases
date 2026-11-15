@@ -1,12 +1,14 @@
 ﻿using CLMS.Domain.Common;
 using CLMS.Domain.Enums;
 namespace CLMS.Domain.Entities.UnitManagement;
-public class ScreenCastConnection: AuditableEntity
+public sealed class ScreenCastConnection
 {   
-    public Guid ScreenCastId { get; set; }
-    public Guid CastSessionId { get; set; }
+    public int ScreenCastConnectionId { get; set; }
+    public int CastSessionId { get; set; }
     public Guid ComputerUnitId{ get; set; }
 
-    public Status Status { get; set; }
+    public string Status { get; set; } = "disconnected";
+    public DateTime? StartedAt { get; set; }
+    public DateTime? EndedAt { get; set; }
 
 }

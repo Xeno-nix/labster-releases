@@ -12,6 +12,9 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using CLMS.Infrastructure.DatabaseMaintenance;
+using CLMS.Shared.Dtos;
+using CLMS.Web.Hubs;
+using CLMS.Web.Services.AgentConnections;
 using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Identity.Services;
 using Microsoft.AspNetCore.Authentication;
@@ -126,7 +129,6 @@ builder.Services
             )
         };
     })
-    .AddJwtBearer(AuthenticationSchemes.AgentBearer, o => AgentAuthentication.Configure(o, builder.Configuration))
     .AddCookie(AuthenticationSchemes.Cookie, options =>
     {
         options.Cookie.Name = "CLMS.Auth";
@@ -229,6 +231,8 @@ builder.Services.AddHttpClient<EmailService>();
 
 // web stuff
 builder.Services.AddScoped<ToastService>();
+builder.Services.AddSingleton<CLMS.Web.Services.ScreenCasting.LabScreenCastService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<CLMS.Web.Services.ScreenCasting.LabScreenCastService>());
 builder.Services.AddScoped<DialogService>();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, HumanRevalidatingStateProvider>();
@@ -251,6 +255,8 @@ builder.Services.AddOptions<DatabaseBackupOptions>()
     .ValidateOnStart();
 builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddHostedService<DatabaseBackupWorker>();
+
+builder.Services.AddAgentConnections(builder.Configuration);
 
 var app = builder.Build();
 app.Use(async (context, next) =>
@@ -278,9 +284,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api"), branch => branch.UseStatusCodePagesWithReExecute(
-    "/not-found",
-    createScopeForStatusCodePages: true));
+// Preserve protocol status codes for all APIs and the device hub.
+app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api")
+    && !context.Request.Path.StartsWithSegments(AgentConnectionProtocol.HubPath), branch =>
+    branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 
 app.UseAuthentication();
 app.UseRateLimiter();
@@ -288,6 +295,12 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapControllers();
+app.MapHub<AgentConnectionHub>(AgentConnectionProtocol.HubPath,
+    options =>
+    {
+        options.CloseOnAuthenticationExpiration = true;
+        options.ApplicationMaxBufferSize = ScreenCastProtocol.MaximumHubMessageBytes;
+    }).DisableAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
