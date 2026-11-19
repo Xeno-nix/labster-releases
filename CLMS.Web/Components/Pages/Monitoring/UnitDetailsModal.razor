@@ -23,13 +23,18 @@
                 <div class="flex justify-between gap-3"><dt class="text-muted">Unit number</dt><dd class="font-medium text-gray-800">@Unit.Number.ToString("D2")</dd></div>
                 <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Last IP address</dt><dd class="min-w-0 break-all text-right text-gray-600">@(Unit.IpAddress ?? "Not reported")</dd></div>
                 <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Last heartbeat</dt><dd class="text-right text-gray-600">@UnitMonitoringDisplay.FormatUtc(Unit.LastHeartbeatUtc)</dd></div>
-                <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Session user</dt><dd class="min-w-0 break-words text-right text-gray-600">@(Unit.CurrentUser ?? "Not identified")</dd></div>
-                <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Open session since</dt><dd class="text-right text-gray-600">@(Unit.SessionStartedUtc.HasValue ? UnitMonitoringDisplay.FormatUtc(Unit.SessionStartedUtc) : "No open session")</dd></div>
+                @if (ShowSession)
+                {
+                    <div class="flex justify-between gap-3">
+                        <dt class="shrink-0 text-muted">@(Session is not null && Status == UnitMonitoringStatus.Offline ? "Last reported CLMS user" : "Current CLMS user")</dt>
+                        <dd class="min-w-0 break-words text-right text-gray-600">@(SessionsAvailable ? Session?.UserName ?? "No active session" : "Unavailable")</dd>
+                    </div>
+                    @if (Session is not null)
+                    {
+                        <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Session started</dt><dd class="text-right text-gray-600">@UnitMonitoringDisplay.FormatUtc(Session.StartedUtc)</dd></div>
+                    }
+                }
             </dl>
-            @if (Unit.SessionStartedUtc.HasValue && Status == UnitMonitoringStatus.Offline)
-            {
-                <p class="mt-3 text-xs text-muted">An open session is recorded, but the unit has no fresh online signal.</p>
-            }
         </section>
 
         <section aria-labelledby="resources-heading">
@@ -60,6 +65,9 @@
 @code {
     [Parameter] public UnitMonitoringDTO? Unit { get; set; }
     [Parameter] public DateTime ObservedAtUtc { get; set; }
+    [Parameter] public WorkstationSession? Session { get; set; }
+    [Parameter] public bool ShowSession { get; set; }
+    [Parameter] public bool SessionsAvailable { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     private UnitMonitoringStatus Status => Unit?.GetStatus(ObservedAtUtc) ?? UnitMonitoringStatus.Offline;
 }
