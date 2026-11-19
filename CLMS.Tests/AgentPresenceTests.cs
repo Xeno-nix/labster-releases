@@ -15,6 +15,9 @@ public sealed class AgentPresenceTests
         var clock = new Clock();
         var store = new AgentPresenceStore(clock);
         store.Connected(unitId, "connection", "192.0.2.1");
+        Assert.Equal(UnitMonitoringStatus.Offline,
+            UnitMonitoringPresence.Apply(new(), store.Snapshot()[unitId]).GetStatus(clock.Now.UtcDateTime));
+        store.Heartbeat(unitId, "connection");
         var unit = UnitMonitoringPresence.Apply(new UnitMonitoringDTO
         {
             Id = unitId, Name = "PC-01", LaboratoryId = 2, Laboratory = "Lab 2", Number = 1,
