@@ -1,6 +1,9 @@
 namespace CLMS.Web.Services.AgentConnections;
 
-public sealed record AgentPresence(string ConnectionId, DateTime HeartbeatUtc, string? IpAddress, bool Connected);
+public sealed record AgentPresence(string ConnectionId, DateTime HeartbeatUtc, string? IpAddress, bool Connected)
+{
+    public bool HeartbeatConfirmed { get; init; } = true;
+}
 public sealed record AgentCredentialConnection(string ConnectionId, int Generation, Guid CredentialId);
 
 /// <summary>Live authenticated presence for this web-server process; no schema migration required.</summary>
@@ -25,14 +28,18 @@ public sealed class AgentPresenceStore(TimeProvider clock)
 
     public void Connected(Guid unitId, string connectionId, string? ipAddress)
     {
-        lock (sync) units[unitId] = new(connectionId, clock.GetUtcNow().UtcDateTime, ipAddress, true);
+        lock (sync)
+        {
+            var lastHeartbeat = units.GetValueOrDefault(unitId)?.HeartbeatUtc ?? DateTime.MinValue;
+            units[unitId] = new(connectionId, lastHeartbeat, ipAddress, true) { HeartbeatConfirmed = false };
+        }
     }
 
     public void Heartbeat(Guid unitId, string connectionId)
     {
         lock (sync)
             if (units.TryGetValue(unitId, out var current) && current.ConnectionId == connectionId && current.Connected)
-                units[unitId] = current with { HeartbeatUtc = clock.GetUtcNow().UtcDateTime };
+                units[unitId] = current with { HeartbeatUtc = clock.GetUtcNow().UtcDateTime, HeartbeatConfirmed = true };
     }
 
     public void Disconnected(Guid unitId, string connectionId)
