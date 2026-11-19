@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="CLMS.Agent.Views.MainPage" x:Name="RegistrationPage" Title="CLMS Agent">
@@ -32,7 +32,6 @@
         <Label x:Name="RuntimeLabel" />
         <Label x:Name="ConnectionLabel" />
         <Label x:Name="SharingLabel" />
-        <Label x:Name="MonitoringLabel" />
         <Button x:Name="ConnectButton" Text="Reconnect" Clicked="ConnectClicked" />
         <Button x:Name="PauseButton" Text="Pause connection" Clicked="PauseClicked" />
         <Button x:Name="StopSharingButton" Text="Stop screen sharing" Clicked="StopSharingClicked" />

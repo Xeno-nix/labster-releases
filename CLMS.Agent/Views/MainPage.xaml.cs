@@ -12,7 +12,6 @@ public partial class MainPage : ContentPage
     private readonly AgentConnectionService connection;
     private readonly ScreenCastSender sender;
     private readonly IDesktopAgentService desktop;
-    private readonly AccessMonitoringService monitoring;
     private IDispatcherTimer? timer;
     private bool busy, updating;
     private bool serverLoaded;
@@ -20,10 +19,10 @@ public partial class MainPage : ContentPage
     public ObservableCollection<RegistrationLaboratory> Laboratories { get; } = [];
 
     public MainPage(AgentCoordinator identity, AgentRuntimeService runtime, AgentConnectionService connection,
-        ScreenCastSender sender, IDesktopAgentService desktop, AccessMonitoringService monitoring)
+        ScreenCastSender sender, IDesktopAgentService desktop)
     {
         this.identity = identity; this.runtime = runtime; this.connection = connection;
-        this.sender = sender; this.desktop = desktop; this.monitoring = monitoring;
+        this.sender = sender; this.desktop = desktop;
         InitializeComponent();
     }
 
@@ -53,7 +52,6 @@ public partial class MainPage : ContentPage
         RuntimeLabel.Text = runtime.Status;
         ConnectionLabel.Text = connection.Snapshot.Status;
         SharingLabel.Text = this.sender.Status;
-        MonitoringLabel.Text = monitoring.Status;
         ServerPanel.IsVisible = status.CanConfigure;
         if (!serverLoaded || displayedServer != status.ServerAddress)
         {

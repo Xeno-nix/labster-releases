@@ -12,14 +12,13 @@ public partial class App : Microsoft.Maui.Controls.Application
     private readonly ScreenCastSender screenCast;
     private readonly IDesktopAgentService desktop;
     private readonly ILogger<App> logger;
-    private readonly AccessMonitoringService monitoring;
     private bool quitting;
     private FileStream? processLock;
     public bool OwnsLifetime { get; private set; }
     public string? StartupError { get; private set; }
 
     public App(MainPage settings, AgentRuntimeService runtime, AgentConnectionService connection,
-        ScreenCastSender screenCast, IDesktopAgentService desktop, ILogger<App> logger, AccessMonitoringService monitoring)
+        ScreenCastSender screenCast, IDesktopAgentService desktop, ILogger<App> logger)
     {
         InitializeComponent();
         this.settings = settings;
@@ -28,7 +27,6 @@ public partial class App : Microsoft.Maui.Controls.Application
         this.screenCast = screenCast;
         this.desktop = desktop;
         this.logger = logger;
-        this.monitoring = monitoring;
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
@@ -50,7 +48,6 @@ public partial class App : Microsoft.Maui.Controls.Application
                 connection.StatusChanged += OnConnectionChanged;
                 screenCast.StatusChanged += UpdateIndicator;
                 var configured = await runtime.StartAsync();
-                await monitoring.StartAsync();
                 if (configured && Preferences.Default.Get("agent.start-hidden", true))
                     MainThread.BeginInvokeOnMainThread(desktop.Hide);
             }
@@ -79,8 +76,6 @@ public partial class App : Microsoft.Maui.Controls.Application
         catch (Exception ex) { logger.LogWarning(ex, "Agent shutdown cleanup failed."); }
         finally
         {
-            try { await monitoring.StopAsync(); }
-            catch { logger.LogWarning("Local monitoring cleanup failed during shutdown."); }
             runtime.StatusChanged -= UpdateIndicator;
             connection.StatusChanged -= OnConnectionChanged;
             screenCast.StatusChanged -= UpdateIndicator;

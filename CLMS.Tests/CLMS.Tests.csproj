@@ -36,7 +36,6 @@
     <Compile Include="../CLMS.Agent/Services/AgentConnectionService.cs" Link="Agent/AgentConnectionService.cs" />
     <Compile Include="..\CLMS.Agent\Services\IAgentConnectionTransport.cs" Link="Agent\IAgentConnectionTransport.cs" />
     <Compile Include="../CLMS.Agent/Services/Identity/*.cs" Exclude="../CLMS.Agent/Services/Identity/UserAgentVault.cs" Link="Agent/Identity/%(Filename)%(Extension)" />
-    <Compile Include="../CLMS.Agent/Services/Monitoring/*.cs" Exclude="../CLMS.Agent/Services/Monitoring/AccessMonitoringService.cs" Link="Agent/Monitoring/%(Filename)%(Extension)" />
     <Compile Include="../CLMS.Agent/Platforms/Windows/WindowsDeviceKeyStore.cs" Link="Agent/WindowsDeviceKeyStore.cs" />
     <Compile Include="../CLMS.Agent/Platforms/MacCatalyst/MacDeviceKeyStore.cs" Link="Agent/MacDeviceKeyStore.cs" />
     <Compile Include="../CLMS.Agent/Services/IAgentAccessTokenProvider.cs" Link="Agent/IAgentAccessTokenProvider.cs" />
