@@ -1,0 +1,228 @@
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Components.Authorization
+@inject CLMS.Web.Services.ScreenCasting.ScreenCastService ScreenCasts
+@inject CLMS.Web.Services.ScreenCasting.LabScreenCastService LabScreenCasts
+@inject AuthenticationStateProvider Authentication
+@inject IJSRuntime JS
+
+@if (Allowed)
+{
+    <div class="@(Compact ? "flex h-full w-full min-h-0 flex-col" : "space-y-3")">
+        @if (Compact)
+        {
+            <div class="flex items-center justify-between gap-2 bg-gray-900 px-2 py-1 text-xs">
+                <span>@UnitName</span><span>@(SessionId.HasValue ? "Viewing" : Online ? "Waiting" : "Offline")</span>
+            </div>
+        }
+        <div class="@(Compact ? "relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black" : "flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-gray-900 p-2")">
+            <img @ref="Image" hidden="@(!SessionId.HasValue)" alt="Live screen of @UnitName" class="screen-preview @(Compact ? "h-full w-full object-contain" : "max-h-full max-w-full object-contain")" />
+            @if (!SessionId.HasValue)
+            {
+                <p class="px-3 text-center text-sm text-gray-300">@(Online ? "Live preview is starting or paused." : "Connect the agent on this PC to view its screen.")</p>
+            }
+            @if (Compact)
+            {
+                <button type="button" @onclick="EnlargeAsync" class="screen-enlarge-trigger"
+                        aria-label="Enlarge screen of @UnitName" aria-haspopup="dialog" title="Enlarge screen of @UnitName"></button>
+            }
+        </div>
+        <p role="status" class="@(Compact ? SessionId.HasValue ? "sr-only" : "px-2 py-1 text-xs text-gray-400" : "text-xs text-muted")">@Message</p>
+        @if (Compact && Online && AutoAttempted && !SessionId.HasValue)
+        {
+            <button type="button" @onclick="StartViewingAsync" disabled="@Busy" class="bg-gray-800 px-2 py-1 text-xs text-white disabled:opacity-50">Retry preview</button>
+        }
+        @if (!Compact && SessionId.HasValue)
+        {
+            <button type="button" @onclick="StopViewingAsync" disabled="@Busy" class="rounded-lg bg-primary px-3 py-2 text-sm text-white">Stop viewing</button>
+        }
+        else if (!Compact)
+        {
+            <button type="button" @onclick="StartViewingAsync" disabled="@(Busy || !Online)" class="rounded-lg bg-primary px-3 py-2 text-sm text-white disabled:opacity-50">Start viewing</button>
+        }
+        @if (Compact)
+        {
+            <dialog @ref="EnlargedDialog" class="screen-enlarged" aria-label="Enlarged screen of @UnitName">
+                <header class="screen-enlarged-header">
+                    <h2>@UnitName</h2>
+                    <button type="button" @onclick="CloseEnlargedAsync" autofocus aria-label="Close enlarged screen">Close</button>
+                </header>
+                <div class="screen-enlarged-content">
+                    <img @ref="EnlargedImage" hidden="@(!SessionId.HasValue)" class="screen-preview" alt="Enlarged live screen of @UnitName" />
+                    @if (!SessionId.HasValue)
+                    {
+                        <p>@(Online ? "Live preview is starting or paused." : "This workstation is offline.")</p>
+                    }
+                </div>
+                <p class="screen-enlarged-status" role="status">@Message</p>
+            </dialog>
+        }
+    </div>
+}
+else
+{
+    <p class="text-sm text-muted">Screen viewing is available to authorized Admin and Faculty users.</p>
+}
+
+@code {
+    [Parameter] public Guid UnitId { get; set; }
+    [Parameter] public string UnitName { get; set; } = "workstation";
+    [Parameter] public bool Online { get; set; }
+    [Parameter] public bool AutoStart { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public int? LabSessionId { get; set; }
+    private bool AutoAttempted;
+    private bool Allowed;
+    private bool Busy;
+    private bool Disposed;
+    private bool StartBrowser;
+    private Guid? SessionId;
+    private string Message = "Screen capture runs only while a viewing session is active.";
+    private ElementReference Image;
+    private ElementReference EnlargedDialog;
+    private ElementReference EnlargedImage;
+    private IJSObjectReference? Module;
+    private DotNetObjectReference<UnitScreenView>? Reference;
+    private System.Security.Claims.ClaimsPrincipal Viewer = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Viewer = (await Authentication.GetAuthenticationStateAsync()).User;
+        Allowed = Viewer.Identity?.IsAuthenticated == true && (Viewer.IsInRole("Admin") || Viewer.IsInRole("Faculty"));
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!Online) AutoAttempted = false;
+    }
+
+    private async Task EnlargeAsync()
+    {
+        if (Disposed) return;
+        try
+        {
+            Module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Monitoring/UnitScreenView.razor.js");
+            if (!Disposed) await Module.InvokeVoidAsync("enlarge", Image, EnlargedDialog, EnlargedImage);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            Message = "Could not enlarge the preview. Try again.";
+        }
+    }
+
+    private async Task CloseEnlargedAsync()
+    {
+        if (Module is null) return;
+        try { await Module.InvokeVoidAsync("closeEnlarged", Image); }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException) { }
+    }
+
+    private async Task StartViewingAsync()
+    {
+        if (Busy || Disposed || SessionId.HasValue) return;
+        AutoAttempted = true;
+        Busy = true;
+        try
+        {
+            Viewer = (await Authentication.GetAuthenticationStateAsync()).User;
+            SessionId = LabSessionId is { } labSession
+                ? await LabScreenCasts.StartViewingAsync(Viewer, labSession, UnitId)
+                : await ScreenCasts.StartAsync(Viewer, UnitId);
+            if (Disposed) { await EndSessionAsync(); return; }
+            StartBrowser = true;
+            Message = "Waiting for the agent to send a screen frame. Check screen-recording permission on Mac if needed.";
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { Message = ex.Message; }
+        catch (Exception) { Message = "Could not start screen viewing. Check the agent connection and try again."; }
+        finally { Busy = false; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Start only after interactive rendering, never during server prerendering.
+        // One attempt per online period preserves an agent's local Stop sharing action.
+        if (AutoStart && Allowed && Online && !AutoAttempted && !SessionId.HasValue && !Busy && !Disposed)
+        {
+            await StartViewingAsync();
+            if (!Disposed) await InvokeAsync(StateHasChanged);
+            return;
+        }
+        if (!StartBrowser || !SessionId.HasValue || Disposed) return;
+        StartBrowser = false;
+        try
+        {
+            Module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Monitoring/UnitScreenView.razor.js");
+            Reference ??= DotNetObjectReference.Create(this);
+            if (!Disposed && SessionId.HasValue)
+                await Module.InvokeVoidAsync("start", Image, SessionId.Value.ToString(), Reference);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        {
+            await EndSessionAsync();
+            Message = "Browser viewing stopped. Reopen the unit and try again.";
+            if (!Disposed) await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task EndSessionAsync()
+    {
+        var session = SessionId;
+        SessionId = null;
+        StartBrowser = false;
+        if (session.HasValue)
+        {
+            if (LabSessionId is { } labSession)
+            {
+                try { await LabScreenCasts.StopViewingAsync(Viewer, labSession, session.Value); }
+                catch (Exception) { await ScreenCasts.StopAsync(Viewer, session.Value); }
+            }
+            else await ScreenCasts.StopAsync(Viewer, session.Value);
+        }
+    }
+
+    private async Task StopViewingAsync()
+    {
+        AutoAttempted = true;
+        Busy = true;
+        try
+        {
+            if (Module is not null) await Module.InvokeVoidAsync("stop", Image);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException) { }
+        finally
+        {
+            await EndSessionAsync();
+            Message = "Screen viewing stopped.";
+            Busy = false;
+        }
+    }
+
+    [JSInvokable]
+    public Task ViewingEnded(string sessionId, string reason) => InvokeAsync(async () =>
+    {
+        // Ignore an old browser loop ending after a replacement viewing session started.
+        if (Disposed || SessionId?.ToString() != sessionId) return;
+        await EndSessionAsync();
+        Message = reason;
+        StateHasChanged();
+    });
+
+    public async ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        try
+        {
+            // Release server capacity before awaiting browser cleanup during paging.
+            await EndSessionAsync();
+            await StopViewingAsync();
+        }
+        finally
+        {
+            if (Module is not null)
+            {
+                try { await Module.DisposeAsync(); }
+                catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException) { }
+            }
+            Reference?.Dispose();
+        }
+    }
+}

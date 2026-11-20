@@ -1,11 +1,10 @@
 <Solution>
-  <Folder Name="/CLMS.Agent/">
-    <Project Path="CLMS.Agent/CLMS.Agent.csproj" />
-  </Folder>
+  <Project Path="CLMS.Agent/CLMS.Agent.csproj" />
   <Project Path="CLMS.Application/CLMS.Application.csproj" />
   <Project Path="CLMS.Domain/CLMS.Domain.csproj" />
   <Project Path="CLMS.Infrastructure/CLMS.Infrastructure.csproj" />
   <Project Path="CLMS.Shared/CLMS.Shared.csproj" />
   <Project Path="CLMS.Tests/CLMS.Tests.csproj" />
+  <Project Path="tests/CLMS.DeviceKeys.Checks/CLMS.DeviceKeys.Checks.csproj" />
   <Project Path="CLMS.Web/CLMS.Web.csproj" />
 </Solution>

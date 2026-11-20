@@ -15,9 +15,9 @@
 <PageTitle>CLMS - Login</PageTitle>
 
 
-<div class="min-h-screen grid grid-cols-2 grid-rows-1 bg-[#f8f8f8] text-fg-primary">
-    <div class="flex justify-center items-center min-h-screen">
-        <div>
+<div class="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-[#f8f8f8] text-fg-primary">
+    <div class="flex min-w-0 justify-center items-center px-4 py-10 sm:px-6 lg:min-h-screen">
+        <div class="w-full max-w-lg">
             <div class="text-center mb-8">
                 <h1 class="text-3xl text-primary font-medium mb-2">Labster Login</h1>
                 <p class="text-gray-600">Computer Laboratory Management System</p>
@@ -25,7 +25,7 @@
             </div>
 
             @* card *@
-            <div class="px-6 mb-8 py-8 w-lg">
+            <div class="w-full min-w-0 mb-8 py-6 sm:px-6 sm:py-8">
                 <form
                     method="post"
                     action="/auth/cookie-login"
@@ -64,21 +64,22 @@
                             </button>
                         </div>
                     </div>
-                    <div class="flex justify-between mb-5">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
                         <span>
                             <input id="rememberMe" 
                                    type="checkbox"
+                                   value="true"
                                    name="rememberMe"/>
                             <label for="rememberMe">Remember Me</label>
                         </span>
-                        <a href="">Forgot Password? </a>
+                        <a href="/forgot-password">Forgot Password? </a>
                     </div>
                     <button
                         type="submit"
                         class="bg-primary w-full px-4 py-3 rounded-sm text-white font-bold hover:bg-primary-dark duration-75">
                         Login
                     </button>
-                    <a href="/auth/google/start" class="w-full">
+                    <a href="/auth/google/start" class="block w-full">
                         <div class="gsi-material-button">
                             <div class="gsi-material-button-state"></div>
                             <div class="gsi-material-button-content-wrapper">
@@ -101,6 +102,18 @@
                 @if (Navigation.ToAbsoluteUri(Navigation.Uri).Query.Contains("message=password_changed"))
                 {
                     <p role="status" class="mt-5 rounded-lg border border-primary/20 p-4 text-sm">Password changed successfully. Sign in with your new password.</p>
+                }
+                @if (Navigation.ToAbsoluteUri(Navigation.Uri).Query.Contains("message=password_reset"))
+                {
+                    <p role="status">Password reset successfully. Sign in using your new password and email code.</p>
+                }
+                @if (Error is "verification_expired" or "verification_unavailable")
+                {
+                    <p role="alert">Email verification expired or is unavailable. Sign in again. If email delivery fails, retry shortly or contact your administrator.</p>
+                }
+                @if (Navigation.ToAbsoluteUri(Navigation.Uri).Query.Contains("message=two_factor_updated"))
+                {
+                    <p role="status">Your 2FA setting was saved. Sign in again.</p>
                 }
                 @if (!String.IsNullOrWhiteSpace(Error) &&
                      Error is "invalid" or "google_account_not_authorized" or "google_verification_failed"
@@ -146,7 +159,7 @@
             </div>
         </div>
         </div>
-    <div class="bg-primary bg-[url('/svg/blob-scene-haikei.svg')] bg-no-repeat bg-cover min-h-screen bg-">
+    <div aria-hidden="true" class="bg-primary bg-[url('/svg/blob-scene-haikei.svg')] bg-no-repeat bg-cover min-h-64 lg:min-h-screen">
     </div>
 </div>
 <script>

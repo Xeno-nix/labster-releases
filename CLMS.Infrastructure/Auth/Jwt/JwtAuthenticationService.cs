@@ -43,6 +43,8 @@ public class JwtAuthenticationService : ITokenService
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub,user.UserId.ToString()),
+            new("principal_type", "human"),
+            new("security_stamp", user.SecurityStamp),
             new(ClaimTypes.Email,user.Email),
             new(ClaimTypes.Role,user.UserRole.ToString())
         };

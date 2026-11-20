@@ -22,4 +22,6 @@ public interface IUserRepository
     Task<bool> ResetFailedLoginAttemptsAsync(Guid userId);
     /// <summary>Updates credentials and the flag together, only if the active account's hash has not changed.</summary>
     Task<bool> ChangePasswordAsync(Guid userId, string expectedHash, string newHash);
+    /// <summary>Conditionally changes the preference and password salt, clearing reset proofs and refresh sessions atomically.</summary>
+    Task<bool> ChangeTwoFactorAsync(User expectedUser, bool enabled, string replacementPasswordHash, CancellationToken cancellationToken = default);
 }

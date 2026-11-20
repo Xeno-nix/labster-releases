@@ -16,7 +16,8 @@ public class ComputerUnitService
 
     public async Task<Guid> CreateAsync(UpsertComputerUnitDTO dto)
     {
-        if (await _repository.ExistsActiveAtLabAndNumberAsync(dto.LaboratoryId, dto.UnitNumber))
+        if (dto.UnitNumber == 0 || dto.LaboratoryId <= 0) throw new ArgumentException("Select a laboratory and unit number 1–255.");
+        if (await _repository.ExistsAtLabAndNumberAsync(dto.LaboratoryId, dto.UnitNumber))
         {
             throw new InvalidOperationException(
                 $"Unit {dto.UnitNumber} already exists in this laboratory.");
@@ -41,7 +42,8 @@ public class ComputerUnitService
 
     public async Task UpdateAsync(Guid id, UpsertComputerUnitDTO dto)
     {
-        if (await _repository.ExistsActiveAtLabAndNumberAsync(dto.LaboratoryId, dto.UnitNumber, excludingId: id))
+        if (dto.UnitNumber == 0 || dto.LaboratoryId <= 0) throw new ArgumentException("Select a laboratory and unit number 1–255.");
+        if (await _repository.ExistsAtLabAndNumberAsync(dto.LaboratoryId, dto.UnitNumber, excludingId: id))
         {
             throw new InvalidOperationException(
                 $"Unit {dto.UnitNumber} already exists in this laboratory.");

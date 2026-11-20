@@ -1,0 +1,64 @@
+@using CLMS.Web.Models
+
+<AccountLayout Title="@Title">
+    <h1>@Title</h1>
+    @if (Model.Error is not null) { <p role="alert">@Model.Error</p> }
+    @if (Model.Message is not null) { <p role="status">@Model.Message</p> }
+    @if (Model.Mode == "forgot")
+    {
+        <p>Enter your registered email address. If the account is eligible, we will email a reset link.</p>
+        <form method="post" action="/forgot-password" data-enhance="false">
+            <AntiforgeryToken />
+            <label for="email">Email address</label>
+            <input id="email" name="email" type="email" maxlength="100" autocomplete="email" value="@Model.Email" required />
+            <button type="submit" class="recovery-send" disabled="@(Model.RecoveryWaitSeconds > 0)" aria-describedby="recovery-status"
+                    data-recovery-cooldown="@Model.RecoveryWaitSeconds" data-recovery-response="@(Model.RecoveryServerTime is not null ? "true" : "false")">
+                <svg class="cooldown-clock" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+                </svg>
+                <span data-recovery-label>@(Model.RecoveryWaitSeconds > 0 ? $"Send in {FormatCountdown(Model.RecoveryWaitSeconds)}" : "Send reset link")</span>
+            </button>
+            <span id="recovery-status" class="cooldown-status" data-recovery-status role="status" aria-live="polite">@(Model.RecoveryWaitSeconds > 0 ? $"You can send again in {FormatCountdown(Model.RecoveryWaitSeconds)}." : "")</span>
+        </form>
+    }
+    else if (Model.Mode == "reset")
+    {
+        <form method="post" action="/reset-password" data-enhance="false">
+            <AntiforgeryToken />
+            <input type="hidden" name="UserId" value="@Model.UserId" />
+            <input type="hidden" name="Token" value="@Model.Token" />
+            <label for="password">New password (8–1024 characters)</label>
+            <input id="password" name="NewPassword" type="password" minlength="8" maxlength="1024" autocomplete="new-password" aria-describedby="password-help" required />
+            <p id="password-help" class="password-help">Choose a password different from your current password.</p>
+            <label for="confirm">Confirm password</label>
+            <input id="confirm" name="ConfirmPassword" type="password" minlength="8" maxlength="1024" autocomplete="new-password" required />
+            <button type="submit">Reset password</button>
+        </form>
+    }
+    else
+    {
+        <p>Enter the six-digit code sent to your registered email. Check your spam folder if needed.</p>
+        <p>Expires at @Model.ExpiresAt?.ToString("HH:mm:ss") UTC. Use only the latest code.</p>
+        <form method="post" action="/auth/two-factor" data-enhance="false">
+            <AntiforgeryToken />
+            <label for="code">Email code</label>
+            <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" required autofocus />
+            <button type="submit">Verify and sign in</button>
+        </form>
+        <form method="post" action="/auth/two-factor/resend" data-enhance="false">
+            <AntiforgeryToken />
+            <button type="submit" class="secondary" data-resend-at="@Model.ResendAfter?.ToString("O")">Resend code</button>
+            <span data-resend-status role="status"></span>
+        </form>
+        <form method="post" action="/auth/two-factor/cancel"><AntiforgeryToken /><button type="submit" class="secondary">Start sign-in again</button></form>
+    }
+    <p><a href="/login">Back to sign in</a></p>
+    <p data-submit-status role="status"></p>
+    <script src="/js/account-security.js" defer></script>
+</AccountLayout>
+
+@code {
+    [Parameter, EditorRequired] public SecurityFormModel Model { get; set; } = default!;
+    private string Title => Model.Mode switch { "forgot" => "Forgot password", "reset" => "Reset password", _ => "Verify your sign-in" };
+    private static string FormatCountdown(int seconds) => $"{seconds / 60:00}:{seconds % 60:00}";
+}

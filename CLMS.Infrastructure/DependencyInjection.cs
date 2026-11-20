@@ -16,7 +16,17 @@ public static class DependencyInjection
         this IServiceCollection services)
     {
         services
+            .AddSingleton(TimeProvider.System)
+            .AddSingleton<IAccountSecurityCrypto, AccountSecurityCrypto>()
+            .AddSingleton<IResetTokenHasher>(sp => sp.GetRequiredService<IAccountSecurityCrypto>())
+            .AddSingleton<IEmailLoginChallenges, EmailLoginChallenges>()
+            .AddSingleton<IPasswordRecoveryQueue, PasswordRecoveryQueue>()
+            .AddScoped<IResetTokenRepository, ResetTokenRepository>()
+            .AddScoped<CLMS.Application.UnitRegistry.IUnitRegistryRepository, UnitRegistryRepository>()
+            .AddScoped<CLMS.Application.UnitRegistry.IAgentTokenService, AgentTokenService>()
+            .AddSingleton<CLMS.Application.UnitRegistry.IDeviceProofVerifier, DeviceProofVerifier>()
             .AddScoped<MySqlConnectionFactory>()
+            .AddScoped<WorkstationSessionRepository>()
             
             .AddScoped<ITokenService, JwtAuthenticationService>()
             .AddScoped<IPasswordHasher,PasswordHasher>()
@@ -36,6 +46,7 @@ public static class DependencyInjection
             .AddScoped<ISupplyRepository,SupplyRepository>()
             .AddScoped<IComputerUnitRepository, ComputerUnitRepository>()
             .AddScoped<IUnitMonitoringRepository, UnitMonitoringRepository>()
+            .AddScoped<IScreenCastRepository, ScreenCastRepository>()
             
             .AddScoped<IClassScheduleRepository,ClassScheduleRepository>()
             .AddScoped<IBookingRepository,BookingRepository>()

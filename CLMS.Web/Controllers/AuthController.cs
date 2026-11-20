@@ -40,7 +40,7 @@ public class AuthController(AuthenticationService authService) : ControllerBase
         catch (UnauthorizedAccessException)
         { return Redirect("/login?error=invalid"); }
         catch (InvalidOperationException)
-        { return Redirect("/login?error=invalid"); }
+        { return Redirect("/login?error=verification_unavailable"); }
     }
 
     
@@ -51,6 +51,7 @@ public class AuthController(AuthenticationService authService) : ControllerBase
         await HttpContext.SignOutAsync(AuthenticationSchemes.Cookie);
         await HttpContext.SignOutAsync(AuthenticationSchemes.PasswordChange);
         await HttpContext.SignOutAsync(AuthenticationSchemes.ExternalCookie);
+        await BrowserSignIn.CancelPendingAsync(HttpContext);
         return Redirect("/login");
     }
 
@@ -59,7 +60,13 @@ public class AuthController(AuthenticationService authService) : ControllerBase
     [EnableRateLimiting("GoogleLink")]
     public async Task<IActionResult> Login([FromBody] AuthenticationRequestDto request)
     {
-        try { return Ok(await authService.JwtLogin(request)); }
+        try
+        {
+            var result = await authService.LoginAsync(request, HttpContext.RequestAborted);
+            if (result.Tokens is not null) return Ok(result.Tokens);
+            var receipt = result.Challenge!;
+            return Accepted(new { code = "two_factor_required", receipt.ChallengeCredential, receipt.ExpiresAt, receipt.ResendAfter });
+        }
         catch (PasswordChangeRequiredException) { return PasswordChangeRequired(); }
         catch (UnauthorizedAccessException ex) { return Unauthorized(ex.Message); }
         catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
@@ -67,6 +74,7 @@ public class AuthController(AuthenticationService authService) : ControllerBase
 
     [IgnoreAntiforgeryToken]
     [HttpPost("api/auth/register")]
+    [Authorize(Policy = "JwtPolicy", Roles = "Admin")]
     public async Task<IActionResult> Register([FromBody] RegisterDto request)
     {
         RegistrationResultDto result;
@@ -140,7 +148,7 @@ public class AuthController(AuthenticationService authService) : ControllerBase
                 return Redirect("/auth/google/link");
             }
             await HttpContext.SignOutAsync(AuthenticationSchemes.ExternalCookie);
-            var path = await BrowserSignIn.CompleteAsync(HttpContext, new(user.UserId, user.Email, user.UserRole, user.PasswordChanged));
+            var path = await BrowserSignIn.CompleteAsync(HttpContext, await authService.GetActiveUserAsync(user.UserId));
             return LocalRedirect(path == "/" && Url.IsLocalUrl(returnUrl) ? returnUrl! : path);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or InvalidOperationException)

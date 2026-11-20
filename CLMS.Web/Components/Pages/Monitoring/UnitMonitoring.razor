@@ -2,7 +2,11 @@
 @attribute [Authorize]
 @using CLMS.Web.Models
 @using CLMS.Application.DTOs.Monitoring
+@using CLMS.Application.Identity.Interfaces
+@using CLMS.Infrastructure.Repositories
 @inherits MonitoringPageBase
+@inject ICurrentUser CurrentUser
+@inject WorkstationSessionRepository WorkstationSessions
 
 <PageTitle>Unit Monitoring | CLMS</PageTitle>
 
@@ -22,6 +26,10 @@
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+        @if (CanViewSessions)
+        {
+            <a href="/unit-monitoring/sessions" class="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm text-primary">Session history</a>
+        }
         <button type="button" @onclick="() => ShowSummary = true" disabled="@(!LastUpdatedUtc.HasValue)"
                 aria-label="View workstation summary" aria-haspopup="dialog" title="Workstation summary"
                 class="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-sm font-semibold text-primary hover:bg-surface disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-primary">?</button>
@@ -61,7 +69,7 @@
                    class="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary" />
         </div>
         <div class="status-filters" role="group" aria-label="Filter by unit status">
-                    @foreach (var filter in new[] { "All", "Available", "In Use", "Offline" })
+                    @foreach (var filter in new[] { "All", "Online", "Offline" })
                     {
                         <button type="button" @onclick="() => SetStatus(filter)" aria-pressed="@(Status == filter)"
                                 class="rounded-lg px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary @(Status == filter ? "bg-primary text-white" : "bg-white text-gray-600 hover:bg-surface")">@filter</button>
@@ -93,7 +101,9 @@
                 <div class="pc-grid">
                     @foreach (var unit in VisibleUnits)
                     {
-                        <UnitMonitorCard @key="unit.Id" Unit="unit" ObservedAtUtc="ObservedAtUtc" Selected="@(SelectedUnit?.Id == unit.Id)" OnSelect="SelectUnit" />
+                        <UnitMonitorCard @key="unit.Id" Unit="unit" ObservedAtUtc="ObservedAtUtc"
+                                         Session="ActiveSessions.GetValueOrDefault(unit.Id)" ShowSession="CanViewSessions"
+                                         SessionsAvailable="SessionsAvailable" Selected="@(SelectedUnit?.Id == unit.Id)" OnSelect="SelectUnit" />
                     }
                 </div>
             }
@@ -102,12 +112,12 @@
     }
 </div>
 
-<UnitDetailsModal Unit="SelectedUnit" ObservedAtUtc="ObservedAtUtc" OnClose="CloseDetails" />
+<UnitDetailsModal Unit="SelectedUnit" ObservedAtUtc="ObservedAtUtc" OnClose="CloseDetails"
+                  Session="@(SelectedUnit is null ? null : ActiveSessions.GetValueOrDefault(SelectedUnit.Id))"
+                  ShowSession="CanViewSessions" SessionsAvailable="SessionsAvailable" />
 <UnitSummaryModal Show="ShowSummary" Units="LaboratoryUnits" ObservedAtUtc="ObservedAtUtc"
                   LaboratoryName="@(LaboratoryUnits.FirstOrDefault()?.Laboratory is string name && Laboratory.Length > 0 ? name : "All laboratories")"
                   OnClose="() => ShowSummary = false" />
-
-<UnitAvailabilityDebug Units="Units" OnChange="SetPreviewStatuses" />
 
 @code {
     [SupplyParameterFromQuery(Name = "lab")] public int? LabId { get; set; }
@@ -117,6 +127,29 @@
     private string Search { get; set; } = "";
     private string Status { get; set; } = "All";
     private UnitMonitoringDTO? SelectedUnit { get; set; }
+    private bool CanViewSessions;
+    private bool SessionsAvailable;
+    private IReadOnlyDictionary<Guid, WorkstationSession> ActiveSessions = new Dictionary<Guid, WorkstationSession>();
+
+    protected override async Task RefreshDetailsAsync(CancellationToken cancellationToken)
+    {
+        CanViewSessions = false;
+        SessionsAvailable = false;
+        ActiveSessions = new Dictionary<Guid, WorkstationSession>();
+        try
+        {
+            await CurrentUser.RequireAdminAsync();
+            CanViewSessions = true;
+            ActiveSessions = await WorkstationSessions.GetActiveAsync(cancellationToken);
+            SessionsAvailable = true;
+        }
+        catch (UnauthorizedAccessException) { }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            Logger.LogWarning("Could not load active workstation sessions ({ErrorType}).", ex.GetType().Name);
+        }
+    }
 
     private List<UnitMonitoringDTO> LaboratoryUnits => Units
         .Where(u => Laboratory.Length == 0 || u.LaboratoryId.ToString() == Laboratory).ToList();

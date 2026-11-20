@@ -98,7 +98,7 @@ public sealed class AccountController(AuthenticationService accounts) : Controll
         {
             var user = await accounts.LinkGoogleAsync(identity, password);
             await HttpContext.SignOutAsync(AuthenticationSchemes.ExternalCookie);
-            return Results.LocalRedirect(await BrowserSignIn.CompleteAsync(HttpContext, new(user.UserId, user.Email, user.UserRole, user.PasswordChanged)));
+            return Results.LocalRedirect(await BrowserSignIn.CompleteAsync(HttpContext, await accounts.GetActiveUserAsync(user.UserId)));
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or InvalidOperationException)
         {

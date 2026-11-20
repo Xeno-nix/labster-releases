@@ -12,6 +12,9 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using CLMS.Infrastructure.DatabaseMaintenance;
+using CLMS.Shared.Dtos;
+using CLMS.Web.Hubs;
+using CLMS.Web.Services.AgentConnections;
 using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Identity.Services;
 using Microsoft.AspNetCore.Authentication;
@@ -22,6 +25,9 @@ using Microsoft.AspNetCore.DataProtection;
 
 
 var builder = WebApplication.CreateBuilder(args);
+// Reset links carry bearer credentials. Prevent request URL and action-argument logging.
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker", LogLevel.Information);
 var isDevelopment = builder.Environment.IsDevelopment();
 var cookieSecurePolicy = isDevelopment ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
 builder.Services.AddHttpContextAccessor();
@@ -32,12 +38,31 @@ builder.Services.AddOptions<AccountOptions>()
     // Apply after configuration so production cannot opt out of HTTPS through a setting.
     .PostConfigure(options => options.RequireHttps = !isDevelopment);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AccountOptions>>().Value);
+builder.Services.AddHostedService<DeviceChallengeCleanup>();
+builder.Services.AddHostedService<PasswordRecoveryWorker>();
+builder.Services.AddScoped<HumanSessionValidator>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        context.Request.Path.StartsWithSegments("/api/agent")
+            ? RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })
+            : RateLimitPartition.GetNoLimiter("other"));
+    options.OnRejected = PasswordRecoveryRateLimit.OnRejectedAsync;
+    foreach (var (name, limit) in new[] { ("AgentDiscovery", 30), ("AgentRegistration", 5),
+                 ("AgentPolling", 30), ("AgentClaim", 10), ("AgentAuthentication", 30), ("AgentHeartbeat", 10) })
+    {
+        var permits = builder.Configuration.GetValue<int?>($"AgentRateLimits:{name}") ?? limit;
+        options.AddPolicy(name, context => RateLimitPartition.GetFixedWindowLimiter(
+            (context.Connection.RemoteIpAddress?.ToString() ?? "unknown") + ":" +
+                (name is "AgentPolling" or "AgentClaim" ? context.Request.RouteValues["id"]?.ToString() : ""),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    }
     options.AddPolicy("GoogleLink", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy("PasswordRecovery", PasswordRecoveryRateLimit.ForClient);
 });
 
 // Add services to the container.
@@ -61,6 +86,12 @@ builder.Services
 // For JWT Options Configuration (Grabs config from user secrets)
 builder.Services.AddOptions<JwtOptions>()
     .Bind(builder.Configuration.GetSection("Jwt"))
+    .Validate(AgentTokenService.IsValidSigningConfiguration,
+        "JWT issuer/audience and an HS256/HS384/HS512 signing key of at least 32/48/64 bytes are required.")
+    .ValidateOnStart();
+builder.Services.AddOptions<AgentAuthOptions>().Bind(builder.Configuration.GetSection("AgentAuth"))
+    .Validate(o => o.AccessMinutes is >= 1 and <= 15 &&
+        !string.IsNullOrWhiteSpace(o.Audience) && o.Audience.Length <= 200 && !o.Audience.Any(char.IsControl) && o.Audience != builder.Configuration["Jwt:Audience"], "Invalid agent token settings.")
     .ValidateOnStart();
 
 // authentication && authorization
@@ -79,6 +110,7 @@ builder.Services
     })
     .AddJwtBearer(AuthenticationSchemes.Bearer, o =>
     {
+        o.Events = new JwtBearerEvents { OnTokenValidated = HumanSessionValidator.ValidateBearerAsync };
         
         o.TokenValidationParameters = new TokenValidationParameters()
         {
@@ -100,6 +132,7 @@ builder.Services
     .AddCookie(AuthenticationSchemes.Cookie, options =>
     {
         options.Cookie.Name = "CLMS.Auth";
+        options.Events.OnValidatePrincipal = HumanSessionValidator.ValidateCookieAsync;
         options.LoginPath = "/login";
         options.Cookie.Path = "/";
         options.AccessDeniedPath = "/access-denied";
@@ -114,11 +147,21 @@ builder.Services
     .AddCookie(AuthenticationSchemes.PasswordChange, options =>
     {
         options.Cookie.Name = "CLMS.PasswordChange";
+        options.Events.OnValidatePrincipal = HumanSessionValidator.ValidateCookieAsync;
         options.LoginPath = "/login";
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = cookieSecurePolicy;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+        options.SlidingExpiration = false;
+    })
+    .AddCookie(AuthenticationSchemes.TwoFactor, options =>
+    {
+        options.Cookie.Name = "CLMS.TwoFactor";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = cookieSecurePolicy;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
         options.SlidingExpiration = false;
     })
     .AddCookie(AuthenticationSchemes.ExternalCookie, options =>
@@ -167,6 +210,7 @@ builder.Services
 builder.Services
     .AddAuthorization(options =>
     {
+        AgentAuthentication.AddPolicies(options);
         // TODO SuperAdmin: replace Admin with the future SuperAdmin role.
         options.AddPolicy("RegisterUsers", policy => policy.RequireAuthenticatedUser().RequireRole("Admin"));
         options.AddPolicy("JwtPolicy", policy =>
@@ -187,8 +231,11 @@ builder.Services.AddHttpClient<EmailService>();
 
 // web stuff
 builder.Services.AddScoped<ToastService>();
+builder.Services.AddSingleton<CLMS.Web.Services.ScreenCasting.LabScreenCastService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<CLMS.Web.Services.ScreenCasting.LabScreenCastService>());
 builder.Services.AddScoped<DialogService>();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider, HumanRevalidatingStateProvider>();
 
 builder.Services.AddOptions<DatabaseBackupOptions>()
     .Bind(builder.Configuration.GetSection("DatabaseBackup"))
@@ -209,22 +256,39 @@ builder.Services.AddOptions<DatabaseBackupOptions>()
 builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddHostedService<DatabaseBackupWorker>();
 
+builder.Services.AddAgentConnections(builder.Configuration);
+builder.Services.AddSingleton<WorkstationSessionGrants>();
+
 var app = builder.Build();
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (!isDevelopment && !context.Request.IsHttps && (path.StartsWithSegments("/auth") || path.StartsWithSegments("/account") ||
+        path.StartsWithSegments("/api/auth") || path.StartsWithSegments("/forgot-password") || path.StartsWithSegments("/reset-password")))
+    {
+        context.Response.StatusCode = 400;
+        await context.Response.WriteAsync("HTTPS is required.");
+        return;
+    }
+    await next(context);
+});
+app.UseMiddleware<UnitRegistryMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler(
+    app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api"), branch => branch.UseExceptionHandler(
         "/Error",
-        createScopeForErrors: true);
+        createScopeForErrors: true));
 
     app.UseHsts();
     app.UseHttpsRedirection();
 }
 
-app.UseStatusCodePagesWithReExecute(
-    "/not-found",
-    createScopeForStatusCodePages: true);
+// Preserve protocol status codes for all APIs and the device hub.
+app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api")
+    && !context.Request.Path.StartsWithSegments(AgentConnectionProtocol.HubPath), branch =>
+    branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 
 app.UseAuthentication();
 app.UseRateLimiter();
@@ -232,6 +296,12 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapControllers();
+app.MapHub<AgentConnectionHub>(AgentConnectionProtocol.HubPath,
+    options =>
+    {
+        options.CloseOnAuthenticationExpiration = true;
+        options.ApplicationMaxBufferSize = ScreenCastProtocol.MaximumHubMessageBytes;
+    }).DisableAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

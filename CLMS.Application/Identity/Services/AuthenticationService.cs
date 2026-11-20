@@ -1,5 +1,8 @@
-﻿using CLMS.Application.Identity.Interfaces;
+using System.Net;
+using System.Net.Mail;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Interfaces;
+using CLMS.Application.Identity.Exceptions;
 using CLMS.Application.Persistence.Interfaces;
 using CLMS.Domain.Entities.Identity;
 using CLMS.Domain.ValueObjects;
@@ -17,7 +20,9 @@ public sealed class AuthenticationService(
     IExternalIdentityRepository externalIdentityRepository,
     ICurrentUser currentUser,
     IEmailService emailService,
-    AccountOptions options)
+    AccountOptions options,
+    IAccountSecurityCrypto crypto,
+    EmailLoginService emailLogin)
 {
     private const int MaxSessions = 5;
         
@@ -30,7 +35,7 @@ public sealed class AuthenticationService(
     /// <summary>Creates the account immediately. Email failure is a separate outcome, not a registration rollback.</summary>
     public async Task<RegistrationResultDto> RegisterAsync(RegisterDto request)
     {
-        // await currentUser.RequireAdminAsync();
+        await currentUser.RequireAdminAsync();
         var email = NormalizeEmail(request.Email);
         if (await userRepository.FindByEmailAsync(email) is not null)
             throw new InvalidOperationException("A user with this email already exists.");
@@ -83,7 +88,7 @@ public sealed class AuthenticationService(
         var user = await userRepository.FindByEmailAsync(NormalizeEmail(request.Email));
         
         // if user not found using email
-        if (user is null || user.DeletedAt.HasValue) throw new InvalidCredentialsException("Invalid credentials.");
+        if (user is null || user.DeletedAt.HasValue) throw new InvalidCredentialsException();
 
         // refuse while locked, even if the password is correct
         if (user.IsLockedOut) throw new AccountLockedException(user.LockoutEnd!.Value);
@@ -91,7 +96,7 @@ public sealed class AuthenticationService(
         // checks if the password is correct for the user
         var passwordValid =
             passwordHasher.Verify(
-                requestDto.Password,
+                request.Password,
                 user.PasswordHash);
 
         // invalid password
@@ -123,34 +128,42 @@ public sealed class AuthenticationService(
     public async Task<AuthTokensDto> JwtLogin(AuthenticationRequestDto request) =>
         await IssueTokens(await AuthenticateUserAsync(request));
 
+    public async Task<EmailLoginReceipt> BeginLoginAsync(AuthenticationRequestDto request, CancellationToken ct = default) =>
+        await emailLogin.BeginAsync(await AuthenticateUserAsync(request), ct);
+
+    /// <summary>The caller returns either a completed sign-in or the intermediate email-code response.</summary>
+    public async Task<(AuthTokensDto? Tokens, EmailLoginReceipt? Challenge)> LoginAsync(AuthenticationRequestDto request, CancellationToken ct = default)
+    {
+        var firstFactor = await AuthenticateUserAsync(request);
+        if (!firstFactor.TwoFactorEnabled) return (await IssueTokens(firstFactor), null);
+        return (null, await emailLogin.BeginAsync(firstFactor, ct));
+    }
+
     public async Task<AuthTokensDto> IssueTokens(UserClaimsDto claims)
     {
-        // Always re-read the flag here so callers cannot bypass the initial-password requirement with stale DTOs.
         var user = await RequireActiveUser(claims.UserId);
+        if ((user.TwoFactorEnabled && !claims.TwoFactorVerified) || !crypto.StampMatches(user, claims.SecurityStamp))
+            throw new UnauthorizedAccessException("Complete email verification before signing in.");
         if (!user.PasswordChanged) throw new PasswordChangeRequiredException();
-        var activeTokens = await refreshTokenRepository.GetActiveByUserIdAsync(user.Id);
-        if (activeTokens.Count >= MaxSessions)
-            await refreshTokenRepository.RevokeAsync(activeTokens[0].Id, DateTime.UtcNow);
-        var refreshToken = tokenService.GenerateRefreshToken();
-        await refreshTokenRepository.AddAsync(RefreshToken.Create(user.Id, refreshTokenHasher.Hash(refreshToken),
-            DateTime.UtcNow.Add(tokenService.RefreshTokenLifetime)));
-        return new(tokenService.GenerateAccessToken(Claims(user)), refreshToken);
+        return await IssueVerifiedAsync(user, null);
     }
 
     public async Task<AuthTokensDto> Refresh(string refreshToken)
     {
-        var stored = await refreshTokenRepository.FindByHashAsync(refreshTokenHasher.Hash(refreshToken));
+        if (string.IsNullOrEmpty(refreshToken) || refreshToken.Length > 256 || refreshToken.IndexOf('.') != 64)
+            throw new UnauthorizedAccessException("Invalid or expired refresh token.");
+        var stored = await refreshTokenRepository.FindByHashAsync(HumanRefreshHash(refreshToken));
         if (stored is null || !stored.IsActive) throw new UnauthorizedAccessException("Invalid or expired refresh token.");
         var user = await RequireActiveUser(stored.UserId);
+        if (!crypto.StampMatches(user, refreshToken[..64])) throw new UnauthorizedAccessException("Sign in again.");
         if (!user.PasswordChanged) throw new PasswordChangeRequiredException();
-        var tokens = await IssueTokens(Claims(user));
-        await refreshTokenRepository.RevokeAsync(stored.Id, DateTime.UtcNow);
-        return tokens;
+        return await IssueVerifiedAsync(user, stored.TokenHash);
     }
 
     public async Task Logout(string refreshToken)
     {
-        var stored = await refreshTokenRepository.FindByHashAsync(refreshTokenHasher.Hash(refreshToken));
+        if (string.IsNullOrEmpty(refreshToken) || refreshToken.Length > 256) return;
+        var stored = await refreshTokenRepository.FindByHashAsync(HumanRefreshHash(refreshToken));
         if (stored is not null && !stored.IsRevoked)
             await refreshTokenRepository.RevokeAsync(stored.Id, DateTime.UtcNow);
     }
@@ -185,6 +198,7 @@ public sealed class AuthenticationService(
     /// <summary>Checks current credentials and updates the hash/flag with a concurrency check.</summary>
     public async Task ChangePasswordAsync(Guid userId, ChangePasswordDto request)
     {
+        PasswordRecoveryService.ValidatePassword(request.NewPassword, request.ConfirmPassword);
         var user = await RequireActiveUser(userId);
         if (string.IsNullOrEmpty(request.CurrentPassword) || !passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
             throw new InvalidOperationException("The current password is incorrect.");
@@ -196,8 +210,6 @@ public sealed class AuthenticationService(
             throw new InvalidOperationException("Choose a password different from your current password.");
         if (!await userRepository.ChangePasswordAsync(user.Id, user.PasswordHash, passwordHasher.Hash(request.NewPassword)))
             throw new InvalidOperationException("The account changed. Sign in again and retry.");
-        foreach (var token in await refreshTokenRepository.GetActiveByUserIdAsync(user.Id))
-            await refreshTokenRepository.RevokeAsync(token.Id, DateTime.UtcNow);
     }
 
     public async Task<UserClaimsDto> GetActiveUserAsync(Guid userId) => Claims(await RequireActiveUser(userId));
@@ -205,7 +217,7 @@ public sealed class AuthenticationService(
     private async Task<User> RequireActiveUser(Guid id)
     {
         var user = await userRepository.FindByIdAsync(id);
-        return user is null || user.DeletedAt.HasValue ? throw new UnauthorizedAccessException("This account is unavailable.") : user;
+        return user is null || user.DeletedAt.HasValue || user.IsLockedOut ? throw new UnauthorizedAccessException("This account is unavailable.") : user;
     }
 
     private void ValidateGoogleIdentity(ExternalLoginRequest request)
@@ -227,7 +239,19 @@ public sealed class AuthenticationService(
             throw new UnauthorizedAccessException("Use a verified organization Google Workspace account to sign in.");
     }
 
-    private static UserClaimsDto Claims(User user) => new(user.Id, user.Email, user.UserRole, user.PasswordChanged);
+    private UserClaimsDto Claims(User user) => new(user.Id, user.Email, user.UserRole, user.PasswordChanged)
+        { SecurityStamp = crypto.Stamp(user), TwoFactorEnabled = user.TwoFactorEnabled };
+
+    private string HumanRefreshHash(string token) => "human2fa:v1:" + refreshTokenHasher.Hash(token);
+
+    private async Task<AuthTokensDto> IssueVerifiedAsync(User user, string? predecessorHash)
+    {
+        var refreshToken = crypto.Stamp(user) + "." + tokenService.GenerateRefreshToken();
+        var replacement = RefreshToken.Create(user.Id, HumanRefreshHash(refreshToken), DateTime.UtcNow.Add(tokenService.RefreshTokenLifetime));
+        if (!await refreshTokenRepository.TryIssueAsync(user, replacement, predecessorHash, MaxSessions))
+            throw new UnauthorizedAccessException("The session or account changed. Sign in again.");
+        return new(tokenService.GenerateAccessToken(Claims(user)), refreshToken);
+    }
     private static string NormalizeEmail(string email)
     {
         var trimmed = email?.Trim() ?? "";

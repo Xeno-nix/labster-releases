@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1">
       <PrivateAssets>all</PrivateAssets>
@@ -20,6 +22,23 @@
     <ProjectReference Include="..\CLMS.Application\CLMS.Application.csproj" />
     <ProjectReference Include="..\CLMS.Domain\CLMS.Domain.csproj" />
     <ProjectReference Include="..\CLMS.Web\CLMS.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Fixtures\screen-frame.jpg" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Exercise shared sending without loading the native MAUI application. -->
+    <Compile Include="..\CLMS.Agent\Services\ScreenCastSender.cs" Link="Agent\ScreenCastSender.cs" />
+    <Compile Include="..\CLMS.Agent\Services\IScreenCaptureService.cs" Link="Agent\IScreenCaptureService.cs" />
+    <Compile Include="..\CLMS.Agent\Models\ScreenFrame.cs" Link="Agent\ScreenFrame.cs" />
+    <Compile Include="..\CLMS.Agent\Models\AgentConnectionSnapshot.cs" Link="Agent\AgentConnectionSnapshot.cs" />
+    <Compile Include="..\CLMS.Agent\Services\AgentRuntimeService.cs" Link="Agent\AgentRuntimeService.cs" />
+    <Compile Include="..\CLMS.Agent\Services\AgentConnectionErrors.cs" Link="Agent\AgentConnectionErrors.cs" />
+    <Compile Include="../CLMS.Agent/Services/AgentConnectionService.cs" Link="Agent/AgentConnectionService.cs" />
+    <Compile Include="..\CLMS.Agent\Services\IAgentConnectionTransport.cs" Link="Agent\IAgentConnectionTransport.cs" />
+    <Compile Include="../CLMS.Agent/Services/Identity/*.cs" Exclude="../CLMS.Agent/Services/Identity/UserAgentVault.cs" Link="Agent/Identity/%(Filename)%(Extension)" />
+    <Compile Include="../CLMS.Agent/Platforms/Windows/WindowsDeviceKeyStore.cs" Link="Agent/WindowsDeviceKeyStore.cs" />
+    <Compile Include="../CLMS.Agent/Platforms/MacCatalyst/MacDeviceKeyStore.cs" Link="Agent/MacDeviceKeyStore.cs" />
+    <Compile Include="../CLMS.Agent/Services/IAgentAccessTokenProvider.cs" Link="Agent/IAgentAccessTokenProvider.cs" />
   </ItemGroup>
 
 </Project>

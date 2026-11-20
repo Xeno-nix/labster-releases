@@ -14,29 +14,27 @@
     <div class="grid gap-6 md:grid-cols-2">
         <section aria-labelledby="screen-preview-heading">
             <h3 id="screen-preview-heading" class="mb-3 text-sm font-semibold text-gray-800">Screen preview</h3>
-            <div class="flex aspect-video flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-black/15 bg-surface p-4 text-center">
-                <svg class="text-muted" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                    <rect x="3" y="3" width="18" height="13" rx="2" /><path d="M8 21h8m-4-5v5" />
-                </svg>
-                <p class="text-sm text-muted">No screen feed connected</p>
-                <p class="text-xs text-muted">Screen monitoring will appear here.</p>
-            </div>
+            <UnitScreenView @key="Unit.Id" UnitId="Unit.Id" UnitName="Unit.Name" Online="@(Status != UnitMonitoringStatus.Offline)" />
         </section>
 
         <section aria-labelledby="connection-heading">
             <h3 id="connection-heading" class="mb-3 text-sm font-semibold text-gray-800">Connection &amp; session</h3>
             <dl class="space-y-3 text-sm">
                 <div class="flex justify-between gap-3"><dt class="text-muted">Unit number</dt><dd class="font-medium text-gray-800">@Unit.Number.ToString("D2")</dd></div>
-                <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Serial number</dt><dd class="min-w-0 break-words text-right text-gray-600">@(Unit.SerialNumber ?? "Not assigned")</dd></div>
                 <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Last IP address</dt><dd class="min-w-0 break-all text-right text-gray-600">@(Unit.IpAddress ?? "Not reported")</dd></div>
                 <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Last heartbeat</dt><dd class="text-right text-gray-600">@UnitMonitoringDisplay.FormatUtc(Unit.LastHeartbeatUtc)</dd></div>
-                <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Session user</dt><dd class="min-w-0 break-words text-right text-gray-600">@(Unit.CurrentUser ?? "Not identified")</dd></div>
-                <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Open session since</dt><dd class="text-right text-gray-600">@(Unit.SessionStartedUtc.HasValue ? UnitMonitoringDisplay.FormatUtc(Unit.SessionStartedUtc) : "No open session")</dd></div>
+                @if (ShowSession)
+                {
+                    <div class="flex justify-between gap-3">
+                        <dt class="shrink-0 text-muted">@(Session is not null && Status == UnitMonitoringStatus.Offline ? "Last reported CLMS user" : "Current CLMS user")</dt>
+                        <dd class="min-w-0 break-words text-right text-gray-600">@(SessionsAvailable ? Session?.UserName ?? "No active session" : "Unavailable")</dd>
+                    </div>
+                    @if (Session is not null)
+                    {
+                        <div class="flex justify-between gap-3"><dt class="shrink-0 text-muted">Session started</dt><dd class="text-right text-gray-600">@UnitMonitoringDisplay.FormatUtc(Session.StartedUtc)</dd></div>
+                    }
+                }
             </dl>
-            @if (Unit.SessionStartedUtc.HasValue && Status == UnitMonitoringStatus.Offline)
-            {
-                <p class="mt-3 text-xs text-muted">An open session is recorded, but the unit has no fresh online signal.</p>
-            }
         </section>
 
         <section aria-labelledby="resources-heading">
@@ -56,10 +54,9 @@
         <section aria-labelledby="controls-heading">
             <h3 id="controls-heading" class="mb-3 text-sm font-semibold text-gray-800">Unit controls</h3>
             <div class="grid grid-cols-2 gap-2">
-                <button type="button" disabled aria-describedby="controls-description" class="cursor-not-allowed rounded-lg border border-black/10 bg-surface px-3 py-2 text-sm text-gray-500">View screen</button>
                 <button type="button" disabled aria-describedby="controls-description" class="cursor-not-allowed rounded-lg border border-black/10 bg-surface px-3 py-2 text-sm text-gray-500">Send message</button>
             </div>
-            <p id="controls-description" class="mt-2 text-xs text-muted">Remote actions are not available yet.</p>
+            <p id="controls-description" class="mt-2 text-xs text-muted">Messaging is not available yet. The live screen preview starts automatically while this PC is online.</p>
         </section>
     </div>
     }
@@ -68,6 +65,9 @@
 @code {
     [Parameter] public UnitMonitoringDTO? Unit { get; set; }
     [Parameter] public DateTime ObservedAtUtc { get; set; }
+    [Parameter] public WorkstationSession? Session { get; set; }
+    [Parameter] public bool ShowSession { get; set; }
+    [Parameter] public bool SessionsAvailable { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     private UnitMonitoringStatus Status => Unit?.GetStatus(ObservedAtUtc) ?? UnitMonitoringStatus.Offline;
 }

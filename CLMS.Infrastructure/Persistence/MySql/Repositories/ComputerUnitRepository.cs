@@ -17,14 +17,18 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
                 computer_unit_id,
                 unit_name,
                 unit_number,
-                laboratory_id
+                laboratory_id,
+                created_at,
+                last_modified_at
             )
             VALUES
             (
                 @Id,
                 @UnitName,
                 @UnitNumber,
-                @LaboratoryId
+                @LaboratoryId,
+                UTC_TIMESTAMP(6),
+                UTC_TIMESTAMP(6)
             );
             """;
 
@@ -149,6 +153,20 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
         return Convert.ToInt32(result) > 0;
     }
 
+    public async Task<bool> ExistsAtLabAndNumberAsync(int laboratoryId, byte unitNumber, Guid? excludingId = null)
+    {
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+        await using var command = new MySqlCommand("""
+            SELECT EXISTS(SELECT 1 FROM computer_units WHERE laboratory_id=@Lab AND unit_number=@Number
+              AND (@Excluded IS NULL OR computer_unit_id<>@Excluded))
+            """, connection);
+        command.Parameters.AddWithValue("@Lab", laboratoryId);
+        command.Parameters.AddWithValue("@Number", unitNumber);
+        command.Parameters.AddWithValue("@Excluded", excludingId is null ? DBNull.Value : excludingId.Value.ToString());
+        return Convert.ToBoolean(await command.ExecuteScalarAsync());
+    }
+
     public async Task UpdateAsync(ComputerUnit computerUnit)
     {
         const string sql = """
@@ -156,9 +174,11 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
             SET
                 unit_name = @UnitName,
                 unit_number = @UnitNumber,
-                laboratory_id = @LaboratoryId
+                laboratory_id = @LaboratoryId,
+                last_modified_at = UTC_TIMESTAMP(6)
             WHERE computer_unit_id = @Id
-              AND deleted_at IS NULL;
+              AND deleted_at IS NULL
+              AND (registered_at IS NULL OR (laboratory_id=@LaboratoryId AND unit_number=@UnitNumber));
             """;
 
         await using var connection =
@@ -174,30 +194,28 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
         command.Parameters.AddWithValue("@UnitNumber", computerUnit.UnitNumber);
         command.Parameters.AddWithValue("@LaboratoryId", computerUnit.LaboratoryId);
 
-        await command.ExecuteNonQueryAsync();
+        if (await command.ExecuteNonQueryAsync() == 0)
+            throw new InvalidOperationException("Registered assignments cannot be changed. Use the registry deletion and approval workflow.");
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        const string sql = """
-            UPDATE computer_units
-            SET
-                deleted_at = NOW()
-            WHERE computer_unit_id = @Id
-              AND deleted_at IS NULL;
-            """;
-
-        await using var connection =
-            connectionFactory.CreateConnection();
-
-        await connection.OpenAsync();
-
-        await using var command =
-            new MySqlCommand(sql, connection);
-
-        command.Parameters.AddWithValue("@Id", id.ToString());
-
-        await command.ExecuteNonQueryAsync();
+        await new CLMS.Infrastructure.Persistence.MySql.Repositories.UnitRegistryRepository(connectionFactory)
+            .TransactionAsync(new(CLMS.Application.UnitRegistry.RegistryLockKind.Unit, id.ToString()), async tx =>
+            {
+                var unit = await tx.UnitAsync(id);
+                if (unit is null) return false;
+                if (!unit.DeletedAt.HasValue)
+                {
+                    unit.DeletedAt = unit.LastModifiedAt = tx.Now;
+                    unit.Enabled = false;
+                    unit.CredentialGeneration++;
+                    await tx.SaveUnitAsync(unit, false);
+                }
+                await tx.RevokeCredentialsAsync(id);
+                await tx.SetOfflineAsync(id);
+                return true;
+            });
     }
 
     private static ComputerUnitDTO MapComputerUnit(MySqlDataReader reader)
