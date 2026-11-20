@@ -287,15 +287,11 @@
 
     private async Task HandleSubmit()
     {
-        ShowMessage("Test","Hello World!");
-        
         if (ViewModel is null)
             return;
         
         try
         {
-            Console.WriteLine($"User {EditModel.UserRole.ToString()} submitted");
-            
             await UserMgmtService.UpdateUser(
                 ViewModel.Id,
                 EditModel.UserRole,

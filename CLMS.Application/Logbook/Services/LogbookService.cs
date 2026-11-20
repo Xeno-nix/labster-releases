@@ -17,12 +17,13 @@ public class LogbookService
 
     public async Task<LogbookPageResultDTO> GetLogsAsync(LogbookQueryDTO query)
     {
-        var (entries, totalCount) = await _repository.GetPagedAsync(query).ConfigureAwait(false);
+        var (entries, totalCount, supportsLaboratory) = await _repository.GetPagedAsync(query).ConfigureAwait(false);
 
         return new LogbookPageResultDTO
         {
             Entries = entries,
             TotalCount = totalCount,
+            SupportsLaboratory = supportsLaboratory,
             Page = query.Page,
             PageSize = query.PageSize,
         };

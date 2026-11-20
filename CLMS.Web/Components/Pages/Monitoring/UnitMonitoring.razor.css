@@ -52,6 +52,9 @@
 }
 
 @media (max-width: 639px) {
+    .monitoring-page { overflow-y: auto; }
+    .workstations-section, .pc-card-scroll { flex: none; }
+    .pc-card-scroll { overflow: visible; }
     .laboratory-control, .search-control { max-width: none; }
     .status-filters { margin-left: 0; }
 }

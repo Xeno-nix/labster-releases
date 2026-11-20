@@ -9,6 +9,7 @@
 <ToastContainer/>
 <Dialog/>
 
+<ActionMenuHost>
 <div class="app-shell flex h-screen overflow-hidden @(_sidebarCollapsed ? "sidebar-collapsed" : "")" @onkeydown="HandleKeyDown">
 
     @if (_mobileSidebarOpen)
@@ -229,6 +230,8 @@
     </main>
 
 </div>
+
+</ActionMenuHost>
 
 @* <div id="blazor-error-ui" data-nosnippet> *@
 @*     An unhandled error has occurred. *@

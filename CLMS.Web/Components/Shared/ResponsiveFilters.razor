@@ -1,0 +1,116 @@
+<div class="responsive-filter-controls">
+    <div class="desktop-filter-fields">
+        @for (var i = 0; i < Fields.Count; i++)
+        {
+            var index = i;
+            var field = Fields[index];
+            <select aria-label="@field.Label" value="@field.Selection" @onchange="e => SetFilterAsync(index, e.Value)"
+                    class="rounded-lg border border-black/10 bg-surface px-3 py-2 text-sm">
+                <option value="@field.DefaultValue">@field.DefaultLabel</option>
+                @foreach (var option in field.Options)
+                {
+                    <option value="@option.Value">@option.Label</option>
+                }
+            </select>
+        }
+    </div>
+    @for (var i = Math.Max(0, Fields.Count - 2); i < Fields.Count; i++)
+    {
+        var index = i;
+        var filter = Fields[index];
+        <label class="quick-filter" data-active="@(filter.Selection != filter.DefaultValue ? "true" : "false")">
+            @(filter.Label == "Laboratory" ? "Lab" : filter.Label)
+            <span aria-hidden="true">▾</span>
+            <select aria-label="@filter.Label" value="@filter.Selection" @onchange="e => SetFilterAsync(index, e.Value)">
+                <option value="@filter.DefaultValue">@filter.DefaultLabel</option>
+                @foreach (var option in filter.Options)
+                {
+                    <option value="@option.Value">@option.Label</option>
+                }
+            </select>
+        </label>
+    }
+    <button type="button" class="mobile-filter-control items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 text-sm font-medium"
+            aria-label="@(ActiveCount == 0 ? "Filters" : $"Filters, {ActiveCount} active")" @onclick="Open">
+        Filters
+        @if (ActiveCount > 0)
+        {
+            <span class="rounded-full bg-primary/10 px-1.5 text-xs font-semibold text-primary">@ActiveCount</span>
+        }
+    </button>
+</div>
+
+@if (draft is { } selections)
+{
+    <UiSheet Label="Filters" OnClose="Close" Busy="@busy">
+        <div class="filter-sheet p-4">
+            <header class="sheet-header flex items-center justify-between pb-2">
+                <h2 class="text-lg font-semibold">Filters</h2>
+                <button type="button" aria-label="Close filters" disabled="@busy" @onclick="Close">✕</button>
+            </header>
+            <div class="space-y-4 py-4">
+                @for (var i = 0; i < draftFields.Length; i++)
+                {
+                    var index = i;
+                    var field = draftFields[index];
+                    <label class="block space-y-1.5">
+                        <span class="block text-sm font-medium">@field.Label</span>
+                        <select @bind="selections[index]" disabled="@busy" class="w-full rounded-lg border border-black/10 bg-surface px-3 py-2">
+                            <option value="@field.DefaultValue">@field.DefaultLabel</option>
+                            @foreach (var option in field.Options)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                    </label>
+                }
+            </div>
+            <div class="sheet-footer flex gap-2">
+                <button type="button" disabled="@busy" @onclick="ClearDraft" class="rounded-lg border border-black/10 px-3">Clear filters</button>
+                <button type="button" disabled="@busy" @onclick="ApplyAsync" class="rounded-lg bg-primary px-4 font-medium text-white">Apply</button>
+            </div>
+        </div>
+    </UiSheet>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ResponsiveFilterField> Fields { get; set; } = [];
+    [Parameter] public EventCallback<string[]> OnApply { get; set; }
+
+    private string[]? draft;
+    private ResponsiveFilterField[] draftFields = [];
+    private bool busy;
+    private int ActiveCount => Fields.Count(filter => filter.Selection != filter.DefaultValue);
+
+    private void Open()
+    {
+        draftFields = Fields.ToArray();
+        draft = draftFields.Select(field => field.Selection).ToArray();
+    }
+
+    private void Close()
+    {
+        if (!busy) draft = null;
+    }
+
+    private void ClearDraft() => draft = draftFields.Select(field => field.DefaultValue).ToArray();
+
+    private Task SetFilterAsync(int index, object? value)
+    {
+        var selections = Fields.Select(field => field.Selection).ToArray();
+        selections[index] = value?.ToString() ?? Fields[index].DefaultValue;
+        return OnApply.InvokeAsync(selections);
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (draft is null || busy) return;
+        busy = true;
+        try
+        {
+            await OnApply.InvokeAsync(draft);
+            draft = null;
+        }
+        finally { busy = false; }
+    }
+}

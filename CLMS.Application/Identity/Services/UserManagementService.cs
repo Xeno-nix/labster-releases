@@ -34,14 +34,14 @@ public sealed class UserManagementService(
         await userRepository.DeleteAsync(user);
     }
 
-    public async Task UpdateUser(Guid userId, Role role, string firstName, string lastName, string? middleName = null,
+    public async Task UpdateUser(Guid userId, Role? role, string firstName, string lastName, string? middleName = null,
         string? suffix = null)
     {
         var storedUser = await userRepository.FindByIdAsync(userId);
         if (storedUser is null) return;
         if (storedUser.DeletedAt is not null) return;
         
-        storedUser.UserRole = role;
+        if (role.HasValue) storedUser.UserRole = role.Value;
         
         storedUser.FirstName = new Name(firstName);
         storedUser.LastName = new Name(lastName);

@@ -1,42 +1,87 @@
-// Small app-wide helpers shared across pages (no libraries).
-
 window.clms = window.clms || {};
 
-// Smoothly bring an element to the top of the viewport. Used by the class-list
-// pager after navigating to a new page.
 window.clms.scrollToTop = function (elementId) {
-    const el = document.getElementById(elementId);
-    if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    document.getElementById(elementId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-// Popovers live in the browser's top layer, so scrollable tables cannot clip them.
-document.addEventListener('beforetoggle', event => {
+window.clms.refreshIcons = () => window.lucide?.createIcons?.();
+
+function actionTrigger(panel) {
+    return document.querySelector(`[data-action-menu="${panel.id}"]`);
+}
+
+function positionActionMenu(panel) {
+    const trigger = actionTrigger(panel);
+    const rect = trigger?.getBoundingClientRect();
+    const scrollBounds = trigger?.closest('.table-scroll')?.getBoundingClientRect();
+    if (!rect?.width || !rect.height || rect.bottom < 0 || rect.top >= innerHeight ||
+        rect.right < 0 || rect.left >= innerWidth ||
+        (scrollBounds && (rect.bottom <= scrollBounds.top || rect.top >= scrollBounds.bottom ||
+            rect.right <= scrollBounds.left || rect.left >= scrollBounds.right))) {
+        panel.hidePopover();
+        return;
+    }
+
+    const { width, height } = panel.getBoundingClientRect();
+    panel.style.left = `${Math.max(8, Math.min(rect.right - width, innerWidth - width - 8))}px`;
+    const below = rect.bottom + 4;
+    const top = below + height <= innerHeight - 8 ? below : rect.top - height - 4;
+    panel.style.top = `${Math.max(8, Math.min(top, innerHeight - height - 8))}px`;
+}
+
+window.clms.toggleActionMenu = function (id) {
+    const panel = document.getElementById(id);
+    if (panel?.matches(':popover-open')) {
+        panel.hidePopover();
+        return;
+    }
+    document.querySelectorAll('[data-action-menu][aria-expanded="true"]').forEach(trigger =>
+        trigger.setAttribute('aria-expanded', 'false'));
+    panel?.showPopover();
+    if (panel?.matches(':popover-open')) positionActionMenu(panel);
+};
+
+document.addEventListener('toggle', event => {
     const panel = event.target;
-    if (!panel.matches?.('.action-menu-panel') || event.newState !== 'open') return;
-    const trigger = document.querySelector(`[popovertarget="${panel.id}"]`);
-    if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
-    panel.style.left = `${Math.max(8, Math.min(rect.right - 208, innerWidth - 216))}px`;
-    panel.style.top = `${Math.max(8, rect.bottom + 4)}px`;
-    requestAnimationFrame(() => {
-        if (!panel.matches(':popover-open')) return;
-        const height = panel.getBoundingClientRect().height;
-        if (rect.bottom + 4 + height > innerHeight - 8)
-            panel.style.top = `${Math.max(8, rect.top - height - 4)}px`;
-        panel.querySelector('button:not(:disabled), a[href]')?.focus({ preventScroll: true });
-    });
+    if (!panel.matches?.('.action-menu-panel')) return;
+    const trigger = actionTrigger(panel);
+    const open = event.newState === 'open';
+    trigger?.setAttribute('aria-expanded', String(open));
+    if (open) {
+        positionActionMenu(panel);
+        if (panel.matches(':popover-open')) panel.querySelector('button:not(:disabled), a[href]')?.focus({ preventScroll: true });
+    } else if (document.activeElement === document.body || panel.contains(document.activeElement)) {
+        trigger?.focus({ preventScroll: true });
+    }
 }, true);
 
+document.addEventListener('focusin', event => {
+    document.querySelectorAll('.action-menu-panel:popover-open').forEach(panel => {
+        if (!panel.contains(event.target) && event.target !== actionTrigger(panel)) panel.hidePopover();
+    });
+});
+
 document.addEventListener('click', event => {
-    const action = event.target.closest('.action-menu-panel button, .action-menu-panel a');
+    const action = event.target.closest?.('.action-menu-panel button, .action-menu-panel a');
     if (action && !action.disabled) action.closest('.action-menu-panel').hidePopover();
+    else if (!event.target.closest?.('.action-menu-panel, [data-action-menu]')) {
+        document.querySelectorAll('.action-menu-panel:popover-open').forEach(panel => panel.hidePopover());
+    }
 });
 
 document.addEventListener('keydown', event => {
-    const panel = event.target.closest('.action-menu-panel');
-    if (!panel || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const panel = event.target.closest?.('.action-menu-panel');
+    if (!panel && event.key === 'Escape') {
+        document.querySelector('.action-menu-panel:popover-open')?.hidePopover();
+        return;
+    }
+    if (!panel || !['ArrowDown', 'ArrowUp', 'Home', 'End', 'Escape'].includes(event.key)) return;
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        panel.hidePopover();
+        actionTrigger(panel)?.focus({ preventScroll: true });
+        return;
+    }
     const items = [...panel.querySelectorAll('button:not(:disabled), a[href]')];
     if (!items.length) return;
     event.preventDefault();
@@ -46,9 +91,9 @@ document.addEventListener('keydown', event => {
     items[next].focus();
 });
 
-function closeActions(event) {
+function updateActionMenus(event) {
     if (event?.target?.closest?.('.action-menu-panel')) return;
-    document.querySelectorAll('.action-menu-panel:popover-open').forEach(panel => panel.hidePopover());
+    document.querySelectorAll('.action-menu-panel:popover-open').forEach(positionActionMenu);
 }
-document.addEventListener('scroll', closeActions, true);
-window.addEventListener('resize', closeActions);
+document.addEventListener('scroll', updateActionMenus, true);
+window.addEventListener('resize', updateActionMenus);

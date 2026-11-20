@@ -29,7 +29,7 @@
             </div>
             @actions
         </div>
-        <nav aria-label="Schedule and booking tabs" class="flex overflow-x-auto overflow-y-hidden border-b border-black/10">
+        <nav aria-label="Schedule and booking tabs" class="tab-strip segmented-tabs">
             @foreach (var tab in Tabs)
             {
                 <button type="button" @onclick="() => ChangeTab(tab.Path)" aria-pressed="@(ActivePath == tab.Path)"
@@ -43,7 +43,7 @@
     private static readonly (string Path, string Label)[] Tabs =
     [
         ("/bookings", "Bookings"),
-        ("/schedules", "Class Schedules")
+        ("/schedules", "Schedules")
     ];
 
     private string ActivePath = "/bookings";

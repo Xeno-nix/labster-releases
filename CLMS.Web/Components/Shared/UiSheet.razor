@@ -2,6 +2,12 @@
 @inject IJSRuntime JS
 
 <dialog @ref="_dialog" class="@(Compact ? "ui-dialog" : "ui-sheet")" aria-label="@Label">
+    @if (!Compact)
+    {
+        <button type="button" class="sheet-grip" aria-label="Expand sheet" aria-expanded="false">
+            <span aria-hidden="true"></span>
+        </button>
+    }
     <div class="sheet-content">
         @ChildContent
     </div>
@@ -28,7 +34,12 @@
     }
 
     [JSInvokable]
-    public Task RequestClose() => Busy ? Task.CompletedTask : OnClose.InvokeAsync();
+    public async Task<bool> RequestClose()
+    {
+        if (Busy || !OnClose.HasDelegate) return false;
+        await OnClose.InvokeAsync();
+        return true;
+    }
 
     public async ValueTask DisposeAsync()
     {

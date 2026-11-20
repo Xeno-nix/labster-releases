@@ -24,32 +24,41 @@
             <h2 class="text-sm font-semibold text-gray-800">All School Semesters (@terms.Count)</h2>
             <input type="search" aria-label="Search school semesters" placeholder="Search school year or semester..." @bind="search" @bind:event="oninput" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none sm:w-72" />
         </div>
-        <p class="table-hint">Scroll sideways for more details. The first column stays visible.</p>
+        <p class="table-hint">Scroll sideways for more details.</p>
         <div class="table-scroll overflow-x-auto" tabindex="0" role="region" aria-label="Scrollable records">
-            <table class="data-table w-full whitespace-nowrap text-left text-sm">
-                <thead class="bg-surface text-xs uppercase text-muted"><tr><th scope="col" class="px-6 py-3">School Year</th><th scope="col" class="px-6 py-3">Semester</th><th scope="col" class="px-6 py-3">Start Date</th><th scope="col" class="px-6 py-3">End Date</th><th scope="col" class="px-6 py-3 text-right">Actions</th></tr></thead>
+            <table role="table" class="responsive-records data-table w-full whitespace-nowrap text-left text-sm">
+                <thead class="bg-surface text-xs uppercase text-muted"><tr><th scope="col" class="px-6 py-3">School Year</th><th scope="col" class="px-6 py-3">Semester</th><th scope="col" class="px-6 py-3">Start Date</th><th scope="col" class="px-6 py-3">End Date <span class="row-actions-caption">Actions</span></th></tr></thead>
                 <tbody class="divide-y divide-gray-100">
                     @if (loading)
                     {
-                        <tr><td colspan="5" class="px-6 py-12 text-center text-muted">Loading school semesters...</td></tr>
+                        <tr><td colspan="4" class="px-6 py-12 text-center text-muted">Loading school semesters...</td></tr>
                     }
                     else if (!FilteredTerms.Any())
                     {
-                        <tr><td colspan="5" class="px-6 py-12 text-center text-muted">@(terms.Count == 0 ? "No school semesters yet. Add a semester to get started." : "No semesters match your search.")</td></tr>
+                        <tr><td colspan="4" class="px-6 py-12 text-center text-muted">@(terms.Count == 0 ? "No school semesters yet. Add a semester to get started." : "No semesters match your search.")</td></tr>
                     }
                     else
                     {
                         @foreach (var term in FilteredTerms)
                         {
-                            <tr @key="term.Id" class="hover:bg-surface">
-                                <td class="px-6 py-4 font-medium text-primary">@term.AcademicYear</td>
-                                <td class="px-6 py-4">@term.Semester Semester</td>
-                                <td class="px-6 py-4 text-muted">@(term.StartDate?.ToString("MMM dd, yyyy") ?? "Not set")</td>
-                                <td class="px-6 py-4 text-muted">@(term.EndDate?.ToString("MMM dd, yyyy") ?? "Not set")</td>
-                                <td class="px-6 py-4 text-right whitespace-nowrap"><ActionMenu Label="Record actions">
-                                    <button type="button" aria-label="Edit school semester" class="rounded-lg px-3 py-2 text-primary hover:bg-primary/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Edit(term)">Edit</button>
-                                    <button type="button" aria-label="Delete school semester" class="rounded-lg px-3 py-2 text-error hover:bg-error/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Delete(term)">Delete</button>
-                                </ActionMenu></td>
+                            RenderFragment rowActions = @<text>
+                                <button type="button" aria-label="Edit school semester" class="rounded-lg px-3 py-2 text-primary hover:bg-primary/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Edit(term)"><i aria-hidden="true" class="fa-solid fa-pen"></i> Edit</button>
+                                <button type="button" aria-label="Delete school semester" class="rounded-lg px-3 py-2 text-error hover:bg-error/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Delete(term)"><i aria-hidden="true" class="fa-solid fa-trash-can"></i> Delete</button>
+                            </text>;
+                            <tr role="row" @key="term.Id" class="hover:bg-surface">
+                                <td role="cell" class="px-6 py-4 font-medium text-primary">
+                                    <div class="row-identity">
+                                        <span class="record-identity">@term.AcademicYear</span>
+                                    </div>
+                                </td>
+                                <td role="cell" class="px-6 py-4" data-label="Semester">@term.Semester Semester</td>
+                                <td role="cell" class="px-6 py-4 text-muted" data-label="Start Date">@(term.StartDate?.ToString("MMM dd, yyyy") ?? "Not set")</td>
+                                <td role="cell" class="px-6 py-4 text-muted row-end-cell" data-label="End Date">
+                                    <div class="row-end-content">
+                                        <div class="row-end-value">@(term.EndDate?.ToString("MMM dd, yyyy") ?? "Not set")</div>
+                                        <div class="row-end-actions"><ActionMenu Label="Semester actions">@rowActions</ActionMenu></div>
+                                    </div>
+                                </td>
                             </tr>
                         }
                     }
