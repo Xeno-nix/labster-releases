@@ -15,6 +15,18 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
     private CancellationTokenSource? lifetime;
     private Task? heartbeatTask;
     private readonly NetworkResourceSampler networkResources = new();
+    private readonly TimeSpan heartbeatInterval = TimeSpan.FromSeconds(15);
+    private readonly TimeSpan heartbeatTimeout = TimeSpan.FromSeconds(5);
+    private readonly Func<Uri, Func<Task<string?>>, HubConnection> buildConnection = BuildConnection;
+
+    internal AgentConnectionService(ILogger<AgentConnectionService> logger, ScreenCastSender screenCast,
+        IAgentAccessTokenProvider tokens, Func<Uri, Func<Task<string?>>, HubConnection> buildConnection,
+        TimeSpan heartbeatInterval, TimeSpan heartbeatTimeout) : this(logger, screenCast, tokens)
+    {
+        this.buildConnection = buildConnection;
+        this.heartbeatInterval = heartbeatInterval;
+        this.heartbeatTimeout = heartbeatTimeout;
+    }
 
     public AgentConnectionSnapshot Snapshot { get; private set; } = new("Disconnected");
     public bool IsRunning => connection is not null && connection.State != HubConnectionState.Disconnected;
@@ -35,16 +47,11 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
         {
             await DisconnectCoreAsync();
             Publish(new("Connecting"));
-            // Initial token acquisition must honor the connection-attempt deadline and Pause.
-            lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var connectionLifetime = lifetime.Token;
-            var hub = new HubConnectionBuilder()
-                .WithUrl(new Uri(server, AgentConnectionProtocol.HubPath.TrimStart('/')), options =>
-                {
-                    options.AccessTokenProvider = () => tokens.GetAccessTokenAsync(connectionLifetime);
-                })
-                .WithAutomaticReconnect([TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30)])
-                .Build();
+            var connectionSource = new CancellationTokenSource();
+            lifetime = connectionSource;
+            var connectionLifetime = connectionSource.Token;
+            var hub = buildConnection(new Uri(server, AgentConnectionProtocol.HubPath.TrimStart('/')),
+                () => GetTokenAsync(connectionLifetime));
             connection = hub;
             hub.On<SystemNotification, DesktopNotificationResult>(SystemNotificationProtocol.Receive, notification =>
                 notifications is not null && connection == hub
@@ -93,8 +100,8 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
             {
                 try
                 {
-                    if (connection == hub && lifetime is not null)
-                        await AcknowledgeAsync(hub, lifetime.Token);
+                    if (connection == hub)
+                        await AcknowledgeAsync(hub, connectionLifetime);
                 }
                 catch (OperationCanceledException) { }
                 catch (Exception ex)
@@ -113,9 +120,14 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
 
             try
             {
-                await hub.StartAsync(cancellationToken);
-                await AcknowledgeAsync(hub, cancellationToken);
-                heartbeatTask = HeartbeatLoopAsync(hub, lifetime.Token);
+                // The startup deadline must not own the lifetime of a healthy connection.
+                using (cancellationToken.Register(connectionSource.Cancel))
+                {
+                    await hub.StartAsync(connectionLifetime);
+                    await AcknowledgeAsync(hub, connectionLifetime);
+                }
+                connectionLifetime.ThrowIfCancellationRequested();
+                heartbeatTask = HeartbeatLoopAsync(hub, connectionLifetime);
             }
             catch (Exception ex)
             {
@@ -138,9 +150,24 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
         finally { gate.Release(); }
     }
 
+    private static HubConnection BuildConnection(Uri uri, Func<Task<string?>> accessToken) =>
+        new HubConnectionBuilder()
+            .WithUrl(uri, options => options.AccessTokenProvider = accessToken)
+            .WithAutomaticReconnect([TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30)])
+            .Build();
+
+    private async Task<string?> GetTokenAsync(CancellationToken cancellationToken)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(10));
+        return await tokens.GetAccessTokenAsync(deadline.Token);
+    }
+
     private async Task AcknowledgeAsync(HubConnection hub, CancellationToken cancellationToken)
     {
-        var response = await hub.InvokeAsync<AgentConnectionInfo>(AgentConnectionProtocol.HeartbeatMethod, cancellationToken);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(heartbeatTimeout);
+        var response = await hub.InvokeAsync<AgentConnectionInfo>(AgentConnectionProtocol.HeartbeatMethod, deadline.Token);
         if (connection == hub)
             Publish(new("Connected", response.ComputerUnitId, response.ServerTimeUtc));
         try
@@ -156,16 +183,39 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
     {
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+            using var timer = new PeriodicTimer(heartbeatInterval);
+            var failures = 0;
+            string? previousConnection = null;
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
-                if (hub.State != HubConnectionState.Connected) continue;
-                try { await AcknowledgeAsync(hub, cancellationToken); }
+                var connectionId = hub.ConnectionId;
+                if (hub.State != HubConnectionState.Connected || connectionId != previousConnection)
+                    failures = 0;
+                if (connection != hub || hub.State != HubConnectionState.Connected) continue;
+                previousConnection = connectionId;
+                try
+                {
+                    await AcknowledgeAsync(hub, cancellationToken);
+                    failures = 0;
+                }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
                 catch (Exception ex)
                 {
+                    if (connection != hub || hub.State != HubConnectionState.Connected || hub.ConnectionId != connectionId)
+                        continue;
+
                     logger.LogWarning(ex, "Agent heartbeat acknowledgement failed.");
-                    if (connection == hub) Publish(new("Waiting for server acknowledgement"));
+                    Publish(new("Waiting for server acknowledgement"));
+                    if (++failures < 2) continue;
+
+                    // The transport can remain connected while application heartbeats are unresponsive.
+                    // Close it so the runtime can open a fresh connection using current credentials.
+                    try { await hub.StopAsync(cancellationToken); }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { break; }
+                    catch (Exception stopError)
+                    {
+                        logger.LogWarning(stopError, "Could not stop the unresponsive agent connection.");
+                    }
                 }
             }
         }

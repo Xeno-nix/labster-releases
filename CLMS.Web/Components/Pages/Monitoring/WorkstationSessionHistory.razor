@@ -1,0 +1,110 @@
+@page "/unit-monitoring/sessions"
+@attribute [Authorize(Policy = "UnitRegistryAdmin")]
+@implements IDisposable
+@using CLMS.Application.DTOs.Monitoring
+@using CLMS.Application.Identity.Interfaces
+@using CLMS.Infrastructure.Repositories
+@using CLMS.Web.Models
+@inject ICurrentUser CurrentUser
+@inject WorkstationSessionRepository Sessions
+@inject ILogger<WorkstationSessionHistory> Logger
+
+<PageTitle>Workstation Session History | CLMS</PageTitle>
+
+<header class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl text-primary">Workstation Session History</h1>
+    <a href="/unit-monitoring" class="text-sm font-medium text-primary">Back to Unit Monitoring</a>
+</header>
+
+@if (error is not null)
+{
+    <p role="alert" class="text-sm text-error">@error</p>
+}
+else if (sessions.Count == 0)
+{
+    <p class="text-sm text-muted" role="status">@(loading ? "Loading workstation sessions…" : "No workstation sessions recorded.")</p>
+}
+else
+{
+    <div class="overflow-x-auto rounded-lg border border-black/10 bg-white">
+        <table class="w-full text-left text-sm">
+            <caption class="sr-only">CLMS workstation session history. All times are UTC.</caption>
+            <thead class="bg-surface">
+                <tr>
+                    <th scope="col" class="px-4 py-3">Workstation</th>
+                    <th scope="col" class="px-4 py-3">CLMS user</th>
+                    <th scope="col" class="px-4 py-3">Started</th>
+                    <th scope="col" class="px-4 py-3">Ended</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var session in sessions.Take(PageSize))
+                {
+                    <tr @key="session.SessionId" class="border-t border-black/10">
+                        <td class="px-4 py-3">@session.UnitName</td>
+                        <td class="px-4 py-3">@session.UserName</td>
+                        <td class="px-4 py-3">@UnitMonitoringDisplay.FormatUtc(session.StartedUtc)</td>
+                        <td class="px-4 py-3">@(session.EndedUtc is null ? "Open" : UnitMonitoringDisplay.FormatUtc(session.EndedUtc))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (offset > 0 || sessions.Count > PageSize)
+{
+    <nav class="mt-4 flex items-center gap-3 text-sm" aria-label="Session history pages">
+        <button type="button" disabled="@(offset == 0 || loading)" @onclick="() => LoadAsync(offset - PageSize)"
+                class="rounded border px-3 py-1 disabled:opacity-50">Previous</button>
+        <span>Page @(offset / PageSize + 1)</span>
+        <button type="button" disabled="@(sessions.Count <= PageSize || loading)" @onclick="() => LoadAsync(offset + PageSize)"
+                class="rounded border px-3 py-1 disabled:opacity-50">Next</button>
+    </nav>
+}
+
+@code {
+    private const int PageSize = 50;
+    private readonly CancellationTokenSource lifetime = new();
+    private IReadOnlyList<WorkstationSession> sessions = [];
+    private int offset;
+    private bool loading;
+    private string? error;
+
+    protected override Task OnInitializedAsync() => LoadAsync(0);
+
+    private async Task LoadAsync(int nextOffset)
+    {
+        if (loading) return;
+        loading = true;
+        error = null;
+        try
+        {
+            await CurrentUser.RequireAdminAsync();
+            var page = await Sessions.GetHistoryAsync(nextOffset, PageSize + 1, lifetime.Token);
+            // If the result set changed between requests, preserve a route back to earlier pages.
+            sessions = page;
+            offset = nextOffset;
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (UnauthorizedAccessException)
+        {
+            sessions = [];
+            offset = 0;
+            error = "Sign in as an administrator to view workstation sessions.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning("Could not load workstation session history ({ErrorType}).", ex.GetType().Name);
+            sessions = [];
+            error = "Could not load workstation sessions. Refresh the page to try again.";
+        }
+        finally { loading = false; }
+    }
+
+    public void Dispose()
+    {
+        lifetime.Cancel();
+        lifetime.Dispose();
+    }
+}

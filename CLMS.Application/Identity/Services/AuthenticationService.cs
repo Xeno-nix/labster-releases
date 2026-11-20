@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Mail;
 using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Interfaces;
@@ -35,7 +35,7 @@ public sealed class AuthenticationService(
     /// <summary>Creates the account immediately. Email failure is a separate outcome, not a registration rollback.</summary>
     public async Task<RegistrationResultDto> RegisterAsync(RegisterDto request)
     {
-        // await currentUser.RequireAdminAsync();
+        await currentUser.RequireAdminAsync();
         var email = NormalizeEmail(request.Email);
         if (await userRepository.FindByEmailAsync(email) is not null)
             throw new InvalidOperationException("A user with this email already exists.");

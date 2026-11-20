@@ -15,6 +15,14 @@
     </div>
     <p class="font-heading font-semibold text-gray-800">@Unit.Name</p>
     <p class="mt-1 text-xs text-muted">@Unit.Laboratory</p>
+    <p class="mt-2 text-xs text-muted">Last seen: @UnitMonitoringDisplay.FormatUtc(Unit.LastHeartbeatUtc)</p>
+    @if (ShowSession)
+    {
+        <p class="mt-1 break-words text-xs text-gray-700">
+            @(Session is not null && !Unit.IsAvailableOnline(ObservedAtUtc) ? "Last reported CLMS user" : "Current CLMS user"):
+            @(SessionsAvailable ? Session?.UserName ?? "No active session" : "Unavailable")
+        </p>
+    }
     <div class="mt-4 flex items-center justify-between border-t border-black/5 pt-3 text-xs">
         <span class="text-muted">Unit @Unit.Number.ToString("D2")</span>
         <span class="font-medium text-primary">View details <span aria-hidden="true">→</span></span>
@@ -25,5 +33,8 @@
     [Parameter, EditorRequired] public UnitMonitoringDTO Unit { get; set; } = default!;
     [Parameter] public DateTime ObservedAtUtc { get; set; }
     [Parameter] public bool Selected { get; set; }
+    [Parameter] public WorkstationSession? Session { get; set; }
+    [Parameter] public bool ShowSession { get; set; }
+    [Parameter] public bool SessionsAvailable { get; set; }
     [Parameter] public EventCallback<UnitMonitoringDTO> OnSelect { get; set; }
 }

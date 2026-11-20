@@ -54,7 +54,6 @@ public partial class App : Microsoft.Maui.Controls.Application
                 connection.StatusChanged += OnConnectionChanged;
                 screenCast.StatusChanged += UpdateIndicator;
                 var configured = await runtime.StartAsync();
-                await monitoring.StartAsync();
                 if (configured && Preferences.Default.Get("agent.start-hidden", true))
                     MainThread.BeginInvokeOnMainThread(desktop.Hide);
             }
@@ -83,8 +82,6 @@ public partial class App : Microsoft.Maui.Controls.Application
         catch (Exception ex) { logger.LogWarning(ex, "Agent shutdown cleanup failed."); }
         finally
         {
-            try { await monitoring.StopAsync(); }
-            catch { logger.LogWarning("Local monitoring cleanup failed during shutdown."); }
             runtime.StatusChanged -= UpdateIndicator;
             connection.StatusChanged -= OnConnectionChanged;
             screenCast.StatusChanged -= UpdateIndicator;

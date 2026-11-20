@@ -259,6 +259,7 @@ builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddHostedService<DatabaseBackupWorker>();
 
 builder.Services.AddAgentConnections(builder.Configuration);
+builder.Services.AddSingleton<WorkstationSessionGrants>();
 
 var app = builder.Build();
 app.Use(async (context, next) =>

@@ -37,6 +37,7 @@ public abstract class MonitoringPageBase : ComponentBase, IDisposable
         Loading = true;
         try
         {
+            await RefreshDetailsAsync(Lifetime.Token);
             var units = await MonitoringRepository.GetAllAsync(Lifetime.Token);
             if (Disposed)
                 return;
@@ -62,6 +63,7 @@ public abstract class MonitoringPageBase : ComponentBase, IDisposable
         }
     }
 
+    protected virtual Task RefreshDetailsAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     protected virtual void OnDataUpdated() { }
 
     protected override Task OnAfterRenderAsync(bool firstRender)

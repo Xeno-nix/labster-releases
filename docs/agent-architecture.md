@@ -6,7 +6,7 @@ The integration combines `chore/architecture-rewrite` (registry, persistent devi
 
 **One workstation application: `CLMS.Agent`.** It is a .NET 10 MAUI desktop process for Windows or Mac Catalyst. There is no separate Core library, service, console host, local control socket, named-pipe server, or session companion. `CLMS.Shared` remains the common contract assembly (and currently references Domain); the web server and its application/infrastructure projects remain separate.
 
-The signed-in OS user owns enrollment and protected keys. The application runtime owns authentication polling and the outbound SignalR connection. Settings merely controls and observes these services. Capture belongs to a shorter, viewer-authorized session. Hiding settings or stopping capture leaves the application alive; logout or Quit ends it. Pause stops authentication polling, transport, and capture, while local access monitoring continues until Quit.
+The signed-in OS user owns enrollment and protected keys. The application runtime owns authentication polling and the outbound SignalR connection. Settings merely controls and observes these services. Capture belongs to a shorter, viewer-authorized session. Hiding settings or stopping capture leaves the application alive; logout or Quit ends it. Pause stops authentication polling, transport, and capture.
 
 ```mermaid
 flowchart LR
@@ -15,7 +15,6 @@ flowchart LR
     Settings --> Runtime[AgentRuntimeService]
     App[MAUI App] --> Runtime
     App --> Desktop[Native tray or menu bar]
-    App --> Monitor[Local access monitor]
     Runtime --> Identity
     Identity --> Vault[User vault and signing key]
     Identity --> API[Registry REST API]
@@ -41,9 +40,8 @@ flowchart LR
 | Identity adapters | `CLMS.Agent/Services/Identity/AgentApi.cs`, `AgentState.cs`, `IDeviceKeyStore.cs`, `UserAgentVault.cs` | HTTPS API, credential-free UI status, journaled protected state, and native signing abstraction. |
 | Transport | `CLMS.Agent/Services/AgentConnectionService.cs`, `IAgentConnectionTransport.cs`, `IAgentAccessTokenProvider.cs` | SignalR, fresh JWT provider on reconnect, heartbeat, status, and capture commands. |
 | Screen sender | `CLMS.Agent/Services/ScreenCastSender.cs`, `IScreenCaptureService.cs`, `Models/ScreenFrame.cs` | One capture/send loop with cancellation, backpressure, and native resource cleanup. |
-| Windows adapters | `CLMS.Agent/Platforms/Windows/` | Current-user CNG signing keys, Win32 tray/login startup, Graphics Capture/D3D11, and event-log observations. |
+| Windows adapters | `CLMS.Agent/Platforms/Windows/` | Current-user CNG signing keys, Win32 tray/login startup, and Graphics Capture/D3D11. |
 | Mac adapters | `CLMS.Agent/Platforms/MacCatalyst/` | User login-Keychain keys, AppKit menu/login startup, ScreenCaptureKit screenshots, and the single MAUI scene. |
-| Local monitor | `CLMS.Agent/Services/Monitoring/` | Application-lifetime observations, bounded private checkpoints/outbox/log, kernel boot/session deduplication, and best-effort Mac unlock observation. |
 | Registry authority | `CLMS.Web/Controllers/AgentController.cs`, `CLMS.Application/UnitRegistry/`, `CLMS.Web/Authentication/AgentAuthentication.cs` | Registration approval, ECDSA proofs, dedicated agent JWTs, and current credential/generation validation. |
 | Device hub | `CLMS.Web/Hubs/AgentConnectionHub.cs`, `Services/AgentConnections/` | AgentOnly authorization, per-call credential filter, authenticated presence, and unit-to-connection/credential mapping. |
 | Viewer/session actors | `CLMS.Web/Services/ScreenCasting/`, `Controllers/ScreenCastFramesController.cs`, `LabScreenCastController.cs`, `Components/Pages/Monitoring/` | Staff ownership, browser leases, JPEG delivery, lab membership/history, and screen wall. |
@@ -65,7 +63,7 @@ The old static `AgentConnections:Devices` configuration and raw device-key input
 
 ## Lifetimes and protocols
 
-Startup initializes native tray/menu access, starts local monitoring, and starts the runtime. Settings stays visible for first-run setup. `agent.start-hidden` defaults to true for an already enrolled identity. Storage/recovery failures leave settings accessible. Windows prevents another instance for that user and brings forward existing settings. Mac uses the single scene and an application state-file lock to avoid concurrent user vault access.
+Startup initializes native tray/menu access and starts the runtime. Settings stays visible for first-run setup. `agent.start-hidden` defaults to true for an already enrolled identity. Storage/recovery failures leave settings accessible. Windows prevents another instance for that user and brings forward existing settings. Mac uses the single scene and an application state-file lock to avoid concurrent user vault access.
 
 The coordinator retains its 2–60 second exponential jittered recovery, bounded Retry-After, five-second approval polling, and 30-second REST heartbeats. The runtime checks a disconnected transport again within 15 seconds (or the coordinator's shorter delay), with a 20-second connection-attempt deadline. Shared gates serialize lifecycle changes without allowing a settings page to own a background task.
 
@@ -90,9 +88,7 @@ Lab membership and session metadata stay server-side in existing tables. No imag
 
 ## Monitoring, deployment, and verification
 
-Windows retains recorded boot/sign-in/unlock event timestamps and a per-user event-log checkpoint. Security-log permissions and successful Audit Logon are prerequisites; failure is shown in settings without disabling other agent functions. Mac records kernel boot time/UUID once, first-observed graphical sign-in per session, and unlock only after an observed foreground lock. Mac notifications remain undocumented best-effort observations, never authentication evidence. No root daemon, socket peer reporting, or companion is required.
-
-State uses the current user's local application-data `CLMS/Agent` directory (typically `~/Library/Application Support/CLMS/Agent` on Mac). `access-events.jsonl` records only event kind, UTC time, and source; it rolls over at 256 KiB to one `.previous` file. Observations/checkpoints remain separate from credentials. Logout or a stopped app leaves gaps; missed Mac observations are not reconstructed. Windows may replay available events when launched later. Multiple OS users have separate enrollment and monitoring state.
+The web server records CLMS workstation sessions through the [lockscreen contract](workstation-sessions.md). The agent reports connectivity via heartbeat.
 
 Only one old device needs manual transition: revoke/soft-delete its registry assignment, stop and uninstall the old machine service/Aqua companion, install the desktop app, and register/approve again. Registry recovery preserves the computer-unit GUID and history. Do not export old keys or auto-import machine vaults. No new database migration is required for this consolidation; existing registry schema prerequisites still apply.
 
@@ -106,7 +102,7 @@ node CLMS.Tests/ScreenWallLayout.test.mjs
 node CLMS.Tests/UnitScreenView.test.mjs
 ```
 
-The test filter avoids database/native-tool integration prerequisites; run those separately against disposable databases/tools. Windows native user-key tests need normal profile/key-store access, which a workspace filesystem sandbox may block. Native Mac ABI/key tests are opt-in on a Mac. Verify first-run enrollment, long-offline authentication, rotation/lost-response recovery, hidden settings, login startup, pause/reconnect, capture permissions, stop/expiry/revocation, display changes, access monitoring, and Quit on physical Windows and Mac machines. A Windows build does not validate signing, Keychain, ScreenCaptureKit, or native menu behavior on a Mac.
+The test filter avoids database/native-tool integration prerequisites; run those separately against disposable databases/tools. Windows native user-key tests need normal profile/key-store access, which a workspace filesystem sandbox may block. Native Mac ABI/key tests are opt-in on a Mac. Verify first-run enrollment, long-offline authentication, rotation/lost-response recovery, hidden settings, login startup, pause/reconnect, capture permissions, stop/expiry/revocation, display changes and Quit on physical Windows and Mac machines. A Windows build does not validate signing, Keychain, ScreenCaptureKit, or native menu behavior on a Mac.
 
 Generated `App.xaml.xsg.cs` remains MAUI output. Edit authored XAML/C#; never copy or edit Rider's temporary SourceGeneratedDocuments file. `App` directly creates MainPage; the template AppShell and legacy console entry point are removed.
 

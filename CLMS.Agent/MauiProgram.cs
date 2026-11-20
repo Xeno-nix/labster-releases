@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace CLMS.Agent;
 
@@ -47,7 +47,6 @@ public static class MauiProgram
 		builder.Services.AddSingleton<CLMS.Agent.Core.AgentCoordinator>();
 		builder.Services.AddSingleton<CLMS.Agent.Services.IAgentIdentityRuntime>(sp => sp.GetRequiredService<CLMS.Agent.Core.AgentCoordinator>());
 		builder.Services.AddSingleton<CLMS.Agent.Services.IAgentAccessTokenProvider>(sp => sp.GetRequiredService<CLMS.Agent.Core.AgentCoordinator>());
-		builder.Services.AddSingleton<CLMS.Agent.Services.AccessMonitoringService>();
 		return builder.Build();
 	}
 }
