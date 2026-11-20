@@ -10,7 +10,7 @@
 <PageTitle>Unit Registry | CLMS</PageTitle>
 <div class="space-y-6">
     <header class="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 class="text-primary text-2xl">Unit Registry</h1><p class="text-sm text-muted">Verify physical computers before approving their registration.</p></div>
+        <h1 class="text-primary text-2xl">Unit Registry</h1>
         <button class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50" disabled="@Busy" @onclick="LoadAsync">Refresh</button>
     </header>
     @if (Error is not null) { <p role="alert" class="rounded-lg bg-red-50 p-4 text-sm text-red-800">@Error</p> }

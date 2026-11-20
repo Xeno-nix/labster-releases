@@ -6,6 +6,20 @@ window.clms.scrollToTop = function (elementId) {
 
 window.clms.refreshIcons = () => window.lucide?.createIcons?.();
 
+document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.month-cell:hover, .month-cell:focus-within').forEach(cell => {
+        cell.dataset.dismissed = 'true';
+    });
+});
+
+function resetCalendarPreview(event) {
+    const cell = event.target.closest?.('.month-cell[data-dismissed]');
+    if (cell && !cell.contains(event.relatedTarget)) delete cell.dataset.dismissed;
+}
+document.addEventListener('pointerover', resetCalendarPreview);
+document.addEventListener('focusin', resetCalendarPreview);
+
 function actionTrigger(panel) {
     return document.querySelector(`[data-action-menu="${panel.id}"]`);
 }
