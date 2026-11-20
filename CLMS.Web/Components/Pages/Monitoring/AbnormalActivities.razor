@@ -1,0 +1,143 @@
+@page "/unit-monitoring/activities"
+@attribute [Authorize(Roles = "Admin,Faculty")]
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Components.Authorization
+@using CLMS.Application.Monitoring
+@using CLMS.Application.DTOs.Monitoring
+@using CLMS.Application.Interfaces.Repositories
+@using CLMS.Domain.Entities.UnitManagement
+@inject AbnormalActivityService Activities
+@inject IUnitMonitoringRepository Units
+@inject AuthenticationStateProvider Authentication
+@inject CLMS.Web.Services.MonitoringUpdates Updates
+@inject IJSRuntime JS
+@inject ILogger<AbnormalActivities> Logger
+
+<PageTitle>Abnormal Activity Monitoring | CLMS</PageTitle>
+<div @ref="Root" class="space-y-5">
+    <MonitoringTabs Abnormal="true" />
+    <header><h1 class="text-2xl text-primary">Abnormal Activity Monitoring</h1><p class="mt-1 text-sm text-muted">Active means detected and not yet observed to end. An offline unit can still have unresolved activities.</p><p class="mt-1 text-xs text-muted">Ended times show when a later observation no longer detected the condition, or when its registry configuration changed.</p></header>
+    <div class="flex gap-2" role="group" aria-label="Activity view">
+        <button type="button" @onclick="() => SetViewAsync(true)" aria-pressed="@ActiveOnly" class="rounded-lg px-4 py-2 text-sm @(ActiveOnly ? "bg-primary text-white" : "bg-white text-primary")">Active</button>
+        <button type="button" @onclick="() => SetViewAsync(false)" aria-pressed="@(!ActiveOnly)" class="rounded-lg px-4 py-2 text-sm @(!ActiveOnly ? "bg-primary text-white" : "bg-white text-primary")">History</button>
+    </div>
+    <form @onsubmit="ApplyFiltersAsync" @onsubmit:preventDefault class="flex flex-wrap items-end gap-3 rounded-lg border border-black/10 bg-white p-4">
+        <label class="text-xs text-muted">Laboratory<select @bind="Laboratory" @bind:after="() => Unit = null" class="mt-1 block rounded-lg border border-black/10 p-2 text-sm"><option value="">All laboratories</option>@foreach (var lab in AvailableUnits.GroupBy(u => u.LaboratoryId).Select(g => g.First())) { <option value="@lab.LaboratoryId">@lab.Laboratory</option> }</select></label>
+        <label class="text-xs text-muted">Unit<select @bind="Unit" class="mt-1 block rounded-lg border border-black/10 p-2 text-sm"><option value="">All units</option>@foreach (var unit in AvailableUnits.Where(u => !Laboratory.HasValue || u.LaboratoryId == Laboratory)) { <option value="@unit.Id">@unit.Name</option> }</select></label>
+        <label class="text-xs text-muted">Activity type<select @bind="ActivityType" class="mt-1 block rounded-lg border border-black/10 p-2 text-sm"><option value="">All activity types</option><option value="FlaggedApplication">Flagged Application</option></select></label>
+        <label class="text-xs text-muted">Detected from<input type="date" @bind="From" class="mt-1 block rounded-lg border border-black/10 p-2 text-sm" /></label>
+        <label class="text-xs text-muted">Detected through<input type="date" @bind="Through" class="mt-1 block rounded-lg border border-black/10 p-2 text-sm" /></label>
+        <button type="submit" disabled="@Loading" class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Apply filters</button>
+        <button type="button" disabled="@Loading" @onclick="ClearAsync" class="px-3 py-2 text-sm text-primary">Clear</button>
+    </form>
+    @if (Error is not null) { <p role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">@Error</p> }
+    <p role="status" class="text-xs text-muted">@(Loading ? "Loading activities..." : $"{Page.Items.Count} activities on this page. Updates automatically.") Times and date filters use @BrowserZone.Id.</p>
+    <div class="overflow-x-auto rounded-lg border border-black/10 bg-white">
+        <table class="w-full text-left text-sm">
+            <caption class="sr-only">@(ActiveOnly ? "Active and unresolved activities" : "All recorded activities, including ended activities")</caption>
+            <thead class="bg-surface text-muted"><tr><th scope="col" class="px-4 py-3">Activity Type</th><th scope="col" class="px-4 py-3">Details</th><th scope="col" class="px-4 py-3">Unit</th><th scope="col" class="px-4 py-3">Detected At</th>@if (!ActiveOnly) { <th scope="col" class="px-4 py-3">Ended At</th> }<th scope="col" class="px-4 py-3">Status</th></tr></thead>
+            <tbody class="divide-y divide-black/5">
+                @foreach (var row in Page.Items)
+                {
+                    var activity = row.Activity;
+                    <tr @key="activity.Id" class="@(activity.EndedAt.HasValue ? "text-gray-600" : "bg-amber-50/50")">
+                        <td class="px-4 py-3">@TypeLabel(activity.Type)</td><td class="px-4 py-3">@activity.Details</td><td class="px-4 py-3">@row.UnitName<div class="text-xs text-muted">@row.Laboratory</div></td>
+                        <td class="px-4 py-3"><time datetime="@Iso(activity.DetectedAt)">@UtcLabel(activity.DetectedAt)</time></td>
+                        @if (!ActiveOnly) { <td class="px-4 py-3">@if (activity.EndedAt.HasValue) { <time datetime="@Iso(activity.EndedAt.Value)">@UtcLabel(activity.EndedAt.Value)</time> } else { <span>—</span> }</td> }
+                        <td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs @(activity.EndedAt.HasValue ? "bg-gray-100 text-gray-600" : "bg-amber-100 text-amber-900")">@(activity.EndedAt.HasValue ? "Ended" : "Active")</span></td>
+                    </tr>
+                }
+                @if (Page.Items.Count == 0) { <tr><td colspan="@(ActiveOnly ? 5 : 6)" class="px-4 py-10 text-center text-muted">@(Loading ? "Loading activities..." : ActiveOnly ? "No active activities match these filters." : "No recorded activities match these filters.")</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    <nav class="flex items-center gap-3 text-sm" aria-label="Activity pages"><button type="button" disabled="@(Offset == 0 || Loading)" @onclick="() => LoadAsync(Math.Max(0, Offset - AbnormalActivityService.PageSize))" class="rounded-lg border px-3 py-2 disabled:opacity-50">Previous</button><span>Page @(Offset / AbnormalActivityService.PageSize + 1)</span><button type="button" disabled="@(!Page.HasMore || Loading)" @onclick="() => LoadAsync(Offset + AbnormalActivityService.PageSize)" class="rounded-lg border px-3 py-2 disabled:opacity-50">Next</button></nav>
+</div>
+
+@code {
+    private readonly CancellationTokenSource Lifetime = new();
+    private AbnormalActivityPage Page = new([], false);
+    private IReadOnlyList<UnitMonitoringDTO> AvailableUnits = [];
+    private bool ActiveOnly = true, Loading, Disposed, ReloadPending;
+    private int Offset;
+    private int? Laboratory;
+    private Guid? Unit;
+    private AbnormalActivityType? ActivityType;
+    private DateTime? From, Through;
+    private string? Error;
+    private TimeZoneInfo BrowserZone = TimeZoneInfo.Utc;
+    private ElementReference Root;
+    private IJSObjectReference? Module;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Updates.Changed += Changed;
+        await LoadAsync(0);
+    }
+    private Task SetViewAsync(bool active) { ActiveOnly = active; return LoadAsync(0); }
+    private Task ApplyFiltersAsync() => LoadAsync(0);
+    private Task ClearAsync() { Laboratory = null; Unit = null; ActivityType = null; From = Through = null; return LoadAsync(0); }
+    private async Task LoadAsync(int offset)
+    {
+        if (Disposed) return;
+        if (Loading) { ReloadPending = true; Offset = offset; return; }
+        Offset = offset; Loading = true;
+        try
+        {
+            do
+            {
+                ReloadPending = false; Error = null;
+                var viewer = (await Authentication.GetAuthenticationStateAsync()).User;
+                MonitoringAccess.RequireStaff(viewer);
+                AvailableUnits = await Units.GetAllAsync(Lifetime.Token);
+                var from = From.HasValue ? TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(From.Value.Date, DateTimeKind.Unspecified), BrowserZone) : (DateTime?)null;
+                var to = Through.HasValue ? TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(Through.Value.Date.AddDays(1), DateTimeKind.Unspecified), BrowserZone) : (DateTime?)null;
+                Page = await Activities.GetPageAsync(viewer, new(ActiveOnly, Unit, Laboratory, ActivityType, from, to, Offset), Lifetime.Token);
+            } while (ReloadPending && !Disposed);
+        }
+        catch (OperationCanceledException) when (Disposed) { }
+        catch (UnauthorizedAccessException) { Page = new([], false); AvailableUnits = []; Error = "You do not have access to these monitoring records."; }
+        catch (ArgumentException ex) { Page = new([], false); Error = ex.Message; }
+        catch (Exception ex) { Logger.LogWarning(ex, "Could not load abnormal activities."); Page = new([], false); Error = "Could not load activities. Try Apply filters again."; }
+        finally { Loading = false; }
+    }
+    private void Changed() => _ = RefreshViewAsync();
+    private async Task RefreshViewAsync()
+    {
+        try { await InvokeAsync(async () => { if (Disposed) return; await LoadAsync(Offset); if (!Disposed) StateHasChanged(); }); }
+        catch (Exception ex) when (Disposed || ex is TaskCanceledException) { }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (firstRender)
+            {
+                Module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Monitoring/AbnormalActivities.razor.js");
+                var zone = await Module.InvokeAsync<string>("timeZone");
+                try { BrowserZone = TimeZoneInfo.FindSystemTimeZoneById(zone); }
+                catch (TimeZoneNotFoundException) { }
+                StateHasChanged();
+            }
+            if (Module is not null) await Module.InvokeVoidAsync("formatTimes", Root);
+        }
+        catch (JSDisconnectedException) { }
+        catch (TaskCanceledException) { }
+    }
+    private static string Iso(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc).ToString("O", CultureInfo.InvariantCulture);
+    private static string UtcLabel(DateTime value) => value.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
+    private static string TypeLabel(AbnormalActivityType type) => type switch
+    {
+        AbnormalActivityType.FlaggedApplication => "Flagged Application",
+        AbnormalActivityType.HighCpuUsage => "High CPU Usage",
+        AbnormalActivityType.HighMemoryUsage => "High Memory Usage",
+        AbnormalActivityType.LowDiskSpace => "Low Disk Space",
+        _ => "Agent Disconnected"
+    };
+    public async ValueTask DisposeAsync()
+    {
+        Disposed = true; Updates.Changed -= Changed; Lifetime.Cancel(); Lifetime.Dispose();
+        if (Module is not null)
+            try { await Module.DisposeAsync(); } catch (JSDisconnectedException) { } catch (TaskCanceledException) { }
+    }
+}

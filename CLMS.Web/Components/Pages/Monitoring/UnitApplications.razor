@@ -1,0 +1,93 @@
+@implements IDisposable
+@using CLMS.Shared.Dtos
+@using Microsoft.AspNetCore.Components.Authorization
+@inject CLMS.Web.Services.ApplicationMonitoringService Monitoring
+@inject AuthenticationStateProvider Authentication
+@inject ILogger<UnitApplications> Logger
+
+<AuthorizeView Roles="Admin,Faculty">
+<section aria-label="Running monitored applications" class="mt-5 rounded-lg border border-black/10 p-4">
+    <div class="flex items-center justify-between gap-3"><h3 class="text-sm font-semibold text-gray-800">Running Monitored Applications</h3><button type="button" @onclick="RefreshAsync" disabled="@(Loading || Seconds > 0 || !Online)" class="rounded-lg border border-black/10 px-3 py-2 text-sm text-primary disabled:opacity-50">@(Loading ? "Checking..." : Seconds > 0 ? $"Refresh in {Seconds}s" : "Refresh")</button></div>
+    <div role="status" aria-live="polite" class="mt-3 text-sm text-muted">
+        @if (!Online) { <p>Application monitoring is unavailable. The unit is currently disconnected.</p> }
+        else if (Loading) { <p>Checking running applications...</p> }
+        else if (Error is not null) { <p>@Error</p> }
+        else if (Result is not null && Result.Status != ApplicationScanStatus.Success) { <p>@StatusMessage(Result.Status)</p> }
+        else if (Result is not null && Result.Applications.Count == 0) { <p>No monitored applications currently detected.</p> }
+        else if (Result is not null)
+        {
+            <ul class="space-y-3">
+                @foreach (var app in Result.Applications)
+                {
+                    <li @key="app.Id" class="flex items-center gap-3 rounded-lg p-2 @(app.FlagForReview ? "bg-amber-50 text-amber-900" : "text-gray-800")">
+                        <img src="@app.IconPath" onerror="this.onerror=null;this.src='/images/application-default.svg'" alt="" width="28" height="28" />
+                        <div><span>@app.Name</span>@if (app.FlagForReview) { <span class="ml-2 text-xs font-medium"><span aria-hidden="true">⚠</span> Flagged for Review</span> }</div>
+                    </li>
+                }
+            </ul>
+        }
+        @if (LastSuccess.HasValue) { <p class="mt-3 text-xs">Last successful check: @CLMS.Web.Models.UnitMonitoringDisplay.FormatUtc(LastSuccess.Value.UtcDateTime)</p> }
+    </div>
+</section>
+</AuthorizeView>
+
+@code {
+    [Parameter] public Guid UnitId { get; set; }
+    [Parameter] public bool Online { get; set; }
+    private readonly CancellationTokenSource Lifetime = new();
+    private ApplicationMonitoringResult? Result;
+    private DateTimeOffset? LastSuccess;
+    private string? Error;
+    private bool Loading, Disposed;
+    private int Generation;
+    private int Seconds => Result is null ? 0 : Math.Max(0, (int)Math.Ceiling((Result.RefreshAvailableAt - DateTimeOffset.UtcNow).TotalSeconds));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _ = CooldownFeedbackAsync();
+        await RefreshAsync();
+    }
+    private async Task RefreshAsync()
+    {
+        if (Loading || Disposed || !Online || Seconds > 0) return;
+        var generation = ++Generation;
+        Loading = true; Error = null;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var user = (await Authentication.GetAuthenticationStateAsync()).User;
+            var result = await Monitoring.RequestAsync(user, UnitId, Lifetime.Token);
+            if (Disposed || generation != Generation) return;
+            Result = result;
+            if (result.Status == ApplicationScanStatus.Success) LastSuccess = result.ObservedAt;
+        }
+        catch (OperationCanceledException) when (Disposed) { }
+        catch (UnauthorizedAccessException) { Error = "You do not have access to application monitoring."; }
+        catch (Exception ex) { Logger.LogWarning(ex, "Could not monitor applications for {UnitId}.", UnitId); Error = "Application monitoring failed. Try again."; }
+        finally { Loading = false; if (!Disposed) await InvokeAsync(StateHasChanged); }
+    }
+    private static string StatusMessage(ApplicationScanStatus status) => status switch
+    {
+        ApplicationScanStatus.AgentUnavailable => "Application monitoring is unavailable. The unit is currently disconnected or its registry has not synchronized.",
+        ApplicationScanStatus.RegistryUnavailable => "Application monitoring is unavailable. The agent has not loaded its application registry.",
+        ApplicationScanStatus.TimedOut => "The application scan timed out. Try again.",
+        _ => "Application monitoring failed. Try again."
+    };
+    private async Task CooldownFeedbackAsync()
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+        var previous = 0;
+        try
+        {
+            while (await timer.WaitForNextTickAsync(Lifetime.Token))
+            {
+                var remaining = Seconds;
+                if (!Disposed && (previous > 0 || remaining > 0)) await InvokeAsync(StateHasChanged);
+                previous = remaining;
+            }
+        }
+        catch (OperationCanceledException) when (Disposed) { }
+    }
+    public void Dispose() { Disposed = true; Generation++; Lifetime.Cancel(); Lifetime.Dispose(); }
+}

@@ -33,6 +33,12 @@ var cookieSecurePolicy = isDevelopment ? CookieSecurePolicy.SameAsRequest : Cook
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<ApplicationMonitoringService>();
+builder.Services.AddScoped<ApplicationIconStorage>();
+builder.Services.AddOptions<CLMS.Application.Monitoring.AbnormalActivityOptions>()
+    .Bind(builder.Configuration.GetSection("Monitoring:AbnormalActivity"))
+    .Validate(options => options.RetentionDays is >= 1 and <= 3650, "Activity retention must be between 1 and 3650 days.")
+    .ValidateOnStart();
 builder.Services.AddOptions<AccountOptions>()
     .Bind(builder.Configuration.GetSection("Onboarding"))
     // Apply after configuration so production cannot opt out of HTTPS through a setting.
@@ -260,6 +266,14 @@ builder.Services.AddAgentConnections(builder.Configuration);
 builder.Services.AddSingleton<WorkstationSessionGrants>();
 
 var app = builder.Build();
+// Runtime uploads are not included in the build-time static asset manifest.
+var applicationIconDirectory = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "application-icons");
+Directory.CreateDirectory(applicationIconDirectory);
+app.UseStaticFiles(new StaticFileOptions
+{
+    RequestPath = "/application-icons",
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(applicationIconDirectory)
+});
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path;
