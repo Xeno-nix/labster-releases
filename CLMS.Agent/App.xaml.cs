@@ -36,12 +36,23 @@ public partial class App : Microsoft.Maui.Controls.Application
         // InitializeComponent has loaded App.xaml, rather than during App constructor injection.
         var settings = services.GetRequiredService<MainPage>();
         this.settings = settings;
-        var window = new Window(settings) { Title = "Labster | Agent settings", Width = 820, Height = 860, MinimumWidth = 560, MinimumHeight = 640 };
+#if WINDOWS
+        var kiosk = Environment.GetCommandLineArgs().Contains("--kiosk", StringComparer.Ordinal)
+            ? new StudentKioskPage(services.GetRequiredService<Core.AgentCoordinator>(), services.GetRequiredService<Core.AgentApi>()) : null;
+        Page page = (Page?)kiosk ?? settings;
+#else
+        Page page = settings;
+#endif
+        var window = new Window(page) { Title = "Labster | Agent settings", Width = 820, Height = 860, MinimumWidth = 560, MinimumHeight = 640 };
         window.Created += async (_, _) =>
         {
             try
             {
-                desktop.Initialize(window, () => screenCast.StopAsync(), settings.RequestQuitAsync);
+#if WINDOWS
+                if (kiosk is not null) kiosk.Initialize(window);
+                else
+#endif
+                    desktop.Initialize(window, () => screenCast.StopAsync(), settings.RequestQuitAsync);
                 var directory = CLMS.Agent.Service.UserAgentVault.StateDirectory;
                 Directory.CreateDirectory(directory);
                 if (!OperatingSystem.IsWindows())
@@ -53,6 +64,9 @@ public partial class App : Microsoft.Maui.Controls.Application
                 connection.StatusChanged += OnConnectionChanged;
                 screenCast.StatusChanged += UpdateIndicator;
                 var configured = await runtime.StartAsync();
+#if WINDOWS
+                if (kiosk is not null) return;
+#endif
                 if (configured && Preferences.Default.Get("agent.start-hidden", true))
                     MainThread.BeginInvokeOnMainThread(desktop.Hide);
             }
