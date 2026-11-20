@@ -1,6 +1,12 @@
+using CLMS.Shared.Dtos;
+
 namespace CLMS.Web.Services.AgentConnections;
 
-public sealed record AgentPresence(string ConnectionId, DateTime HeartbeatUtc, string? IpAddress, bool Connected);
+public sealed record AgentPresence(string ConnectionId, DateTime HeartbeatUtc, string? IpAddress, bool Connected)
+{
+    public NetworkResourceReading? NetworkResources { get; init; }
+    public DateTime? NetworkResourcesUtc { get; init; }
+}
 public sealed record AgentCredentialConnection(string ConnectionId, int Generation, Guid CredentialId);
 
 /// <summary>Live authenticated presence for this web-server process; no schema migration required.</summary>
@@ -40,6 +46,18 @@ public sealed class AgentPresenceStore(TimeProvider clock)
         lock (sync)
             if (units.TryGetValue(unitId, out var current) && current.ConnectionId == connectionId)
                 units[unitId] = current with { Connected = false };
+    }
+
+    public void ReportNetworkResources(Guid unitId, string connectionId, NetworkResourceReading? reading)
+    {
+        if (reading is { IsValid: false }) return;
+        lock (sync)
+            if (units.TryGetValue(unitId, out var current) && current.ConnectionId == connectionId && current.Connected)
+                units[unitId] = current with
+                {
+                    NetworkResources = reading,
+                    NetworkResourcesUtc = reading is null ? null : clock.GetUtcNow().UtcDateTime
+                };
     }
 
     public IReadOnlyDictionary<Guid, AgentPresence> Snapshot()

@@ -18,13 +18,14 @@ public sealed class ScreenCastService(IHubContext<AgentConnectionHub> hub, TimeP
     private readonly Dictionary<Guid, string> agents = [];
     private readonly Dictionary<Guid, Session> sessions = [];
 
-    private sealed class Session(Guid id, Guid unitId, string connectionId, string viewerId, DateTimeOffset leaseUntil)
+    private sealed class Session(Guid id, Guid unitId, string connectionId, string viewerId, DateTimeOffset now, TimeSpan leaseDuration)
     {
         public Guid Id { get; } = id;
         public Guid UnitId { get; } = unitId;
         public string ConnectionId { get; } = connectionId;
         public string ViewerId { get; } = viewerId;
-        public DateTimeOffset LeaseUntil { get; set; } = leaseUntil;
+        public TimeSpan LeaseDuration { get; } = leaseDuration;
+        public DateTimeOffset LeaseUntil { get; set; } = now + leaseDuration;
         public DateTimeOffset LastFrameAt { get; set; } = DateTimeOffset.MinValue;
         public ScreenCastFrameSnapshot? Frame { get; set; }
     }
@@ -74,7 +75,7 @@ public sealed class ScreenCastService(IHubContext<AgentConnectionHub> hub, TimeP
         return Task.CompletedTask;
     }
 
-    public async Task<Guid> StartAsync(ClaimsPrincipal viewer, Guid unitId)
+    public async Task<Guid> StartAsync(ClaimsPrincipal viewer, Guid unitId, TimeSpan? leaseDuration = null)
     {
         var viewerId = RequireViewer(viewer);
         Session session;
@@ -86,7 +87,7 @@ public sealed class ScreenCastService(IHubContext<AgentConnectionHub> hub, TimeP
                 throw new InvalidOperationException("This unit already has an active viewing session.");
             if (sessions.Values.Count(s => s.ViewerId == viewerId) >= 16)
                 throw new InvalidOperationException("Stop an existing viewing session before starting another.");
-            session = new(Guid.NewGuid(), unitId, connectionId, viewerId, clock.GetUtcNow() + ViewerLease);
+            session = new(Guid.NewGuid(), unitId, connectionId, viewerId, clock.GetUtcNow(), leaseDuration ?? ViewerLease);
             sessions.Add(session.Id, session);
         }
         try
@@ -172,7 +173,7 @@ public sealed class ScreenCastService(IHubContext<AgentConnectionHub> hub, TimeP
             if (!sessions.TryGetValue(sessionId, out var session) || session.ViewerId != viewerId
                 || session.LeaseUntil <= clock.GetUtcNow()) return false;
             // Only real browser requests renew this lease, not a disconnected Blazor circuit's timer.
-            session.LeaseUntil = clock.GetUtcNow() + ViewerLease;
+            session.LeaseUntil = clock.GetUtcNow() + session.LeaseDuration;
             if (session.Frame is { } latest && latest.Sequence > after) frame = latest;
             return true;
         }

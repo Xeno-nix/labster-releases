@@ -15,6 +15,8 @@ public sealed class UnitMonitoringDTO
     public bool IsOnline { get; init; }
     public DateTime? SessionStartedUtc { get; init; }
     public string? CurrentUser { get; init; }
+    public CLMS.Shared.Dtos.NetworkResourceReading? NetworkResources { get; init; }
+    public DateTime? NetworkResourcesUtc { get; init; }
 
     public bool IsAvailableOnline(DateTime nowUtc) => IsOnline && LastHeartbeatUtc.HasValue
         && LastHeartbeatUtc.Value >= nowUtc - TimeSpan.FromMinutes(2);

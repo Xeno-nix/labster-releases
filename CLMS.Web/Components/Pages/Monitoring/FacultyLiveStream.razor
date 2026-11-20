@@ -1,0 +1,119 @@
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Components.Authorization
+@using CLMS.Shared.Dtos
+@inject CLMS.Web.Services.ScreenCasting.FacultyStreamService Streams
+@inject AuthenticationStateProvider Authentication
+@inject IJSRuntime JS
+@inject ILogger<FacultyLiveStream> Logger
+
+<div class="broadcast-controls @(Light ? "broadcast-light" : "")">
+    <button @ref="OpenButton" type="button" aria-haspopup="dialog" aria-controls="faculty-share-dialog"
+            class="broadcast-open" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="14" rx="2" /><path d="M8 21h8m-4-4v4m0-7V6m-3 3 3-3 3 3" />
+        </svg>
+        Share screen
+    </button>
+    <span @ref="Status" class="broadcast-status" role="status"></span>
+    <button @ref="StopButton" type="button" class="broadcast-stop" disabled hidden>Stop sharing</button>
+</div>
+
+<dialog @ref="Dialog" id="faculty-share-dialog" class="broadcast-dialog @(Light ? "broadcast-dialog-light" : "")" aria-labelledby="faculty-share-title">
+    <form method="dialog">
+        <header class="broadcast-dialog-header">
+            <h2 id="faculty-share-title">Share your screen</h2>
+            <p>Your screen will be shared with <strong>@LaboratoryName</strong>.</p>
+        </header>
+        <div class="broadcast-dialog-body">
+        <p class="broadcast-hint">Choose a presentation window or tab to keep the monitoring wall out of the broadcast.</p>
+        <p @ref="PickerStatus" class="broadcast-picker-status" role="status"></p>
+        @if (Error is not null)
+        {
+            <p class="broadcast-error" role="alert">@Error</p>
+        }
+        </div>
+        <div class="broadcast-dialog-actions">
+            <span class="broadcast-audio-note">Audio is off</span>
+            <button @ref="CancelButton" type="submit">Cancel</button>
+            <button @ref="StartButton" type="button" class="broadcast-start" disabled>Choose what to share</button>
+        </div>
+    </form>
+</dialog>
+
+@code {
+    [Parameter] public string? LaboratoryName { get; set; }
+    [Parameter] public bool Light { get; set; }
+    [Parameter] public int? MonitoringSessionId { get; set; }
+    [Parameter] public EventCallback<bool> SharingChanged { get; set; }
+
+    private ElementReference OpenButton, Dialog, CancelButton, StartButton, StopButton, Status, PickerStatus;
+    private IJSObjectReference? Module;
+    private DotNetObjectReference<FacultyLiveStream>? Reference;
+    private System.Security.Claims.ClaimsPrincipal Viewer = new();
+    private Guid? StreamId;
+    private string? Error;
+    private bool Disposed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Reference = DotNetObjectReference.Create(this);
+            Module = await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Monitoring/FacultyLiveStream.razor.js");
+        }
+        if (Module is null || Disposed) return;
+        if (firstRender)
+        {
+            await Module.InvokeVoidAsync("initialize", new { open = OpenButton, dialog = Dialog,
+                laboratoryId = "screen-wall-laboratory", cancel = CancelButton, start = StartButton, stop = StopButton,
+                status = Status, pickerStatus = PickerStatus }, Reference);
+        }
+        await Module.InvokeVoidAsync("setSession", OpenButton, MonitoringSessionId);
+    }
+    [JSInvokable]
+    public async Task<FacultyStreamState?> StartBroadcast(int laboratoryId, int monitoringSessionId)
+    {
+        if (Disposed) return null;
+        try
+        {
+            Viewer = (await Authentication.GetAuthenticationStateAsync()).User;
+            if (MonitoringSessionId != monitoringSessionId)
+                throw new InvalidOperationException("Start a session to share your screen.");
+            var state = await Streams.StartAsync(Viewer, laboratoryId, monitoringSessionId);
+            if (Disposed) { await Streams.StopAsync(Viewer, state.Id); return null; }
+            StreamId = state.Id;
+            await SharingChanged.InvokeAsync(true);
+            Error = null;
+            return state;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException) { Error = ex.Message; return null; }
+        catch (Exception ex) { Logger.LogError(ex, "Could not start faculty live stream."); Error = "Could not start the live stream. Check the server and try again."; return null; }
+        finally { if (!Disposed) await InvokeAsync(StateHasChanged); }
+    }
+    [JSInvokable] public Task<FacultyStreamState> PollBroadcast(Guid id) => Streams.PollAsync(Viewer, id);
+    [JSInvokable] public Task OfferBroadcast(Guid id, Guid peer, string sdp) => Streams.OfferAsync(Viewer, id, peer, sdp);
+    [JSInvokable]
+    public async Task StopBroadcast(Guid id)
+    {
+        await Streams.StopAsync(Viewer, id);
+        if (StreamId == id)
+        {
+            StreamId = null;
+            if (!Disposed) await SharingChanged.InvokeAsync(false);
+        }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        try { if (StreamId is { } id) await Streams.StopAsync(Viewer, id); }
+        finally
+        {
+            if (Module is not null)
+            {
+                try { await Module.InvokeVoidAsync("dispose", OpenButton); await Module.DisposeAsync(); }
+                catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException) { }
+            }
+            Reference?.Dispose();
+        }
+    }
+}

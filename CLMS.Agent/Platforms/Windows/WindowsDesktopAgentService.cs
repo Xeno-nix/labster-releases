@@ -84,6 +84,26 @@ public sealed class WindowsDesktopAgentService(ILogger<WindowsDesktopAgentServic
         SetForegroundWindow(hwnd);
     }
 
+    private AppWindowPresenter? previousPresenter;
+    public bool IsFullScreen => !disposed && appWindow?.Presenter.Kind == AppWindowPresenterKind.FullScreen;
+
+    public Task SetFullScreenAsync(bool enabled)
+    {
+        if (disposed || appWindow is null) return Task.CompletedTask;
+        if (enabled && !IsFullScreen)
+        {
+            previousPresenter = appWindow.Presenter;
+            appWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+        }
+        else if (!enabled && IsFullScreen)
+        {
+            if (previousPresenter is not null) appWindow.SetPresenter(previousPresenter);
+            else appWindow.SetPresenter(AppWindowPresenterKind.Default);
+            previousPresenter = null;
+        }
+        return Task.CompletedTask;
+    }
+
     public void Hide()
     {
         // Never hide the only settings entry point if the tray failed to initialize.

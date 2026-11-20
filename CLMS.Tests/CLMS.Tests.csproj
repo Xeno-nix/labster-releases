@@ -27,8 +27,17 @@
   <ItemGroup>
     <None Update="Fixtures\screen-frame.jpg" CopyToOutputDirectory="PreserveNewest" />
     <!-- Exercise shared sending without loading the native MAUI application. -->
+    <Compile Include="..\CLMS.Agent\Services\NetworkResourceSampler.cs" Link="Agent\NetworkResourceSampler.cs" />
+    <Compile Include="..\CLMS.Agent\Services\AgentConnectionService.cs" Link="Agent\AgentConnectionService.cs" />
     <Compile Include="..\CLMS.Agent\Services\ScreenCastSender.cs" Link="Agent\ScreenCastSender.cs" />
     <Compile Include="..\CLMS.Agent\Services\IScreenCaptureService.cs" Link="Agent\IScreenCaptureService.cs" />
+    <Compile Include="..\CLMS.Agent\Services\IFacultyStreamViewer.cs" Link="Agent\IFacultyStreamViewer.cs" />
+    <Compile Include="..\CLMS.Agent\Services\FacultyViewerHandshake.cs" Link="Agent\FacultyViewerHandshake.cs" />
+    <Compile Include="..\CLMS.Agent\Services\IWorkstationActions.cs" Link="Agent\IWorkstationActions.cs" />
+    <Compile Include="..\CLMS.Agent\Services\WorkstationActions.cs" Link="Agent\WorkstationActions.cs" />
+    <Compile Include="..\CLMS.Agent\Services\IDesktopNotifications.cs" Link="Agent\IDesktopNotifications.cs" />
+    <Compile Include="..\CLMS.Agent\Services\NotificationReceiver.cs" Link="Agent\NotificationReceiver.cs" />
+    <Compile Include="..\CLMS.Agent\Services\WorkstationCommandHandler.cs" Link="Agent\WorkstationCommandHandler.cs" />
     <Compile Include="..\CLMS.Agent\Models\ScreenFrame.cs" Link="Agent\ScreenFrame.cs" />
     <Compile Include="..\CLMS.Agent\Models\AgentConnectionSnapshot.cs" Link="Agent\AgentConnectionSnapshot.cs" />
     <Compile Include="..\CLMS.Agent\Services\AgentRuntimeService.cs" Link="Agent\AgentRuntimeService.cs" />

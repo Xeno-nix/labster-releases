@@ -17,6 +17,8 @@ public static class UnitMonitoringPresence
         LastHeartbeatUtc = presence.HeartbeatUtc,
         IsOnline = presence.Connected,
         SessionStartedUtc = unit.SessionStartedUtc,
-        CurrentUser = unit.CurrentUser
+        CurrentUser = unit.CurrentUser,
+        NetworkResources = presence.NetworkResources,
+        NetworkResourcesUtc = presence.NetworkResourcesUtc
     };
 }

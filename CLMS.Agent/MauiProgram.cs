@@ -34,6 +34,11 @@ public static class MauiProgram
 		builder.Services.AddTransient<CLMS.Agent.Views.MainPage>();
 		builder.Services.AddSingleton<CLMS.Agent.Services.AgentConnectionService>();
 		builder.Services.AddSingleton<CLMS.Agent.Services.ScreenCastSender>();
+		builder.Services.AddSingleton<CLMS.Agent.Services.IFacultyStreamViewer, CLMS.Agent.Services.FacultyStreamViewer>();
+        builder.Services.AddSingleton<CLMS.Agent.Services.IWorkstationActions, CLMS.Agent.Services.WorkstationActions>();
+        builder.Services.AddSingleton<CLMS.Agent.Services.WorkstationCommandHandler>();
+        builder.Services.AddSingleton<CLMS.Agent.Services.IDesktopNotifications, CLMS.Agent.Services.DesktopNotifications>();
+        builder.Services.AddSingleton<CLMS.Agent.Services.NotificationReceiver>();
 		builder.Services.AddSingleton<CLMS.Agent.Services.IAgentConnectionTransport>(services => services.GetRequiredService<CLMS.Agent.Services.AgentConnectionService>());
 		builder.Services.AddSingleton<CLMS.Agent.Services.AgentRuntimeService>();
 		builder.Services.AddSingleton<CLMS.Agent.Core.IAgentVault, CLMS.Agent.Service.UserAgentVault>();

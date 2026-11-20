@@ -1,0 +1,103 @@
+@using CLMS.Shared.Dtos
+@using CLMS.Web.Services.AgentConnections
+@using CLMS.Web.Services
+@inject WorkstationCommandService Commands
+@inject DialogService Dialogs
+@inject ILogger<WorkstationActions> Logger
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <fieldset disabled="@(Busy || !Online)" class="space-y-3">
+            <legend class="mb-2 text-sm font-semibold text-gray-800">Workstation actions</legend>
+            <label for="workstation-message" class="block text-xs text-muted">Message to @UnitName</label>
+            <textarea id="workstation-message" @bind="Message" @bind:event="oninput" maxlength="1000" rows="3"
+                      placeholder="Enter a message…" class="w-full rounded-lg border border-black/15 bg-white p-2 text-sm"></textarea>
+            <button type="button" @onclick="SendMessageAsync"
+                    class="rounded-lg bg-primary px-3 py-2 text-sm text-white disabled:opacity-50"
+                    disabled="@string.IsNullOrWhiteSpace(Message)">Send message</button>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" @onclick="() => RunAsync(WorkstationCommandKind.Lock)"
+                        class="rounded-lg border border-black/15 px-3 py-2 text-sm">Lock workstation</button>
+                <button type="button" @onclick="() => ConfirmPowerAsync(WorkstationCommandKind.Restart)"
+                        class="rounded-lg border border-black/15 px-3 py-2 text-sm">Restart</button>
+                <button type="button" @onclick="() => ConfirmPowerAsync(WorkstationCommandKind.Shutdown)"
+                        class="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700">Shut down</button>
+            </div>
+        </fieldset>
+        @if (!Online) { <p class="mt-2 text-xs text-muted">Connect the workstation agent to use these actions.</p> }
+        <p role="status" class="mt-2 text-xs text-muted">@(Busy ? "Waiting for the workstation…" : Feedback)</p>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public Guid UnitId { get; set; }
+    [Parameter] public string UnitName { get; set; } = "workstation";
+    [Parameter] public bool Online { get; set; }
+    private Guid LastUnit;
+    private string Message = "";
+    private string? Feedback;
+    private bool Busy;
+
+    protected override void OnParametersSet()
+    {
+        if (LastUnit == UnitId) return;
+        LastUnit = UnitId;
+        Message = "";
+        Feedback = null;
+    }
+
+    private Task SendMessageAsync() => RunAsync(WorkstationCommandKind.SendMessage, Message);
+
+    private async Task ConfirmPowerAsync(WorkstationCommandKind kind)
+    {
+        if (Busy || !Online) return;
+        var target = UnitId;
+        var action = kind == WorkstationCommandKind.Restart ? "Restart" : "Shut down";
+        Busy = true;
+        try
+        {
+            var approved = await Dialogs.ShowConfirmDialogAsync(
+                $"{action} {UnitName}? Ask its user to save their work before continuing.", $"{action} workstation");
+            if (approved && target == UnitId && Online) await ExecuteAsync(target, kind, null);
+        }
+        finally { Busy = false; }
+    }
+
+    private async Task RunAsync(WorkstationCommandKind kind, string? message = null)
+    {
+        if (Busy || !Online) return;
+        Busy = true;
+        try { await ExecuteAsync(UnitId, kind, message); }
+        finally { Busy = false; }
+    }
+
+    private async Task ExecuteAsync(Guid target, WorkstationCommandKind kind, string? message)
+    {
+        Feedback = null;
+        try
+        {
+            var result = await Commands.ExecuteAsync(target, kind, message);
+            if (target != UnitId) return;
+            Feedback = result switch
+            {
+                WorkstationCommandStatus.MessageReceived => "Message submitted as a workstation desktop notification.",
+                WorkstationCommandStatus.NotificationsDisabled => "Enable desktop notifications in the workstation agent and allow them in OS settings.",
+                WorkstationCommandStatus.Applied => "The workstation accepted the lock command.",
+                WorkstationCommandStatus.Requested => "The operating system received the request. Check the workstation for completion.",
+                WorkstationCommandStatus.Expired => "The command expired before it could run.",
+                WorkstationCommandStatus.Unsupported => "Update this workstation's agent to use these actions.",
+                _ => "The action failed. Check agent permissions on the workstation."
+            };
+            if (kind == WorkstationCommandKind.SendMessage && result == WorkstationCommandStatus.MessageReceived) Message = "";
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            if (target == UnitId) Feedback = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning("Workstation command confirmation failed ({ExceptionType}).", ex.GetType().Name);
+            if (target == UnitId) Feedback = "No confirmation received. Check the workstation before trying again.";
+        }
+    }
+}

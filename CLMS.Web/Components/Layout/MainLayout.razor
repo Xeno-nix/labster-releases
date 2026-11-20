@@ -198,6 +198,7 @@
 
     @* Main Content *@
     <main class="main-content flex-1 min-w-0 @(IsUnitMonitoring ? "flex min-h-0 flex-col overflow-hidden" : "overflow-auto")">
+        <div class="flex shrink-0 justify-end px-4 pt-3"><DesktopNotificationCenter /></div>
 
         @* Mobile top bar (only visible < lg) *@
         <div class="lg:hidden sticky top-0 z-30 bg-white border-b border-black/10 flex shrink-0 items-center gap-3 px-4 py-3">

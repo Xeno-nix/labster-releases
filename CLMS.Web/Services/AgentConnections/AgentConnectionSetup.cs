@@ -24,8 +24,14 @@ public static class AgentConnectionSetup
         });
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<AgentPresenceStore>();
+        services.AddScoped<WorkstationCommandService>();
+        services.AddSingleton<CLMS.Web.Services.Notifications.BrowserNotificationBus>();
+        services.AddScoped<CLMS.Web.Services.Notifications.SystemNotificationPublisher>();
         services.AddSingleton<ScreenCastService>();
         services.AddHostedService(provider => provider.GetRequiredService<ScreenCastService>());
+        services.AddSingleton<FacultyStreamService>();
+        services.TryAddSingleton<LabScreenCastService>();
+        services.AddHostedService(provider => provider.GetRequiredService<FacultyStreamService>());
         return services;
     }
 }
