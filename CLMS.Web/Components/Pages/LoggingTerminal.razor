@@ -167,7 +167,8 @@
 </div>
 
 @code {
-    private string Mode { get; set; } = "student_in";
+    private bool IsVisitor { get; set; }
+    private bool IsTimeOut { get; set; }
     private bool IsBusy { get; set; }
 
     private string? SuccessMessage { get; set; }
@@ -177,9 +178,11 @@
     private GuestTimeInRequest GuestModel { get; set; } = new();
     private TimeOutRequest TimeOutModel { get; set; } = new();
 
-    private void SetMode(string mode)
+    private object CurrentModel => IsTimeOut ? (object)TimeOutModel : IsVisitor ? GuestModel : StudentModel;
+
+    private void ToggleTimeOut()
     {
-        Mode = mode;
+        IsTimeOut = !IsTimeOut;
         ClearMessages();
     }
 
@@ -188,6 +191,9 @@
         SuccessMessage = null;
         ErrorMessage = null;
     }
+
+    private Task HandleSubmit() => IsTimeOut ? HandleTimeOut()
+        : IsVisitor ? HandleGuestTimeIn() : HandleStudentTimeIn();
 
     private Task HandleStudentTimeIn() => RunAsync(async () =>
     {

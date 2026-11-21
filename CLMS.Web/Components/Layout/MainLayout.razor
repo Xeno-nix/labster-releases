@@ -19,224 +19,231 @@ else if (_authorizationError is not null)
 }
 else
 {
-<ToastContainer/>
-<Dialog/>
+    <ToastContainer/>
+    <Dialog/>
 
-<ActionMenuHost>
-<div class="app-shell flex h-screen overflow-hidden @(_sidebarCollapsed ? "sidebar-collapsed" : "")" @onkeydown="HandleKeyDown">
+    <ActionMenuHost>
+        <div class="app-shell flex h-screen overflow-hidden @(_sidebarCollapsed ? "sidebar-collapsed" : "")" @onkeydown="HandleKeyDown">
 
-    @if (_mobileSidebarOpen)
-    {
-        <button type="button" class="sidebar-overlay" aria-label="Close navigation" @onclick="CloseMobileSidebar"></button>
-    }
+            @if (_mobileSidebarOpen)
+            {
+                <button type="button" class="sidebar-overlay" aria-label="Close navigation" @onclick="CloseMobileSidebar"></button>
+            }
 
-    @* Sidebar — fixed/slide-in on mobile, normal flex on lg+ *@
-    <aside id="main-sidebar" aria-label="Main navigation"
-           class="sidebar @(_mobileSidebarOpen ? "sidebar-mobile-open" : "") flex flex-col flex-shrink-0">
+            @* Sidebar — fixed/slide-in on mobile, normal flex on lg+ *@
+            <aside id="main-sidebar" aria-label="Main navigation"
+                   class="sidebar @(_mobileSidebarOpen ? "sidebar-mobile-open" : "") flex flex-col flex-shrink-0">
 
-        @* Logo + mobile close *@
-        <div class="sidebar-header flex items-center justify-between">
-            <div class="sidebar-brand flex items-center gap-3">
-                <div class="sidebar-logo w-10 h-10 flex items-center justify-center">
-                    <img src="/images/labster-logo.svg" alt="" width="36" height="36" />
-                </div>
-                <div class="sidebar-brand-text">
-                    <p class="font-heading font-semibold text-base leading-tight">Labster</p>
-                    <p class="text-xs sidebar-secondary">USeP</p>
-                </div>
-            </div>
-            <button type="button" class="sidebar-mobile-close p-1.5 rounded-lg sidebar-control transition-colors cursor-pointer"
-                    aria-label="Close navigation" aria-controls="main-sidebar" @onclick="CloseMobileSidebar">
-                <svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                </svg>
-            </button>
-            <button type="button" class="sidebar-desktop-toggle p-1.5 rounded-lg sidebar-control transition-colors cursor-pointer"
-                    title="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
-                    aria-label="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
-                    aria-expanded="@(!_sidebarCollapsed ? "true" : "false")" aria-controls="main-sidebar" @onclick="ToggleSidebar">
-                <svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <path d="M9 3v18" />
-                </svg>
-            </button>
-        </div>
-
-        @* Navigation *@
-        <nav class="sidebar-nav flex-1 p-4 overflow-y-auto">
-            <ul class="space-y-1">
-                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.DashboardView)"><li>
-                    <a href="/" title="Dashboard" aria-label="Dashboard" @onclick="CloseMobileSidebar" class="@NavClass("/", exact: true)">
-                        <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                @* Logo + mobile close *@
+                <div class="sidebar-header flex items-center justify-between">
+                    <div class="sidebar-brand flex items-center gap-3">
+                        <div class="sidebar-logo w-10 h-10 flex items-center justify-center">
+                            <img src="/images/labster-logo.svg" alt="" width="36" height="36"/>
+                        </div>
+                        <div class="sidebar-brand-text">
+                            <p class="font-heading font-semibold text-base leading-tight">Labster</p>
+                            <p class="text-xs sidebar-secondary">USeP</p>
+                        </div>
+                    </div>
+                    <button type="button" class="sidebar-mobile-close p-1.5 rounded-lg sidebar-control transition-colors cursor-pointer"
+                            aria-label="Close navigation" aria-controls="main-sidebar" @onclick="CloseMobileSidebar">
+                        <svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect width="7" height="9" x="3" y="3" rx="1" />
-                            <rect width="7" height="5" x="14" y="3" rx="1" />
-                            <rect width="7" height="9" x="14" y="12" rx="1" />
-                            <rect width="7" height="5" x="3" y="16" rx="1" />
+                            <path d="M18 6 6 18"/>
+                            <path d="m6 6 12 12"/>
                         </svg>
-                        <span class="sidebar-link-text">Dashboard</span>
-                    </a>
-                </li></AuthorizeView>
-                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.LogbookView)"><li>
-                    <a href="/logbook" title="Logbook" aria-label="Logbook" @onclick="CloseMobileSidebar" class="@NavClass("/logbook", exact: true)">
-                        <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                    </button>
+                    <button type="button" class="sidebar-desktop-toggle p-1.5 rounded-lg sidebar-control transition-colors cursor-pointer"
+                            title="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
+                            aria-label="@(_sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar")"
+                            aria-expanded="@(!_sidebarCollapsed ? "true" : "false")" aria-controls="main-sidebar" @onclick="ToggleSidebar">
+                        <svg class="w-5 h-5" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M9 3v18"/>
                         </svg>
-                        <span class="sidebar-link-text">Logbook</span>
-                    </a>
-                </li></AuthorizeView>
-                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UnitsView)" Context="unitsAccess">
-                    <Authorized>@MonitoringLink("/unit-monitoring")</Authorized>
-                    <NotAuthorized>
-                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.MonitoringView)" Context="activityAccess">
-                            <Authorized>@MonitoringLink("/unit-monitoring/activities")</Authorized>
+                    </button>
+                </div>
+
+                @* Navigation *@
+                <nav class="sidebar-nav flex-1 p-4 overflow-y-auto">
+                    <ul class="space-y-1">
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.DashboardView)">
+                            <li>
+                                <a href="/" title="Dashboard" aria-label="Dashboard" @onclick="CloseMobileSidebar" class="@NavClass("/", exact: true)">
+                                    <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect width="7" height="9" x="3" y="3" rx="1"/>
+                                        <rect width="7" height="5" x="14" y="3" rx="1"/>
+                                        <rect width="7" height="9" x="14" y="12" rx="1"/>
+                                        <rect width="7" height="5" x="3" y="16" rx="1"/>
+                                    </svg>
+                                    <span class="sidebar-link-text">Dashboard</span>
+                                </a>
+                            </li></AuthorizeView>
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.LogbookView)">
+                            <li>
+                                <a href="/logbook" title="Logbook" aria-label="Logbook" @onclick="CloseMobileSidebar" class="@NavClass("/logbook", exact: true)">
+                                    <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                                    </svg>
+                                    <span class="sidebar-link-text">Logbook</span>
+                                </a>
+                            </li></AuthorizeView>
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UnitsView)" Context="unitsAccess">
+                            <Authorized>@MonitoringLink("/unit-monitoring")</Authorized>
                             <NotAuthorized>
-                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.MonitoringConfigure)" Context="applicationRegistryAccess">
-                                    <Authorized>@MonitoringLink("/unit-monitoring/applications")</Authorized>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.MonitoringView)" Context="activityAccess">
+                                    <Authorized>@MonitoringLink("/unit-monitoring/activities")</Authorized>
                                     <NotAuthorized>
-                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UnitsManage)" Context="unitRegistryAccess">
-                                            @MonitoringLink("/unit-monitoring/unit-registry")
+                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.MonitoringConfigure)" Context="applicationRegistryAccess">
+                                            <Authorized>@MonitoringLink("/unit-monitoring/applications")</Authorized>
+                                            <NotAuthorized>
+                                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UnitsManage)" Context="unitRegistryAccess">
+                                                    @MonitoringLink("/unit-monitoring/unit-registry")
+                                                </AuthorizeView>
+                                            </NotAuthorized>
                                         </AuthorizeView>
                                     </NotAuthorized>
                                 </AuthorizeView>
                             </NotAuthorized>
                         </AuthorizeView>
-                    </NotAuthorized>
-                </AuthorizeView>
-                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UsersView)"><li>
-                    <a href="/admin/users" title="Users" aria-label="Users" @onclick="CloseMobileSidebar" class="@NavClass("/admin/users", exact: false)">
-                        <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                            <circle cx="12" cy="7" r="4" />
-                        </svg>
-                        <span class="sidebar-link-text">Users</span>
-                    </a>
-                </li></AuthorizeView>
-                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.ClassListsView)"><li>
-                    <a href="/class-lists" title="Class Management" aria-label="Class Management" @onclick="CloseMobileSidebar" class="@NavClass("/class-lists", exact: false)">
-                        <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                            <circle cx="12" cy="7" r="4" />
-                        </svg>
-                        <span class="sidebar-link-text">Class Management</span>
-                    </a>
-                </li></AuthorizeView>
-                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BookingsView)"><li>
-                    <a href="/bookings" title="Schedule &amp; Booking" aria-label="Schedule &amp; Booking" @onclick="CloseMobileSidebar" class="@NavClass("/bookings", exact: true)">
-                        <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M8 2v4" />
-                            <path d="M16 2v4" />
-                            <rect width="18" height="18" x="3" y="4" rx="2" />
-                            <path d="M3 10h18" />
-                        </svg>
-                        <span class="sidebar-link-text">Schedule &amp; Booking</span>
-                    </a>
-                </li></AuthorizeView>
-                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryView)"><li>
-                    <a href="/inventory" title="Inventory" aria-label="Inventory" @onclick="CloseMobileSidebar" class="@NavClass("/inventory", exact: true)">
-                        <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="m7.5 4.27 9 5.15" />
-                            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-                            <path d="m3.3 7 8.7 5 8.7-5" />
-                            <path d="M12 22V12" />
-                        </svg>
-                        <span class="sidebar-link-text">Inventory</span>
-                    </a>
-                </li></AuthorizeView>
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UsersView)">
+                            <li>
+                                <a href="/admin/users" title="Users" aria-label="Users" @onclick="CloseMobileSidebar" class="@NavClass("/admin/users", exact: false)">
+                                    <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="12" cy="7" r="4"/>
+                                    </svg>
+                                    <span class="sidebar-link-text">Users</span>
+                                </a>
+                            </li></AuthorizeView>
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.ClassListsView)">
+                            <li>
+                                <a href="/class-lists" title="Class Management" aria-label="Class Management" @onclick="CloseMobileSidebar" class="@NavClass("/class-lists", exact: false)">
+                                    <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="12" cy="7" r="4"/>
+                                    </svg>
+                                    <span class="sidebar-link-text">Class Management</span>
+                                </a>
+                            </li></AuthorizeView>
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BookingsView)">
+                            <li>
+                                <a href="/bookings" title="Schedule &amp; Booking" aria-label="Schedule &amp; Booking" @onclick="CloseMobileSidebar" class="@NavClass("/bookings", exact: true)">
+                                    <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M8 2v4"/>
+                                        <path d="M16 2v4"/>
+                                        <rect width="18" height="18" x="3" y="4" rx="2"/>
+                                        <path d="M3 10h18"/>
+                                    </svg>
+                                    <span class="sidebar-link-text">Schedule &amp; Booking</span>
+                                </a>
+                            </li></AuthorizeView>
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryView)">
+                            <li>
+                                <a href="/inventory" title="Inventory" aria-label="Inventory" @onclick="CloseMobileSidebar" class="@NavClass("/inventory", exact: true)">
+                                    <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="m7.5 4.27 9 5.15"/>
+                                        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                                        <path d="m3.3 7 8.7 5 8.7-5"/>
+                                        <path d="M12 22V12"/>
+                                    </svg>
+                                    <span class="sidebar-link-text">Inventory</span>
+                                </a>
+                            </li></AuthorizeView>
 
-                    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsView)"><li>
-                        <a href="/admin/database-backups" title="Backup &amp; Restore" aria-label="Backup &amp; Restore"
-                           @onclick="CloseMobileSidebar" class="@NavClass("/admin/database-backups", exact: true)">
-                            <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0" />
-                            </svg>
-                            <span class="sidebar-link-text">Backup &amp; Restore</span>
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsView)">
+                            <li>
+                                <a href="/admin/database-backups" title="Backup &amp; Restore" aria-label="Backup &amp; Restore"
+                                   @onclick="CloseMobileSidebar" class="@NavClass("/admin/database-backups", exact: true)">
+                                    <svg class="w-5 h-5 flex-shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>
+                                    </svg>
+                                    <span class="sidebar-link-text">Backup &amp; Restore</span>
+                                </a>
+                            </li></AuthorizeView>
+
+                    </ul>
+                </nav>
+
+                @* Profile *@
+                <div class="sidebar-footer p-4">
+                    <div class="sidebar-profile flex items-center gap-2">
+                        <a href="/account/settings" title="Account settings" aria-label="@ProfileLabel"
+                           @onclick="CloseMobileSidebar" class="sidebar-control flex min-w-0 items-center gap-3 rounded-lg p-2 transition-colors">
+                            <span class="sidebar-avatar w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0" aria-hidden="true">
+                                @profileInitials
+                            </span>
+                            <span class="sidebar-profile-details min-w-0">
+                                <span class="block text-sm font-medium truncate">@profileName</span>
+                                @if (profileEmail is not null)
+                                {
+                                    <span class="block text-xs sidebar-secondary truncate">@profileEmail</span>
+                                }
+                            </span>
                         </a>
-                    </li></AuthorizeView>
+                        <form
+                            method="post"
+                            action="/auth/cookie-logout">
+                            <AntiforgeryToken/>
+                            <button type="submit" title="Sign out" aria-label="Sign out"
+                                    class="p-2 rounded-lg sidebar-control transition-colors flex-shrink-0 cursor-pointer">
+                                <svg class="w-4 h-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                                    <polyline points="16 17 21 12 16 7"/>
+                                    <line x1="21" x2="9" y1="12" y2="12"/>
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </aside>
 
-            </ul>
-        </nav>
+            @* Main Content *@
+            <main class="main-content flex-1 min-w-0 @(IsUnitMonitoring ? "flex min-h-0 flex-col overflow-hidden" : "overflow-auto")">
 
-        @* Profile *@
-        <div class="sidebar-footer p-4">
-            <div class="sidebar-profile flex items-center gap-2">
-                <a href="/account/settings" title="Account settings" aria-label="@ProfileLabel"
-                   @onclick="CloseMobileSidebar" class="sidebar-control flex min-w-0 items-center gap-3 rounded-lg p-2 transition-colors">
-                    <span class="sidebar-avatar w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0" aria-hidden="true">
-                        @profileInitials
-                    </span>
-                    <span class="sidebar-profile-details min-w-0">
-                        <span class="block text-sm font-medium truncate">@profileName</span>
-                        @if (profileEmail is not null)
-                        {
-                            <span class="block text-xs sidebar-secondary truncate">@profileEmail</span>
-                        }
-                    </span>
-                </a>
-                <form
-                    method="post"
-                    action="/auth/cookie-logout">
-                    <AntiforgeryToken />
-                    <button type="submit" title="Sign out" aria-label="Sign out"
-                            class="p-2 rounded-lg sidebar-control transition-colors flex-shrink-0 cursor-pointer">
-                        <svg class="w-4 h-4" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                            <polyline points="16 17 21 12 16 7" />
-                            <line x1="21" x2="9" y1="12" y2="12" />
+                @* Mobile top bar (only visible < lg) *@
+                <div class="lg:hidden sticky top-0 z-30 bg-white border-b border-black/10 flex shrink-0 items-center gap-3 px-4 py-3">
+                    <button type="button" class="p-2 -ml-2 rounded-lg hover:bg-surface transition-colors cursor-pointer"
+                            aria-label="Open navigation" aria-controls="main-sidebar"
+                            aria-expanded="@(_mobileSidebarOpen ? "true" : "false")" @onclick="OpenMobileSidebar">
+                        <svg class="w-6 h-6 text-primary" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="4" x2="20" y1="12" y2="12"/>
+                            <line x1="4" x2="20" y1="6" y2="6"/>
+                            <line x1="4" x2="20" y1="18" y2="18"/>
                         </svg>
                     </button>
-                </form>
-            </div>
-        </div>
-    </aside>
-
-    @* Main Content *@
-    <main class="main-content flex-1 min-w-0 @(IsUnitMonitoring ? "flex min-h-0 flex-col overflow-hidden" : "overflow-auto")">
-
-        @* Mobile top bar (only visible < lg) *@
-        <div class="lg:hidden sticky top-0 z-30 bg-white border-b border-black/10 flex shrink-0 items-center gap-3 px-4 py-3">
-            <button type="button" class="p-2 -ml-2 rounded-lg hover:bg-surface transition-colors cursor-pointer"
-                    aria-label="Open navigation" aria-controls="main-sidebar"
-                    aria-expanded="@(_mobileSidebarOpen ? "true" : "false")" @onclick="OpenMobileSidebar">
-                <svg class="w-6 h-6 text-primary" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="4" x2="20" y1="12" y2="12" />
-                    <line x1="4" x2="20" y1="6" y2="6" />
-                    <line x1="4" x2="20" y1="18" y2="18" />
-                </svg>
-            </button>
-            <div class="flex items-center gap-2">
-                <div class="w-7 h-7 flex items-center justify-center">
-                    <img src="/images/labster-logo.svg" alt="" width="24" height="24" />
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 flex items-center justify-center">
+                            <img src="/images/labster-logo.svg" alt="" width="24" height="24"/>
+                        </div>
+                        <p class="text-primary font-heading font-semibold text-sm">Labster</p>
+                    </div>
                 </div>
-                <p class="text-primary font-heading font-semibold text-sm">Labster</p>
-            </div>
+
+                <div class="page-body @(IsUnitMonitoring ? "flex min-h-0 flex-1 flex-col p-4 lg:p-5" : "p-4 sm:p-6 lg:p-8")">
+                    @Body
+                </div>
+            </main>
+
         </div>
 
-        <div class="page-body @(IsUnitMonitoring ? "flex min-h-0 flex-1 flex-col p-4 lg:p-5" : "p-4 sm:p-6 lg:p-8")">
-            @Body
-        </div>
-    </main>
+    </ActionMenuHost>
 
-</div>
-
-</ActionMenuHost>
-
-@* <div id="blazor-error-ui" data-nosnippet> *@
-@*     An unhandled error has occurred. *@
-@*     <a href="." class="reload">Reload</a> *@
-@*     <span class="dismiss">🗙</span> *@
-@* </div> *@
+    @* <div id="blazor-error-ui" data-nosnippet> *@
+    @*     An unhandled error has occurred. *@
+    @*     <a href="." class="reload">Reload</a> *@
+    @*     <span class="dismiss">🗙</span> *@
+    @* </div> *@
 
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
@@ -351,4 +358,6 @@ else
         ++_authorizationVersion;
         Navigation.LocationChanged -= OnLocationChanged;
     }
+}
+
 }
