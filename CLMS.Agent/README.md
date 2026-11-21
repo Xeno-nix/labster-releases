@@ -1,4 +1,4 @@
-# CLMS desktop agent
+# Labster desktop app
 
 One .NET 10 MAUI application runs enrollment, persistent device authentication, the server connection, and optional screen capture for the signed-in OS user on Windows or Mac Catalyst.
 

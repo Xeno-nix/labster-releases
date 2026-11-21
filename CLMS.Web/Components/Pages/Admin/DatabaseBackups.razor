@@ -8,7 +8,7 @@
 @inject IOptions<DatabaseBackupOptions> Settings
 @inject ILogger<DatabaseBackups> Logger
 
-<PageTitle>Database Backups | CLMS</PageTitle>
+<PageTitle>Database Backups | Labster</PageTitle>
 
 <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsView)">
 <Authorized>

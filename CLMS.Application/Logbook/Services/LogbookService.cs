@@ -60,6 +60,12 @@ public class LogbookService
 
     private static string CsvField(string value)
     {
+        // Quoting a field does not stop spreadsheet apps from interpreting it as a formula.
+        var trimmed = value.AsSpan().TrimStart();
+        if ((!trimmed.IsEmpty && trimmed[0] is '=' or '+' or '-' or '@') ||
+            (value.Length > 0 && value[0] is '\t' or '\r' or '\n'))
+            value = "'" + value;
+
         // Quote every field and escape embedded quotes — matches PHP's fputcsv defaults closely
         // enough for this data (no embedded newlines expected in these columns).
         return "\"" + value.Replace("\"", "\"\"") + "\"";

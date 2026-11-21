@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="CLMS.Agent.Views.MainPage" x:Name="RegistrationPage" Title="CLMS Agent">
+             x:Class="CLMS.Agent.Views.MainPage" x:Name="RegistrationPage" Title="Labster">
     <ScrollView><VerticalStackLayout Padding="32" Spacing="18" MaximumWidthRequest="640">
-        <Label Text="Computer Laboratory Management System" FontSize="24" FontAttributes="Bold" />
+        <Label Text="Labster" FontSize="24" FontAttributes="Bold" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" />
         <Label x:Name="PhaseLabel" Text="Starting agent" FontSize="20" FontAttributes="Bold" />
         <Label x:Name="MessageLabel" Text="Loading this user's enrollment." FontSize="14" />
-        <Label x:Name="ErrorLabel" IsVisible="False" TextColor="#B91C1C" />
+        <Label x:Name="ErrorLabel" IsVisible="False" TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorOnDark}}" />
         <VerticalStackLayout x:Name="ServerPanel" IsVisible="False" Spacing="10">
             <Label Text="HTTPS server address" /><Entry x:Name="ServerEntry" Placeholder="https://clms.lab:7443" Keyboard="Url" />
             <Button x:Name="ConfigureButton" Text="Connect to server" Clicked="ConfigureClicked" />

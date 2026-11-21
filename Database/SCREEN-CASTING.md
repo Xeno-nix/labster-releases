@@ -3,7 +3,7 @@
 Open `/unit-monitoring/screens`, select a laboratory, then select **Start session**.
 The existing screen-wall page remains restricted to Admin users. The service also
 accepts Faculty identities for authorized callers. Select **End session** before
-switching laboratories. Each PC needs its configured CLMS agent connected to the
+switching laboratories. Each PC needs its configured Labster desktop app connected to the
 LAN server and permission to capture the screen.
 
 ## Existing database tables

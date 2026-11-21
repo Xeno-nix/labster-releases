@@ -58,7 +58,7 @@ public class BookingService
     
         await _emailService.SendEmailAsync(
             dto.Email,
-            "CLMS - Booking Confirmation",
+            "Labster - Booking Confirmation",
             $"""
             <html>
             <body>
@@ -126,7 +126,7 @@ public class BookingService
 
                 <p>
                     Thank you,<br>
-                    <strong>CLMS Laboratory Management System</strong>
+                    <strong>Labster</strong>
                 </p>
             </body>
             </html>
@@ -183,7 +183,7 @@ public class BookingService
 
     await _emailService.SendEmailAsync(
         dto.Email,
-        "CLMS - Booking Updated",
+        "Labster - Booking Updated",
         $"""
         <html>
         <body>
@@ -251,7 +251,7 @@ public class BookingService
 
             <p>
                 Thank you,<br>
-                <strong>CLMS Laboratory Management System</strong>
+                <strong>Labster</strong>
             </p>
         </body>
         </html>

@@ -1,6 +1,6 @@
 # Hybrid authorization
 
-CLMS currently uses custom human-account authentication and MySQL repositories, rather than ASP.NET Core Identity or EF Core. This feature extends those mechanisms. Device authentication and agent enrollment are unchanged.
+Labster currently uses custom human-account authentication and MySQL repositories, rather than ASP.NET Core Identity or EF Core. This feature extends those mechanisms. Device authentication and agent enrollment are unchanged.
 
 ## Deployment
 
@@ -13,7 +13,7 @@ CLMS currently uses custom human-account authentication and MySQL repositories, 
    ```
 
    The command runs before the HTTP listener starts, records an operator-bootstrap audit entry, clears any overrides, revokes refresh tokens, and exits. It refuses to run if any SuperAdmin membership already exists, including a deleted account. It creates no account or password and has no public registration endpoint. Supply deployment secrets through the existing configuration mechanism.
-4. Start CLMS normally and sign in again through the existing authentication flow. Configure role defaults at `/admin/users/roles`; manage individual overrides in user details.
+4. Start Labster normally and sign in again through the existing authentication flow. Configure role defaults at `/admin/users/roles`; manage individual overrides in user details.
 
 Keep at least two usable SuperAdmin accounts for operational recovery. There is no new deactivation endpoint. Existing automatic login lockout, password setup, MFA, account deletion checks, and session-stamp validation remain in force; SuperAdmin does not bypass them.
 
@@ -37,7 +37,7 @@ The management API is `/api/admin/authorization`. It uses existing cookie authen
 
 ## Backup recovery
 
-Interactive restore requires SuperAdmin. Before touching the live database, CLMS imports a backup into a generated temporary validation database, verifies the authorization tables and protected role, and requires a usable SuperAdmin in the backup. A pre-authorization or rootless backup is rejected for online restore. Perform such recoveries offline through the operator's established recovery procedure, apply the migration, and provision/recover administrative access before restarting CLMS.
+Interactive restore requires SuperAdmin. Before touching the live database, Labster imports a backup into a generated temporary validation database, verifies the authorization tables and protected role, and requires a usable SuperAdmin in the backup. A pre-authorization or rootless backup is rejected for online restore. Perform such recoveries offline through the operator's established recovery procedure, apply the migration, and provision/recover administrative access before restarting Labster.
 
 The database service account needs permission to create and drop the generated validation database. The existing pre-restore recovery snapshot, integrity checks, and native MySQL tools remain in use. Authorization is checked again immediately before live import. Restore remains a maintenance operation; it is not a concurrent migration mechanism.
 

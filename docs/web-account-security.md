@@ -6,7 +6,7 @@ The preference adds one column, `users.two_factor_enabled`, defaulting to **true
 
 ## Configuration
 
-Keep the existing `Brevo:ApiKey`, `Brevo:SenderEmail`, and `Brevo:SenderName` settings in deployment secrets. Brevo needs outbound connectivity from the web server. Set `Onboarding:PublicUrl` to the browser-accessible URL, for example `https://labster.example`, rather than an address accessible only from the server. Reset links use this setting, never the request Host header.
+Keep `Brevo:ApiKey` and `Brevo:SenderEmail` in deployment secrets. Set any existing `Brevo:SenderName` override to `Labster`. With no override, the sender display name defaults to Labster. Brevo needs outbound connectivity from the web server. Set `Onboarding:PublicUrl` to the browser-accessible URL, for example `https://labster.example`, rather than an address accessible only from the server. Reset links use this setting, never the request Host header.
 
 Production account routes require HTTPS. The existing Development HTTP launch profile is supported when `Onboarding:PublicUrl` is HTTP; do not bypass certificate validation for HTTPS. A TLS-terminating reverse proxy must have trusted forwarded headers configured before the HTTPS check. Disable reset-query logging in proxy/access logs and telemetry. The application suppresses request-URL and controller-argument logging for credential confidentiality.
 

@@ -34,7 +34,7 @@ public class EmailService : IEmailService
         {
             sender = new
             {
-                name = senderName,
+                name = string.IsNullOrWhiteSpace(senderName) ? "Labster" : senderName,
                 email = senderEmail
             },
 

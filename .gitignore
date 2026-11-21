@@ -68,6 +68,8 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+/artifact.CLMS-test/
+/artifact.CLMS-test.zip
 
 # Tye
 .tye/

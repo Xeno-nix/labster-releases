@@ -8,6 +8,16 @@
 
 <style>
     @@page { size: landscape; margin: 0.5in; }
+    @@page inventory-with-footer {
+        margin-bottom: 1.25in;
+        @@bottom-left {
+            content: url("/images/inventory-print-footer.png");
+            text-align: left;
+            vertical-align: middle;
+            padding-bottom: 0.2in;
+        }
+        @@bottom-right { content: "Page " counter(page); font: 10pt Arial, sans-serif; text-align: right; }
+    }
     body { font-family: Arial, sans-serif; font-size: 11px; color: #000; }
     .doc-header { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
     .doc-header td { border: 1px solid #000; vertical-align: middle; }
@@ -32,13 +42,49 @@
     .no-print button { padding: 8px 16px; cursor: pointer; border-radius: 4px; font-size: 13px; }
     .btn-print { background: #800000; color: white; border: none; }
     .btn-close { background: #fff; border: 1px solid #ccc; margin-left: 8px; }
-    @@media print { .no-print { display: none; } }
+    inventory-print-editor { display: block; }
+    @@media screen {
+        inventory-print-editor { display: flex; flex-direction: column; }
+        .print-footer { order: 1; }
+    }
+    .no-print { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+    .no-print [hidden], .print-footer[hidden] { display: none; }
+    .print-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+    .print-footer img { width: 87%; max-height: 1in; object-fit: contain; object-position: left center; }
+    .print-field { overflow-wrap: anywhere; white-space: pre-wrap; }
+    @@media screen {
+        .masterlist-title[contenteditable="plaintext-only"] { display: inline-block; min-width: 6em; }
+        .print-field[contenteditable="plaintext-only"]:empty { min-height: 1em; }
+        .print-field[contenteditable="plaintext-only"] { outline: 1px dashed #777; outline-offset: -1px; cursor: text; }
+        .print-field:focus { outline: 2px solid #800000; }
+    }
+    @@media print {
+        html, body, main:has(inventory-print-editor) {
+            height: auto; min-height: 0; margin: 0; padding: 0; overflow: visible;
+        }
+        inventory-print-editor { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .no-print, .print-footer { display: none; }
+        body:has(.print-footer:not([hidden])) { page: inventory-with-footer; }
+    }
 </style>
 
+@if (Loaded)
+{
+<inventory-print-editor @key="Tab">
 <div class="no-print">
+    <button type="button" data-edit aria-pressed="false">Edit print list</button>
+    <button type="button" data-footer-toggle hidden>Replace footer</button>
+    <input type="file" accept="image/png,image/jpeg" aria-label="Choose a footer image" hidden />
+    <button type="button" data-remove-footer hidden>Remove footer</button>
+    <span role="status"></span>
     <button class="btn-print" @onclick="Print">Print Now</button>
     <button class="btn-close" @onclick="ClosePage">Close</button>
 </div>
+
+<footer class="print-footer">
+    <img src="/images/inventory-print-footer.png" alt="Inventory print footer" />
+    <span>Page 1</span>
+</footer>
 
 <table class="doc-header">
     <tr>
@@ -63,7 +109,7 @@
     </tr>
     <tr class="doc-title-row">
         <td colspan="3">
-            MASTERLIST OF @(Tab == "equipment" ? "EQUIPMENT" : "SUPPLIES")
+            <span class="masterlist-title">MASTERLIST OF @(Tab == "equipment" ? "EQUIPMENT" : "SUPPLIES")</span>
             <span class="updated-date">Updated as of: @DateTime.Now.ToString("MMMM dd, yyyy")</span>
         </td>
     </tr>
@@ -141,4 +187,6 @@ else
             }
         </tbody>
     </table>
+}
+</inventory-print-editor>
 }

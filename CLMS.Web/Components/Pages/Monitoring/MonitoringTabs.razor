@@ -1,11 +1,24 @@
 @using CLMS.Application.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 
-<nav class="mb-4 flex shrink-0 gap-2 border-b border-black/10 pb-3" aria-label="Monitoring views">
-    <a href="/unit-monitoring" aria-current="@(!Abnormal ? "page" : null)" class="rounded-lg px-4 py-2 text-sm @(!Abnormal ? "bg-primary text-white" : "text-primary hover:bg-surface")">Units</a>
-    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.MonitoringView)">
-        <a href="/unit-monitoring/activities" aria-current="@(Abnormal ? "page" : null)" class="rounded-lg px-4 py-2 text-sm @(Abnormal ? "bg-primary text-white" : "text-primary hover:bg-surface")">Abnormal Activity</a>
-    </AuthorizeView>
+<nav class="mb-4 flex shrink-0 flex-wrap gap-2 border-b border-black/10 pb-3" aria-label="Monitoring views">
+    @foreach (var (path, label, privilege) in Tabs)
+    {
+        <AuthorizeView Policy="@(Privileges.Prefix + privilege)">
+            <a href="@path" aria-current="@(ActivePath == path ? "page" : null)"
+               class="rounded-lg px-4 py-2 text-sm @(ActivePath == path ? "bg-primary text-white" : "text-primary hover:bg-surface")">@label</a>
+        </AuthorizeView>
+    }
 </nav>
 
-@code { [Parameter] public bool Abnormal { get; set; } }
+@code {
+    private static readonly (string Path, string Label, string Privilege)[] Tabs =
+    [
+        ("/unit-monitoring", "Units", Privileges.UnitsView),
+        ("/unit-monitoring/activities", "Abnormal Activity", Privileges.MonitoringView),
+        ("/unit-monitoring/applications", "Application Registry", Privileges.MonitoringConfigure),
+        ("/unit-monitoring/unit-registry", "Unit Registry", Privileges.UnitsManage)
+    ];
+
+    [Parameter] public string ActivePath { get; set; } = "/unit-monitoring";
+}

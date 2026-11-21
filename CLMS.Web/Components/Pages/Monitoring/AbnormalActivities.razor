@@ -13,9 +13,9 @@
 @inject IJSRuntime JS
 @inject ILogger<AbnormalActivities> Logger
 
-<PageTitle>Abnormal Activity Monitoring | CLMS</PageTitle>
+<PageTitle>Abnormal Activity Monitoring | Labster</PageTitle>
 <div @ref="Root" class="space-y-5">
-    <MonitoringTabs Abnormal="true" />
+    <MonitoringTabs ActivePath="/unit-monitoring/activities" />
     <header><h1 class="text-2xl text-primary">Abnormal Activity Monitoring</h1><p class="mt-1 text-sm text-muted">Active means detected and not yet observed to end. An offline unit can still have unresolved activities.</p><p class="mt-1 text-xs text-muted">Ended times show when a later observation no longer detected the condition, or when its registry configuration changed.</p></header>
     <div class="flex gap-2" role="group" aria-label="Activity view">
         <button type="button" @onclick="() => SetViewAsync(true)" aria-pressed="@ActiveOnly" class="rounded-lg px-4 py-2 text-sm @(ActiveOnly ? "bg-primary text-white" : "bg-white text-primary")">Active</button>

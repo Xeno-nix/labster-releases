@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using CLMS.Application;
+using CLMS.Application.Authorization;
 using CLMS.Web.Components;
 using CLMS.Application.Services;
 using CLMS.Infrastructure.Services;
@@ -324,6 +325,23 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapControllers();
+app.MapGet("/logbook/export", async (HttpContext context, LogbookService logbook, string? search, string? filter, int? lab) =>
+{
+    var csv = await logbook.ExportCsvAsync(new CLMS.Application.DTOs.Logbook.LogbookQueryDTO
+    {
+        Search = search,
+        Filter = filter,
+        LaboratoryId = lab
+    });
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv; charset=utf-8", "logbook.csv");
+}).RequireAuthorization(Privileges.Prefix + Privileges.LogbookExport);
+app.MapGet("/admin/applications", (HttpRequest request) =>
+    Results.LocalRedirect("/unit-monitoring/applications" + request.QueryString))
+    .RequireAuthorization(Privileges.Prefix + Privileges.MonitoringConfigure);
+app.MapGet("/admin/unit-registry", (HttpRequest request) =>
+    Results.LocalRedirect("/unit-monitoring/unit-registry" + request.QueryString))
+    .RequireAuthorization(Privileges.Prefix + Privileges.UnitsManage);
 app.MapHub<AgentConnectionHub>(AgentConnectionProtocol.HubPath,
     options =>
     {
