@@ -72,8 +72,12 @@ public sealed class PrivilegeAuthorizationTests
     {
         var user = Account(); var users = new EmailLoginTests.TestUsers(user); var store = new TestAuthorizationStore(users); var crypto = Crypto();
         var principal = Principal(user, crypto, "SuperAdmin");
-        var actor = new CurrentUser(new HttpContextAccessor { HttpContext = new DefaultHttpContext { User = principal } }, new FixedState(principal), users, crypto, store);
-        var handler = new PrivilegeAuthorizationHandler(actor, store);
+        var services = new ServiceCollection();
+        services.AddSingleton<IUserRepository>(users); services.AddSingleton<IAccountSecurityCrypto>(crypto);
+        services.AddSingleton<IAuthorizationRepository>(store);
+        await using var container = services.BuildServiceProvider();
+        using var cache = new HumanAuthorizationCache(container.GetRequiredService<IServiceScopeFactory>());
+        var handler = new PrivilegeAuthorizationHandler(cache, store);
         var requirement = new PrivilegeRequirement(Privileges.SecurityManage);
         var context = new AuthorizationHandlerContext([requirement], principal, null);
         await handler.HandleAsync(context); Assert.False(context.HasSucceeded); Assert.Equal(1, store.Denials);
@@ -81,6 +85,7 @@ public sealed class PrivilegeAuthorizationTests
         principal = Principal(user, crypto, "SuperAdmin");
         context = new([requirement], principal, null); await handler.HandleAsync(context); Assert.True(context.HasSucceeded);
         user.LockoutEnd = DateTime.UtcNow.AddMinutes(1);
+        cache.InvalidateUser(user.Id);
         context = new([requirement], principal, null); await handler.HandleAsync(context); Assert.False(context.HasSucceeded);
     }
 
@@ -90,10 +95,13 @@ public sealed class PrivilegeAuthorizationTests
         var user = Account(); var crypto = Crypto(); var users = new EmailLoginTests.TestUsers(user);
         var services = new ServiceCollection(); services.AddSingleton<IUserRepository>(users);
         services.AddSingleton<IAccountSecurityCrypto>(crypto); services.AddScoped<HumanSessionValidator>();
+        services.AddSingleton<IAuthorizationRepository>(new TestAuthorizationStore(users));
+        services.AddSingleton<HumanAuthorizationCache>();
         await using var container = services.BuildServiceProvider();
-        var changes = new AuthorizationChanges(Microsoft.Extensions.Logging.Abstractions.NullLogger<AuthorizationChanges>.Instance);
+        var cache = container.GetRequiredService<HumanAuthorizationCache>();
+        var changes = new AuthorizationChanges(Microsoft.Extensions.Logging.Abstractions.NullLogger<AuthorizationChanges>.Instance, cache);
         using var state = new HumanRevalidatingStateProvider(Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance,
-            container.GetRequiredService<IServiceScopeFactory>(), changes);
+            container.GetRequiredService<IServiceScopeFactory>(), changes, cache);
         state.SetAuthenticationState(Task.FromResult(new AuthenticationState(Principal(user, crypto, "Faculty"))));
         var notification = new TaskCompletionSource<Task<AuthenticationState>>(TaskCreationOptions.RunContinuationsAsynchronously);
         state.AuthenticationStateChanged += task => notification.TrySetResult(task);
@@ -118,7 +126,9 @@ public sealed class PrivilegeAuthorizationTests
         builder.Services.AddSingleton<AuthenticationStateProvider>(new FixedState(new()));
         builder.Services.AddScoped<CurrentUser>(); builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
         builder.Services.AddScoped<IAuthorizationHandler, PrivilegeAuthorizationHandler>();
-        builder.Services.AddSingleton<IAuthorizationChanges, TestAuthorizationChanges>(); builder.Services.AddScoped<PrivilegeManagementService>();
+        builder.Services.AddSingleton<HumanAuthorizationCache>(); builder.Services.AddSingleton<AuthorizationChanges>();
+        builder.Services.AddSingleton<IAuthorizationChanges>(sp => sp.GetRequiredService<AuthorizationChanges>());
+        builder.Services.AddScoped<PrivilegeManagementService>();
         builder.Services.AddAuthorization(PrivilegePolicies.Add);
         builder.Services.AddAuthentication(CLMS.Web.Authentication.AuthenticationSchemes.Cookie)
             .AddScheme<AuthenticationSchemeOptions, HeaderAuthentication>(CLMS.Web.Authentication.AuthenticationSchemes.Cookie, _ => { });
@@ -130,6 +140,7 @@ public sealed class PrivilegeAuthorizationTests
         client.DefaultRequestHeaders.Add("X-Test-Authenticated", "true"); client.DefaultRequestHeaders.Add("X-Test-Role", "SuperAdmin");
         Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await client.GetAsync("/api/admin/authorization/roles")).StatusCode);
         store.Overrides[user.Id] = new() { [Privileges.UsersManagePrivileges] = true, [Privileges.UsersView] = true };
+        app.Services.GetRequiredService<AuthorizationChanges>().NotifyChanged();
         Assert.Equal(System.Net.HttpStatusCode.Forbidden, (await client.PutAsync($"/api/admin/authorization/users/{user.Id}/overrides", Json("{\"privilege\":\"security.manage\",\"isGranted\":true}"))).StatusCode);
         var details = await client.GetStringAsync($"/api/admin/authorization/users/{user.Id}/privileges");
         Assert.DoesNotContain(user.PasswordHash, details);

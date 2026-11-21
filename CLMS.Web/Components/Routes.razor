@@ -2,14 +2,15 @@
 <CascadingAuthenticationState>
     <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="routeData" DefaultLayout="@typeof(MainLayout)">
-                @* TODO Improve message *@
+            <AuthorizeRouteView RouteData="routeData">
                 <Authorizing>
-                    <p>Checking authentication status... Please wait...</p>
+                    <AuthenticationLoading />
                 </Authorizing>
                 
                 <NotAuthorized>
-                    <p>Access Denied</p>
+                    <LayoutView Layout="@typeof(MainLayout)">
+                        <p>Access Denied</p>
+                    </LayoutView>
                 </NotAuthorized>
                 
             </AuthorizeRouteView>

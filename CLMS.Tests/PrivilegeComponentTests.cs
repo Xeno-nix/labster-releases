@@ -65,6 +65,7 @@ public sealed class PrivilegeComponentTests
         services.AddSingleton<AuthenticationStateProvider>(new State(role));
         services.AddSingleton<ICurrentUser>(new TestCurrentUser(PrivilegeAuthorizationTests.Account(role)));
         services.AddSingleton<IAuthorizationRepository>(store);
+        services.AddSingleton<HumanAuthorizationCache>();
         services.AddSingleton<AuthorizationChanges>();
         services.AddSingleton<IAuthorizationChanges>(sp => sp.GetRequiredService<AuthorizationChanges>());
         services.AddScoped<PrivilegeManagementService>();
