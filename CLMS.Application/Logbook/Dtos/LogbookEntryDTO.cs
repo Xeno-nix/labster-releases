@@ -9,6 +9,7 @@ public class LogbookEntryDTO
     public string Name { get; set; } = string.Empty;
 
     public string? Purpose { get; set; }
+    public string? Laboratory { get; set; }
 
     public DateOnly? Date { get; set; }
     public DateTime? TimeIn { get; set; }

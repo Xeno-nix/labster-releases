@@ -8,7 +8,7 @@
 
 
 
-<div class="p-8 relative">
+<div class="dashboard relative">
 
     @if (!string.IsNullOrEmpty(toastMessage))
     {
@@ -20,130 +20,66 @@
         </div>
     }
 
-    <!-- PAGE HEADER -->
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h3 class="m-0 text-2xl text-gray-800">Dashboard</h3>
-            <p class="mt-1 mb-0 text-gray-500 text-sm">Overview of your class schedules and bookings</p>
-        </div>
-
-        <div class="flex gap-3">
-            <button type="button" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white text-[#7a1f2b] border border-[#7a1f2b] rounded-md text-sm cursor-pointer hover:bg-[#fff8f8] transition-colors" @onclick="() => OpenBookingModal(SelectedDate)">
-                <i class="fa-solid fa-plus"></i> Add Booking
-            </button>
-            <button type="button" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#7a1f2b] text-white border-none rounded-md text-sm cursor-pointer hover:bg-[#651923] transition-colors" @onclick="() => OpenCreateModal(null)">
-                <i class="fa-solid fa-plus"></i> Add Class Schedule
-            </button>
-        </div>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
-
-        <!-- CALENDAR -->
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden lg:overflow-x-visible overflow-x-auto">
-
-            <!-- CALENDAR TOOLBAR -->
-            <div class="flex items-center justify-center gap-3 p-5 border-b border-gray-200 min-w-[650px] lg:min-w-0">
-
-                <button class="w-9.5 h-9.5 p-0 border border-gray-300 bg-white rounded-md text-gray-600 cursor-pointer text-[0.95rem] inline-flex items-center justify-center hover:bg-gray-100"
-                        @onclick="PreviousMonth">
-                    <i class="fa-solid fa-chevron-left"></i>
-                </button>
-
-                <div class="min-w-[190px] text-center">
-                    <h4 class="m-0 text-xl text-gray-800">@CurrentMonth.ToString("MMMM yyyy")</h4>
-                </div>
-
-                <button class="w-9.5 h-9.5 p-0 border border-gray-300 bg-white rounded-md text-gray-600 cursor-pointer text-[0.95rem] inline-flex items-center justify-center hover:bg-gray-100"
-                        @onclick="NextMonth">
-                    <i class="fa-solid fa-chevron-right"></i>
-                </button>
-
-                <button class="ml-2 px-3.5 py-2 border border-gray-300 bg-gray-50 rounded-md text-gray-600 cursor-pointer text-[0.8rem] hover:bg-gray-200"
-                        @onclick="GoToToday">
-                    Today
-                </button>
-
-            </div>
-
-            <!-- WEEK DAYS -->
-            <div class="grid grid-cols-7 border-b border-gray-200 min-w-[650px] lg:min-w-0">
-
+    <div class="schedule-layout">
+        <section class="month-panel" aria-label="Schedule calendar">
+            <header class="month-header">
+                <h2>@CurrentMonth.ToString("MMMM yyyy")</h2>
+                <button type="button" aria-label="Previous month" @onclick="PreviousMonth">‹</button>
+                <button type="button" aria-label="Next month" @onclick="NextMonth">›</button>
+            </header>
+            <div class="month-grid">
                 @foreach (var day in WeekDays)
                 {
-                    <div class="py-3.5 px-2 text-center bg-gray-50 text-gray-600 text-[0.8rem] font-semibold border-r border-gray-200 last:border-r-0">
-                        @day
-                    </div>
+                    <span class="weekday">@day</span>
                 }
-
-            </div>
-
-            <!-- CALENDAR -->
-            <div class="grid grid-cols-7 min-w-[650px] lg:min-w-0">
-
                 @foreach (var date in GetCalendarDays())
                 {
-                    var isCurrentMonth = date.Month == CurrentMonth.Month;
-                    var isSelected = SelectedDate.Date == date.Date;
-                    var isToday = date.Date == DateTime.Today;
-                    var isInAcademicTerm = IsDateInAcademicTerm(date);
-
-                    var daySchedules = isInAcademicTerm
-                        ? GetSchedulesForDate(date)
-                        : Enumerable.Empty<ClassScheduleDTO>();
-
-                    var dayBookings = GetBookingsForDate(date);
-
-                    <button type="button"
-                            class="relative min-h-[100px] lg:min-h-[120px] p-2.5 border-0 border-r border-b border-gray-200 [&:nth-child(7n)]:border-r-0 text-left cursor-pointer font-sans transition-colors flex flex-col hover:bg-gray-50
-                                @(isCurrentMonth ? "bg-white" : "bg-gray-50")
-                                @(isSelected ? "bg-[#fff8f8] shadow-[inset_0_0_0_2px_#7a1f2b]" : "")"
-                            @onclick="() => SelectDate(date)">
-
-                        <div class="w-[30px] h-[30px] flex items-center justify-center text-[0.85rem] rounded-full
-                            @(isCurrentMonth ? "text-gray-700" : "text-gray-400")
-                            @(isToday ? "bg-[#7a1f2b] text-white font-semibold" : "")">
-                            @date.Day
-                        </div>
-
-                        @if (daySchedules.Any())
+                    var classes = GetSchedulesForDate(date).ToArray();
+                    var bookingCount = GetBookingsForDate(date).Count();
+                    var previewId = $"classes-{date:yyyyMMdd}";
+                    <div @key="date" class="month-cell" style="@($"--column:{(int)date.DayOfWeek}")">
+                        <button type="button" class="date-button @(date.Month != CurrentMonth.Month ? "other-month" : "")"
+                                aria-current="@(date == DateTime.Today ? "date" : null)"
+                                aria-pressed="@(SelectedDate == date ? "true" : "false")"
+                                aria-label="@($"{date:dddd, MMMM d}: {classes.Length} classes, {bookingCount} bookings")"
+                                aria-describedby="@(classes.Length > 0 ? previewId : null)" @onclick="() => SelectDate(date)">
+                            <span class="date-number">@date.Day</span>
+                            <span class="event-markers" aria-hidden="true">
+                                @foreach (var entry in classes)
+                                {
+                                    <span class="class-marker"></span>
+                                }
+                                @for (var i = 0; i < bookingCount; i++)
+                                {
+                                    <span class="booking-marker"></span>
+                                }
+                            </span>
+                        </button>
+                        @if (classes.Length > 0)
                         {
-                            <div class="inline-flex items-center gap-1.5 mt-2.5 px-1.5 py-1 bg-[#f7e9eb] text-[#7a1f2b] rounded text-[0.68rem] font-semibold self-start">
-                                <span class="w-1.5 h-1.5 rounded-full bg-[#7a1f2b]"></span>
-                                <span>
-                                    @daySchedules.Count()
-                                    @(daySchedules.Count() == 1
-                                        ? "class"
-                                        : "classes")
-                                </span>
+                            <div id="@previewId" role="tooltip" class="class-preview">
+                                <strong>@date.ToString("ddd, MMM d") · @classes.Length @(classes.Length == 1 ? "class" : "classes")</strong>
+                                @foreach (var entry in classes)
+                                {
+                                    <div class="preview-entry">
+                                        <strong>@entry.CourseCode · @entry.CourseName</strong>
+                                        <span>@FormatTime(entry.TimeStart) – @FormatTime(entry.TimeEnd)</span>
+                                        <span>@entry.LaboratoryName · @entry.InstructorName</span>
+                                    </div>
+                                }
                             </div>
                         }
-
-                        @if (dayBookings.Any())
-                        {
-                            <div class="inline-flex items-center gap-1.5 mt-auto px-1.5 py-1 bg-[#eef3fb] text-[#2a4d8f] rounded text-[0.68rem] font-semibold self-start">
-                                <span class="w-1.5 h-1.5 rounded-full bg-[#2a4d8f]"></span>
-                                <span>
-                                    @dayBookings.Count()
-                                    @(dayBookings.Count() == 1
-                                        ? "booking"
-                                        : "bookings")
-                                </span>
-                            </div>
-                        }
-
-                    </button>
+                    </div>
                 }
-
             </div>
+            <footer class="month-footer">
+                <span><i class="class-marker" aria-hidden="true"></i> Class</span>
+                <span><i class="booking-marker" aria-hidden="true"></i> Booking</span>
+                <button type="button" class="today-button" @onclick="GoToToday">Today</button>
+            </footer>
+        </section>
 
-        </div>
-
-
-        <!-- SIDE PANEL -->
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden lg:sticky lg:top-4">
-
+        <div class="agenda-panel bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div class="flex justify-between items-start p-5 border-b border-gray-200">
 
                 <div>
@@ -156,11 +92,7 @@
                     </p>
                 </div>
 
-                <button type="button"
-                        class="w-[30px] h-[30px] p-0 border-none bg-transparent text-gray-400 cursor-pointer text-base rounded inline-flex items-center justify-center hover:bg-gray-100 hover:text-gray-700"
-                        @onclick="CloseDetails">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+
 
             </div>
 
@@ -182,17 +114,17 @@
                         {
                             <div class="p-3.5 border border-gray-200 rounded-lg bg-white hover:border-[#d3b0b5]">
 
-                                <div class="flex justify-between items-center gap-2 mb-3">
+                                <div class="flex justify-between items-start gap-2 mb-3">
 
                                     <div class="text-[#7a1f2b] text-[0.95rem] font-bold">
                                         @schedule.CourseCode
                                     </div>
 
-                                    <button type="button"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-300 bg-gray-100 text-gray-700 rounded text-[0.72rem] cursor-pointer hover:bg-gray-200"
-                                            @onclick='() => Navigation.NavigateTo("/schedules")'>
-                                        <i class="fa-solid fa-pen-to-square"></i> Edit
-                                    </button>
+                                    <ActionMenu Label="Schedule actions">
+                                        <button type="button" @onclick='() => Navigation.NavigateTo("/schedules")'>
+                                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                                        </button>
+                                    </ActionMenu>
 
                                 </div>
 
@@ -249,17 +181,17 @@
                         {
                             <div class="p-3.5 border border-gray-200 rounded-lg bg-white hover:border-[#b7c8e8]">
 
-                                <div class="flex justify-between items-center gap-2 mb-3">
+                                <div class="flex justify-between items-start gap-2 mb-3">
 
                                     <div class="text-[#2a4d8f] text-[0.95rem] font-bold">
                                         @booking.RequestorName
                                     </div>
 
-                                    <button type="button"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-300 bg-gray-100 text-gray-700 rounded text-[0.72rem] cursor-pointer hover:bg-gray-200"
-                                            @onclick='() => Navigation.NavigateTo("/bookings")'>
-                                        <i class="fa-solid fa-pen-to-square"></i> Edit
-                                    </button>
+                                    <ActionMenu Label="Booking actions">
+                                        <button type="button" @onclick='() => Navigation.NavigateTo("/bookings")'>
+                                            <i class="fa-solid fa-pen-to-square"></i> Edit
+                                        </button>
+                                    </ActionMenu>
 
                                 </div>
 
@@ -416,10 +348,6 @@
             dateOnly <= term.EndDate);
     }
 
-    private bool IsDateInAcademicTerm(DateTime date)
-    {
-        return GetAcademicTermForDate(date) != null;
-    }
 
     private void PreviousMonth()
     {
@@ -441,10 +369,7 @@
             1
         );
 
-        if (IsDateInAcademicTerm(DateTime.Today))
-        {
-            SelectedDate = DateTime.Today;
-        }
+        SelectedDate = DateTime.Today;
     }
 
 
@@ -465,10 +390,6 @@
     }
 
 
-    private void CloseDetails()
-    {
-        SelectedDate = DateTime.MinValue;
-    }
 
 
     private IEnumerable<ClassScheduleDTO> GetSchedulesForDate(DateTime date)

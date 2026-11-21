@@ -1,11 +1,10 @@
-﻿@using CLMS.Web.Services
+@using CLMS.Web.Services
 @implements IDisposable
 @inject DialogService Dialogs
 
 @if (Dialogs.CurrentRequest is not null)
 {
-    <div class="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40 px-4"
-         @onclick="Cancel">
+    <UiSheet Label="@Dialogs.CurrentRequest.Title" OnClose="Cancel" Compact="true">
 
         <div class="w-full max-w-md rounded-xl bg-white shadow-xl"
              @onclick:stopPropagation>
@@ -33,7 +32,7 @@
                 </p>
             </div>
 
-            <div class="flex justify-end gap-3 border-gray-200 px-5 pb-4">
+            <div class="sheet-footer flex justify-end gap-3 border-gray-200 px-5 pb-4">
                 @if (Dialogs.CurrentRequest.Type == DialogService.DialogType.Confirm)
                 {
                     <button type="button"
@@ -70,7 +69,7 @@
             </div>
 
         </div>
-    </div>
+    </UiSheet>
 }
 
 @code {

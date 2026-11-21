@@ -13,10 +13,35 @@
 
 @if (IsOpen)
 {
+    @if (_showConfirmDialog)
+    {
+        <UiSheet Label="Delete user" Compact="true" OnClose="() => HandleConfirmResult(false)">
+            <div class="p-5">
+                <h2 class="text-lg mb-3">Delete User</h2>
+                <p class="text-sm text-muted">Are you sure you want to delete this user?</p>
+                <div class="sheet-footer flex justify-end gap-3">
+                    <button type="button" class="rounded-lg border px-4 py-2" @onclick="() => HandleConfirmResult(false)">Cancel</button>
+                    <button type="button" class="rounded-lg bg-primary text-white px-4 py-2" @onclick="() => HandleConfirmResult(true)">Delete</button>
+                </div>
+            </div>
+        </UiSheet>
+    }
+    @if (_showMessageDialog)
+    {
+        <UiSheet Label="@_messageTitle" Compact="true" OnClose="CloseMessage">
+            <div class="p-5">
+                <h2 class="text-lg mb-3">@_messageTitle</h2>
+                <p class="text-sm text-muted">@_messageText</p>
+                <div class="sheet-footer flex justify-end">
+                    <button type="button" class="rounded-lg bg-primary text-white px-4 py-2" @onclick="CloseMessage">OK</button>
+                </div>
+            </div>
+        </UiSheet>
+    }
     
-    <div class="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-4">
-        <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl">
-            <div class="flex items-center justify-between
+    <UiSheet Label="User details" OnClose="Close">
+        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            <div class="sheet-header flex items-center justify-between
                             border-b border-gray-200 px-6 py-4">
                 <div>
                     <h2 class="text-xl text-gray-900">@ViewModel?.GetFullName()</h2>
@@ -25,7 +50,7 @@
                 <button
                     type="button"
                     @onclick="Close"
-                    class="text-2xl text-gray-400 hover:text-gray-600">
+                    aria-label="Close" class="text-2xl text-gray-400 hover:text-gray-600">
                     &times;
                 </button>
             </div>
@@ -124,7 +149,7 @@
                     </div>
                 </EditForm>
             }
-            <div class="flex justify-end gap-2 px-6 pb-4">
+            <div class="sheet-footer flex justify-end gap-2 px-6 pb-4">
                 @if (_isViewing && (IsSuperAdmin || ViewModel.Role != "SuperAdmin"))
                 {
                     <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UsersEdit)" Context="editUserAccess"><button
@@ -164,7 +189,7 @@
                 <div class="max-h-96 overflow-y-auto px-6 pb-5"><CLMS.Web.Components.Pages.Admin.UserPrivileges @key="UserId" UserId="UserId.Value" /></div>
             }
         </div>
-        </div>
+        </UiSheet>
         
         
 }
@@ -277,14 +302,11 @@
 
     private async Task HandleSubmit()
     {
-        
         if (ViewModel is null)
             return;
         
         try
         {
-            Console.WriteLine($"User {EditModel.UserRole.ToString()} submitted");
-            
             await UserMgmtService.UpdateUser(
                 ViewModel.Id,
                 EditModel.UserRole,

@@ -28,6 +28,7 @@ public class LogbookService
         {
             Entries = entries,
             TotalCount = totalCount,
+            SupportsLaboratory = supportsLaboratory,
             Page = query.Page,
             PageSize = query.PageSize,
         };
