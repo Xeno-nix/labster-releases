@@ -14,7 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using AuthenticationSchemes = CLMS.Web.Authentication.AuthenticationSchemes;
 using System.Security.Claims;
 using CLMS.Web.Controllers;
 using CLMS.Web.Services.ScreenCasting;
@@ -371,7 +371,7 @@ public sealed class AgentConnectionTests
         builder.Services.AddSingleton<CLMS.Application.Interfaces.Repositories.IUnitMonitoringRepository>(new ActivityTestUnits(UnitId));
         builder.Services.AddSingleton<CLMS.Application.Monitoring.IAbnormalActivityRepository>(sp =>
             new ActivityTestRepository(sp.GetRequiredService<CLMS.Application.Monitoring.IApplicationRegistryRepository>()));
-        builder.Services.AddAuthentication().AddCookie(CookieAuthenticationDefaults.AuthenticationScheme);
+        builder.Services.AddAuthentication().AddCookie(AuthenticationSchemes.Cookie);
         builder.Services.AddControllers().AddApplicationPart(typeof(ScreenCastFramesController).Assembly);
         builder.Services.AddAntiforgery();
         var app = builder.Build();
@@ -390,7 +390,7 @@ public sealed class AgentConnectionTests
         app.MapControllers();
         app.MapPost("/test-login/{id}/{role}", async (HttpContext context, string id, string role) =>
         {
-            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, Viewer(id, role));
+            await context.SignInAsync(AuthenticationSchemes.Cookie, Viewer(id, role));
             return Results.NoContent();
         });
         // If a negotiate failure is incorrectly re-executed, this would replace its 401.

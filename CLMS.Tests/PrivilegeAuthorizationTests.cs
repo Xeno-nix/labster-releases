@@ -10,7 +10,6 @@ using CLMS.Web.Authentication;
 using CLMS.Web.Controllers;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -159,7 +158,7 @@ public sealed class PrivilegeAuthorizationTests
     internal static User Account(Role role = Role.Faculty) => new(Guid.NewGuid(), new Name("Test"), new Name("User"), "user@example.test", role, "not-a-real-password-hash");
     private static AccountSecurityCrypto Crypto() => new(Options.Create(new JwtOptions { Key = new string('k', 64) }));
     private static ClaimsPrincipal Principal(User user, IAccountSecurityCrypto crypto, string role) => new(new ClaimsIdentity([
-        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Role, role), new Claim("principal_type", "human"), new Claim("security_stamp", crypto.Stamp(user))], CookieAuthenticationDefaults.AuthenticationScheme));
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Role, role), new Claim("principal_type", "human"), new Claim("security_stamp", crypto.Stamp(user))], CLMS.Web.Authentication.AuthenticationSchemes.Cookie));
     private sealed class FixedState(ClaimsPrincipal principal) : AuthenticationStateProvider
     {
         public override Task<AuthenticationState> GetAuthenticationStateAsync() => Task.FromResult(new AuthenticationState(principal));

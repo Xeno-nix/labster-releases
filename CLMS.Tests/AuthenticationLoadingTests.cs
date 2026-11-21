@@ -2,6 +2,7 @@ using System.Reflection;
 using CLMS.Application.Authorization;
 using CLMS.Web.Authentication;
 using CLMS.Web.Components.Layout;
+using CLMS.Web.Components.Pages;
 using CLMS.Web.Components.Shared;
 using CLMS.Web.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -65,6 +66,7 @@ public sealed class AuthenticationLoadingTests
         });
         var denied = await renderer.Dispatcher.InvokeAsync(root.ToHtmlString);
         Assert.Contains("Access Denied", denied);
+        Assert.DoesNotContain("main-sidebar", denied);
         Assert.DoesNotContain("Authorized content", denied);
         Assert.DoesNotContain("href=\"/unit-monitoring\"", denied);
         Assert.DoesNotContain("authentication-loading", denied);
@@ -94,6 +96,7 @@ public sealed class AuthenticationLoadingTests
     [Theory]
     [InlineData("CLMS.Web.Components.Pages.Home", typeof(MainLayout))]
     [InlineData("CLMS.Web.Components.Pages.ClassManagement", typeof(MainLayout))]
+    [InlineData("CLMS.Web.Components.Pages.AccessDenied", typeof(StandaloneLayout))]
     [InlineData("CLMS.Web.Components.Pages.Account.Settings", typeof(MainLayout))]
     [InlineData("CLMS.Web.Components.Pages.Account.SecurityForm", typeof(StandaloneLayout))]
     [InlineData("CLMS.Web.Components.Pages.Account.ChangePassword", typeof(StandaloneLayout))]
@@ -128,9 +131,7 @@ public sealed class AuthenticationLoadingTests
             { loading.OpenComponent<AuthenticationLoading>(0); loading.CloseComponent(); }));
             builder.AddAttribute(3, nameof(AuthorizeRouteView.NotAuthorized), (RenderFragment<AuthenticationState>)(_ => denied =>
             {
-                denied.OpenComponent<LayoutView>(0);
-                denied.AddAttribute(1, nameof(LayoutView.Layout), typeof(MainLayout));
-                denied.AddAttribute(2, nameof(LayoutView.ChildContent), (RenderFragment)(body => body.AddContent(0, "Access Denied")));
+                denied.OpenComponent<AccessDenied>(0);
                 denied.CloseComponent();
             }));
             builder.CloseComponent();
