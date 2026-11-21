@@ -17,6 +17,7 @@ public partial class InventoryPrint : ComponentBase
     public string? TabFromQuery { get; set; }
 
     private string Tab => TabFromQuery == "supplies" ? "supplies" : "equipment";
+    private bool Loaded { get; set; }
 
     private List<EquipmentItem> EquipmentRows { get; set; } = new();
     private List<SupplyItem> SuppliesRows { get; set; } = new();
@@ -36,14 +37,7 @@ public partial class InventoryPrint : ComponentBase
 
         EquipmentRows = equipment.Select(MapEquipment).ToList();
         SuppliesRows = supplies.Select(MapSupply).ToList();
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            await JS.InvokeVoidAsync("eval", "window.onload = () => window.print();");
-        }
+        Loaded = true;
     }
 
     private Task Print() => JS.InvokeVoidAsync("print").AsTask();
