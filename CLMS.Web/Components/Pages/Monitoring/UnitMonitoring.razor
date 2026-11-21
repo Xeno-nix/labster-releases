@@ -2,6 +2,8 @@
 @using CLMS.Application.DTOs.Monitoring
 @using CLMS.Application.Identity.Interfaces
 @using CLMS.Infrastructure.Repositories
+@using CLMS.Application.DTOs.Booking
+@inject CLMS.Application.Services.LaboratoryService LaboratoryService
 @inherits MonitoringPageBase
 @inject ICurrentUser CurrentUser
 @inject WorkstationSessionRepository WorkstationSessions
@@ -15,7 +17,7 @@
             <p class="text-xs text-muted" role="status">
                 @if (LastUpdatedUtc.HasValue)
                 {
-                    <span>Last loaded @UnitMonitoringDisplay.FormatUtc(LastUpdatedUtc). Updates every 5 seconds.</span>
+                    <span>Last loaded @UnitMonitoringDisplay.FormatUtc(LastUpdatedUtc)</span>
                 }
                 else if (Loading)
                 {
@@ -23,22 +25,19 @@
                 }
             </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-        @if (CanViewSessions)
-        {
-            <a href="/unit-monitoring/sessions" class="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm text-primary">Session history</a>
-        }
-        <button type="button" @onclick="() => ShowSummary = true" disabled="@(!LastUpdatedUtc.HasValue)"
-                aria-label="View workstation summary" aria-haspopup="dialog" title="Workstation summary"
-                class="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-sm font-semibold text-primary hover:bg-surface disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-primary">?</button>
-        <a href="@ScreensUrl" target="_blank" rel="noopener noreferrer" title="Open all screens in a new tab"
-           aria-label="View all screens (opens in a new tab)"
-           class="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">View all screens</a>
-        <button type="button" @onclick="LoadAsync" disabled="@Loading"
-                class="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm text-primary disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-primary">
-            @(Loading ? "Refreshing…" : "Refresh")
-        </button>
-        </div>
+        <ActionMenu Horizontal="true" Label="Unit monitoring options">
+            <a href="@ScreensUrl" target="_blank" rel="noopener noreferrer" aria-label="View all screens (opens in a new tab)">View all screens</a>
+            @if (CanViewSessions)
+            {
+                <a href="/unit-monitoring/sessions">Session history</a>
+            }
+            <button type="button" disabled="@(SelectedLabId is null)" @onclick="() => ShowSummary = true">Workstation summary</button>
+            <details class="view-options">
+                <summary>View</summary>
+                <button type="button" aria-pressed="@(!ListView ? "true" : "false")" @onclick="() => ListView = false">Grid</button>
+                <button type="button" aria-pressed="@(ListView ? "true" : "false")" @onclick="() => ListView = true">List</button>
+            </details>
+        </ActionMenu>
     </header>
 
     @if (Error is not null)
@@ -46,46 +45,52 @@
         <p role="alert" class="shrink-0 rounded-lg border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">@Error</p>
     }
 
-    @if (LastUpdatedUtc.HasValue)
+    @if (Laboratories.Count > 0)
     {
+        <nav class="lab-tabs tab-strip segmented-tabs" aria-label="Laboratories">
+            @foreach (var lab in Laboratories)
+            {
+                <button type="button" @key="lab.Id" aria-pressed="@(SelectedLabId == lab.Id ? "true" : "false")"
+                        @onclick="() => SelectLab(lab.Id)">@lab.Name</button>
+            }
+        </nav>
+    }
     <div class="monitoring-toolbar">
-        <div class="laboratory-control">
-            <label for="monitoring-laboratory" class="mb-1.5 block text-sm font-medium text-gray-700">Laboratory</label>
-            <select id="monitoring-laboratory" @bind="Laboratory" @bind:after="UpdateSelection"
-                    class="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary">
-                <option value="">All laboratories</option>
-                @foreach (var laboratory in Units.GroupBy(u => u.LaboratoryId).Select(g => g.First()))
-                {
-                    <option value="@laboratory.LaboratoryId">@laboratory.Laboratory</option>
-                }
-            </select>
-        </div>
+        <label for="monitoring-search" class="search-label">Search</label>
         <div class="search-control">
-            <label for="monitoring-search" class="mb-1.5 block text-sm font-medium text-gray-700">Find a workstation</label>
-            <input id="monitoring-search" type="search" @bind="Search" @bind:event="oninput" @bind:after="UpdateSelection"
-                   placeholder="Search by PC name or unit number"
-                   class="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-primary" />
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+            </svg>
+            <input id="monitoring-search" type="search" @bind="Search" @bind:event="oninput"
+                   aria-label="Search by PC name or unit number" placeholder="Search by PC name or unit number"
+                   class="w-full pl-10 pr-4 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
         </div>
-        <div class="status-filters" role="group" aria-label="Filter by unit status">
-                    @foreach (var filter in new[] { "All", "Online", "Offline" })
-                    {
-                        <button type="button" @onclick="() => SetStatus(filter)" aria-pressed="@(Status == filter)"
-                                class="rounded-lg px-3 py-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary @(Status == filter ? "bg-primary text-white" : "bg-white text-gray-600 hover:bg-surface")">@filter</button>
-                    }
-                </div>
+        <label class="filter-control">Filter
+            <select @bind="Status" class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm">
+                <option>All</option>
+                <option>Online</option>
+                <option>Offline</option>
+            </select>
+        </label>
+        <button type="button" @onclick="LoadAsync" disabled="@Loading"
+                class="refresh-button rounded-lg border border-black/10 bg-white px-4 py-2 text-sm text-primary disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-primary">
+            @(Loading ? "Refreshing…" : "Refresh")
+        </button>
     </div>
 
+    @if (LastUpdatedUtc.HasValue)
+    {
         <section class="workstations-section" aria-label="Workstations">
             <p class="shrink-0 text-xs text-muted" role="status">Showing @VisibleUnits.Count of @LaboratoryUnits.Count workstations</p>
-            <div class="pc-card-scroll pc-grid-container" tabindex="0" role="region" aria-label="Scrollable workstation cards">
+            <div class="pc-card-scroll" tabindex="0" role="region" aria-label="Scrollable workstations">
 
             @if (VisibleUnits.Count == 0)
             {
                 <div class="rounded-lg border border-dashed border-black/15 bg-white px-5 py-12 text-center">
-                    <h3 class="text-sm font-semibold text-gray-800">@(Units.Count == 0 ? "No registered workstations" : "No matching workstations")</h3>
-                    @if (Units.Count > 0)
+                    <h3 class="text-sm font-semibold text-gray-800">@(Laboratories.Count == 0 ? "No laboratories registered" : LaboratoryUnits.Count == 0 ? "No registered workstations in this laboratory" : "No matching workstations")</h3>
+                    @if (LaboratoryUnits.Count > 0)
                     {
-                        <p class="mt-1 text-sm text-muted">Try another PC name, laboratory, or status.</p>
+                        <p class="mt-1 text-sm text-muted">Try another PC name, unit number, or status.</p>
                         <button type="button" @onclick="ClearFilters" class="mt-4 rounded-lg bg-primary px-4 py-2 text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Clear filters</button>
                     }
                     else
@@ -96,12 +101,11 @@
             }
             else
             {
-                <div class="pc-grid">
+                <div class="@(ListView ? "pc-list" : "pc-grid")">
                     @foreach (var unit in VisibleUnits)
                     {
                         <UnitMonitorCard @key="unit.Id" Unit="unit" ObservedAtUtc="ObservedAtUtc"
-                                         Session="ActiveSessions.GetValueOrDefault(unit.Id)" ShowSession="CanViewSessions"
-                                         SessionsAvailable="SessionsAvailable" Selected="@(SelectedUnit?.Id == unit.Id)" OnSelect="SelectUnit" />
+                                         ListView="ListView" OnSelect="SelectUnit" />
                     }
                 </div>
             }
@@ -114,14 +118,17 @@
                   Session="@(SelectedUnit is null ? null : ActiveSessions.GetValueOrDefault(SelectedUnit.Id))"
                   ShowSession="CanViewSessions" SessionsAvailable="SessionsAvailable" />
 <UnitSummaryModal Show="ShowSummary" Units="LaboratoryUnits" ObservedAtUtc="ObservedAtUtc"
-                  LaboratoryName="@(LaboratoryUnits.FirstOrDefault()?.Laboratory is string name && Laboratory.Length > 0 ? name : "All laboratories")"
+                  LaboratoryName="@(Laboratories.FirstOrDefault(l => l.Id == SelectedLabId)?.Name ?? string.Empty)"
                   OnClose="() => ShowSummary = false" />
 
 @code {
     [SupplyParameterFromQuery(Name = "lab")] public int? LabId { get; set; }
     private bool ShowSummary;
-    private string ScreensUrl => Laboratory.Length == 0 ? "/unit-monitoring/screens" : $"/unit-monitoring/screens?lab={Laboratory}";
-    private string Laboratory { get; set; } = "";
+    private bool ListView;
+    private string ScreensUrl => SelectedLabId is int id ? $"/unit-monitoring/screens?lab={id}" : "/unit-monitoring/screens";
+    private int? SelectedLabId;
+    private int? previousQueryLab;
+    private List<LaboratoryDTO> Laboratories = [];
     private string Search { get; set; } = "";
     private string Status { get; set; } = "All";
     private UnitMonitoringDTO? SelectedUnit { get; set; }
@@ -131,6 +138,7 @@
 
     protected override async Task RefreshDetailsAsync(CancellationToken cancellationToken)
     {
+        Laboratories = (await LaboratoryService.GetAllAsync()).OrderBy(lab => lab.Name).ThenBy(lab => lab.Id).ToList();
         CanViewSessions = false;
         SessionsAvailable = false;
         ActiveSessions = new Dictionary<Guid, WorkstationSession>();
@@ -150,7 +158,7 @@
     }
 
     private List<UnitMonitoringDTO> LaboratoryUnits => Units
-        .Where(u => Laboratory.Length == 0 || u.LaboratoryId.ToString() == Laboratory).ToList();
+        .Where(u => u.LaboratoryId == SelectedLabId).OrderBy(u => u.Number).ToList();
 
     private List<UnitMonitoringDTO> VisibleUnits => LaboratoryUnits
         .Where(u => Status == "All" || u.GetStatus(ObservedAtUtc).Label() == Status)
@@ -159,13 +167,30 @@
             || u.Number.ToString("D2").Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase))
         .ToList();
 
-    protected override void OnParametersSet() => Laboratory = LabId?.ToString() ?? "";
+    protected override void OnParametersSet()
+    {
+        if (LabId == previousQueryLab) return;
+        previousQueryLab = LabId;
+        SelectLab(LabId);
+        OnDataUpdated();
+    }
 
     protected override void OnDataUpdated()
     {
-        if (Laboratory.Length > 0 && !Units.Any(u => u.LaboratoryId.ToString() == Laboratory))
-            Laboratory = "";
-        UpdateSelection();
+        if (!Laboratories.Any(lab => lab.Id == SelectedLabId))
+            SelectLab(Laboratories.FirstOrDefault(lab => lab.Id == LabId)?.Id ?? Laboratories.FirstOrDefault()?.Id);
+
+        if (SelectedUnit is not null)
+            SelectedUnit = Units.FirstOrDefault(unit => unit.Id == SelectedUnit.Id && unit.LaboratoryId == SelectedLabId);
+    }
+
+    private void SelectLab(int? id)
+    {
+        if (id == SelectedLabId) return;
+        SelectedLabId = id;
+        Search = "";
+        SelectedUnit = null;
+        ShowSummary = false;
     }
 
     private void SelectUnit(UnitMonitoringDTO unit)
@@ -175,23 +200,9 @@
 
     private void CloseDetails() => SelectedUnit = null;
 
-    private void SetStatus(string status)
-    {
-        Status = status;
-        UpdateSelection();
-    }
-
-    private void UpdateSelection()
-    {
-        var visible = VisibleUnits;
-        SelectedUnit = visible.FirstOrDefault(u => u.Id == SelectedUnit?.Id);
-    }
-
     private void ClearFilters()
     {
-        Laboratory = Search = "";
+        Search = "";
         Status = "All";
-        UpdateSelection();
     }
-
 }
