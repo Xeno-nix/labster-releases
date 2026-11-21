@@ -179,7 +179,7 @@
                                       <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit details
                                   </button>
                                 </AuthorizeView>
-                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess6>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess6">
                                   <button @onclick="() => OpenDeleteSupply(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
                                       <i aria-hidden="true" class="fa-solid fa-trash-can"></i> Delete item
                                   </button>

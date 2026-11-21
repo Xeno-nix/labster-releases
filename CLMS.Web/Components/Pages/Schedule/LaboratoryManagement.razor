@@ -6,7 +6,7 @@
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Routing
 
-<PageTitle>CLMS — Laboratory Management</PageTitle>
+<PageTitle>Labster — Laboratory Management</PageTitle>
 
 <div class="space-y-6">
     <AuthorizeView Policy="@(Privileges.Prefix + (ActivePath == "/schedules" ? Privileges.SchedulesView : Privileges.BookingsView))"><Authorized>

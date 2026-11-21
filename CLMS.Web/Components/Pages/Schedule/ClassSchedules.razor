@@ -82,7 +82,7 @@
                                     <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit
                                 </button>
                                 </AuthorizeView>
-                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.SchedulesManage)" Context="actionAccess13>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.SchedulesManage)" Context="actionAccess13">
                                 <button type="button"
                                     @onclick="() => DeleteSchedule(schedule.Id)"
                                     disabled="@(deletingScheduleId == schedule.Id)"

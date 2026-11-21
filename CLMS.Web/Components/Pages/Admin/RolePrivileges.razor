@@ -3,7 +3,7 @@
 @using CLMS.Domain.Enums
 @inject PrivilegeManagementService Access
 
-<PageTitle>Role Privileges | CLMS</PageTitle>
+<PageTitle>Role Privileges | Labster</PageTitle>
 <div class="space-y-5">
     <header class="flex items-center justify-between gap-3"><div><h1 class="text-2xl text-primary">Role Privileges</h1><p class="text-sm text-muted">Changes apply to users inheriting these privileges. Explicit user revocations still take precedence.</p></div><a href="/admin/users" class="text-sm text-primary">Back to users</a></header>
     @if (Error is not null) { <p role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">@Error</p> }

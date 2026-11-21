@@ -5,21 +5,17 @@
 @using CLMS.Application.Logging.Dtos
 @inject LoggingAppService LoggingAppService
 
-<PageTitle>CLMS — Logging Terminal</PageTitle>
+<PageTitle>Labster — Logging Terminal</PageTitle>
 
 <div class="bg-surface antialiased min-h-dvh flex flex-col">
 
     <header class="bg-white border-b border-black/10">
         <div class="max-w-4xl mx-auto px-6 py-4 flex items-center gap-3">
             <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect width="20" height="14" x="2" y="3" rx="2" />
-                    <path d="M8 21h8m-4-4v4" />
-                </svg>
+                <img src="/images/labster-logo.svg" alt="" width="24" height="24" style="filter: brightness(0) invert(1)" />
             </div>
             <div>
-                <p class="text-primary font-heading font-semibold text-base leading-tight">CLMS</p>
+                <p class="text-primary font-heading font-semibold text-base leading-tight">Labster</p>
                 <p class="text-xs text-muted">USeP — Computer Laboratory Management</p>
             </div>
         </div>
@@ -63,14 +59,14 @@
             @* Action tabs *@
             <div class="bg-white rounded-lg border border-black/10 shadow-sm overflow-hidden">
 
-                <div class="tab-strip segmented-tabs">
-                    <button type="button" @onclick='() => SetMode("student_in")' aria-pressed='@(Mode == "student_in")' class="@TabClass("student_in")">
+                <div class="tab-strip segmented-tabs grid grid-cols-3">
+                    <button type="button" @onclick='() => SetMode("student_in")' aria-pressed='@(Mode == "student_in")' class="justify-center px-2 py-3 text-muted hover:text-primary">
                         Student in
                     </button>
-                    <button type="button" @onclick='() => SetMode("guest_in")' aria-pressed='@(Mode == "guest_in")' class="@TabClass("guest_in") border-l border-black/10">
+                    <button type="button" @onclick='() => SetMode("guest_in")' aria-pressed='@(Mode == "guest_in")' class="justify-center px-2 py-3 text-muted hover:text-primary">
                         Visitor in
                     </button>
-                    <button type="button" @onclick='() => SetMode("time_out")' aria-pressed='@(Mode == "time_out")' class="@TabClass("time_out") border-l border-black/10">
+                    <button type="button" @onclick='() => SetMode("time_out")' aria-pressed='@(Mode == "time_out")' class="justify-center px-2 py-3 text-muted hover:text-primary">
                         Check out
                     </button>
                 </div>
@@ -183,6 +179,7 @@
                 }
 
             </div>
+        </div>
     </main>
 
     <footer class="border-t border-black/10 py-4">
@@ -194,8 +191,7 @@
 </div>
 
 @code {
-    private bool IsVisitor { get; set; }
-    private bool IsTimeOut { get; set; }
+    private string Mode { get; set; } = "student_in";
     private bool IsBusy { get; set; }
 
     private string? SuccessMessage { get; set; }
@@ -205,11 +201,9 @@
     private GuestTimeInRequest GuestModel { get; set; } = new();
     private TimeOutRequest TimeOutModel { get; set; } = new();
 
-    private object CurrentModel => IsTimeOut ? (object)TimeOutModel : IsVisitor ? GuestModel : StudentModel;
-
-    private void ToggleTimeOut()
+    private void SetMode(string mode)
     {
-        IsTimeOut = !IsTimeOut;
+        Mode = mode;
         ClearMessages();
     }
 
@@ -218,9 +212,6 @@
         SuccessMessage = null;
         ErrorMessage = null;
     }
-
-    private Task HandleSubmit() => IsTimeOut ? HandleTimeOut()
-        : IsVisitor ? HandleGuestTimeIn() : HandleStudentTimeIn();
 
     private Task HandleStudentTimeIn() => RunAsync(async () =>
     {
