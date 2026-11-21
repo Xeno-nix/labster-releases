@@ -8,7 +8,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 
-@attribute [Authorize(Roles = "Admin,Faculty")]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.ClassListsView)]
 @rendermode InteractiveServer
 
 @inject ClassListService ClassListService
@@ -129,13 +129,13 @@
                         </span>
                         </button>
 
-                        <button type="button"
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.ClassListsManage)" Context="actionAccess17"><button type="button"
                                 title="Delete class"
                                 aria-label="Delete class"
                                 class="record-actions-desktop absolute top-4 right-4 p-2 rounded-lg text-muted hover:text-error hover:bg-error/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/30 transition-colors"
                                 @onclick="() => PromptDeleteClassAsync(cls)">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
+                        </button></AuthorizeView>
                     </div>
 
                     <div id="@RosterPanelId(cls)"
@@ -250,7 +250,7 @@
 
     private bool IsLoading { get; set; } = true;
 
-    private bool IsAdmin => CurrentRole == Role.Admin;
+    private bool IsAdmin => Privileges.HasAdministrativeScope(CurrentRole);
 
     private string SelectedTermLabel =>
         Terms.FirstOrDefault(t => t.Id == SelectedTermId) is { } term
@@ -296,7 +296,7 @@
             else
             {
                 // Default to the current term, falling back to the newest.
-                var current = await ClassListService.GetClassesAsync(UserId, CurrentRole);
+                var current = await ClassListService.GetClassesAsync();
                 SelectedTermId = current.Count > 0
                     ? current[0].AcademicTermId
                     : firstTermId;
@@ -308,7 +308,7 @@
                 return;
             }
 
-            Classes = await ClassListService.GetClassesAsync(UserId, CurrentRole, SelectedTermId);
+            Classes = await ClassListService.GetClassesAsync(SelectedTermId);
         }
         catch (Exception ex)
         {
@@ -422,8 +422,7 @@
 
         try
         {
-            await ClassListService.DeleteClassListAsync(
-                UserId, CurrentRole, cls.RepresentativeScheduleId);
+            await ClassListService.DeleteClassListAsync(cls.RepresentativeScheduleId);
 
             Toasts.Show("Class deleted successfully", ToastService.ToastType.Success);
 

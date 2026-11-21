@@ -1,3 +1,5 @@
+using CLMS.Application.Authorization;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
@@ -8,6 +10,7 @@ namespace CLMS.Application.Services;
 
 public class BookingService
 {
+    private readonly ICurrentUser actor;
     private readonly IBookingRepository _repository;
     private readonly IClassScheduleRepository _classScheduleRepository;
     private readonly IEmailService _emailService;
@@ -17,8 +20,9 @@ public class BookingService
         IBookingRepository repository,
         IClassScheduleRepository classScheduleRepository,
         IEmailService emailService,
-        ILaboratoryRepository laboratoryRepository)
+        ILaboratoryRepository laboratoryRepository, ICurrentUser actor)
     {
+        this.actor = actor;
         _emailService = emailService;
         _repository = repository;
         _classScheduleRepository = classScheduleRepository;
@@ -27,6 +31,7 @@ public class BookingService
 
     public async Task<int> CreateAsync(UpsertBookingDTO dto)
     {
+        await actor.RequirePrivilegeAsync(Privileges.BookingsManage);
         if (dto.StartTime >= dto.EndTime)
         {
             throw new ArgumentException(
@@ -133,18 +138,21 @@ public class BookingService
 
     public async Task<IEnumerable<BookingDTO>> GetAllAsync()
     {
+        await actor.RequirePrivilegeAsync(Privileges.BookingsView);
         return await _repository.GetAllAsync();
     }
 
     public async Task<BookingDTO?> GetByIdAsync(int id)
     {
+        await actor.RequirePrivilegeAsync(Privileges.BookingsView);
         return await _repository.GetByIdAsync(id);
     }
 
     public async Task UpdateAsync(
     int id,
     UpsertBookingDTO dto)
-{
+    {
+        await actor.RequirePrivilegeAsync(Privileges.BookingsManage);
     if (dto.StartTime >= dto.EndTime)
     {
         throw new ArgumentException(
@@ -253,11 +261,13 @@ public class BookingService
 
     public async Task DeleteAsync(int id)
     {
+        await actor.RequirePrivilegeAsync(Privileges.BookingsManage);
         await _repository.DeleteAsync(id);
     }
 
     public async Task<bool> CheckScheduleConflictAsync(UpsertBookingDTO dto, int? excludingBookingId = null)
     {
+        await actor.RequirePrivilegeAsync(Privileges.BookingsManage);
         var allBookings = await _repository.GetAllAsync();
 
         var bookingConflict = allBookings

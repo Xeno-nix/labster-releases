@@ -1,3 +1,6 @@
+@page "/unit-monitoring/screens"
+@layout ScreenWallLayout
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.MonitoringLabScreens)]
 @inherits MonitoringPageBase
 @implements IAsyncDisposable
 @inject IJSRuntime JS

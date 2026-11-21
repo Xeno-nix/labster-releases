@@ -2,11 +2,13 @@
 using CLMS.Domain.Entities.Identity;
 using CLMS.Domain.Enums;
 using CLMS.Domain.ValueObjects;
+using CLMS.Application.Authorization;
+using CLMS.Application.Identity.Interfaces;
 
 namespace CLMS.Application.Identity.Services;
 
 public sealed class UserManagementService(
-    IUserRepository userRepository)
+    IUserRepository userRepository, IAuthorizationRepository authorization, ICurrentUser actor, IAuthorizationChanges changes)
 {
     /// <summary>
     /// Retrieves all active user accounts
@@ -14,6 +16,7 @@ public sealed class UserManagementService(
     /// <returns></returns>
     public async Task<List<User>> GetUsers()
     {
+        await actor.RequirePrivilegeAsync(Privileges.UsersView);
         return (from user in await userRepository.FindAllAsync()
             where user.DeletedAt is null
             select user).ToList();
@@ -21,22 +24,21 @@ public sealed class UserManagementService(
 
     public async Task<User?> GetUserById(Guid id)
     {
+        await actor.RequirePrivilegeAsync(Privileges.UsersView);
         return await userRepository.FindByIdAsync(id);
     }
 
     public async Task DeleteUser(Guid id)
     {
-        var user = await GetUserById(id);
-        
-        if (user is null || user.DeletedAt is not null)
-            return;
-        
-        await userRepository.DeleteAsync(user);
+        var actorId = await actor.RequirePrivilegeAsync(Privileges.UsersDelete);
+        await authorization.DeleteManagedUserAsync(actorId, id);
+        changes.NotifyChanged();
     }
 
     public async Task UpdateUser(Guid userId, Role? role, string firstName, string lastName, string? middleName = null,
         string? suffix = null)
     {
+        var actorId = await actor.RequirePrivilegeAsync(Privileges.UsersEdit);
         var storedUser = await userRepository.FindByIdAsync(userId);
         if (storedUser is null) return;
         if (storedUser.DeletedAt is not null) return;
@@ -49,6 +51,7 @@ public sealed class UserManagementService(
         if (middleName is not null) storedUser.MiddleName = new Name(middleName);
         if (suffix is not null) storedUser.Suffix = new Name(suffix);
         
-        await userRepository.UpdateAsync(storedUser);
+        await authorization.SaveManagedUserAsync(actorId, storedUser, false);
+        changes.NotifyChanged();
     }
 }

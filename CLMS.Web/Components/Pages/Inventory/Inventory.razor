@@ -1,6 +1,6 @@
 @page "/inventory"
 
-@attribute [Authorize(Roles = "Admin,Faculty")]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.InventoryView)]
 @using CLMS.Web.Components.Shared
 @using CLMS.Web.Components.Pages.Inventory
 
@@ -21,17 +21,17 @@
                         class="inventory-scan-button rounded-lg px-4 py-2 border border-black/10 text-sm font-semibold">
                     Scan QR
                 </button>
-                <button @onclick="OpenAddEquipment"
+                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess1"><button @onclick="OpenAddEquipment"
                         class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm text-sm font-medium">
                     Add Equipment
-                </button>
+                </button></AuthorizeView>
             }
             else
             {
-                <button @onclick="OpenAddSupply"
+                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess2"><button @onclick="OpenAddSupply"
                         class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm text-sm font-medium">
                     Add Supply
-                </button>
+                </button></AuthorizeView>
             }
         </div>
     </div>
@@ -87,12 +87,16 @@
                                 <button @onclick="() => OpenQr(item)" title="View / Print QR Code" class="p-1.5 hover:bg-white rounded-lg transition-colors">
                                     <i aria-hidden="true" class="fa-solid fa-qrcode"></i> View / Print QR
                                 </button>
-                                <button @onclick="() => OpenEditEquipment(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                    <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit details
-                                </button>
-                                <button @onclick="() => OpenDeleteEquipment(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                    <i aria-hidden="true" class="fa-solid fa-trash-can"></i> Delete item
-                                </button>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess3">
+                                  <button @onclick="() => OpenEditEquipment(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                      <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit details
+                                  </button>
+                                </AuthorizeView>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess4">
+                                  <button @onclick="() => OpenDeleteEquipment(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                      <i aria-hidden="true" class="fa-solid fa-trash-can"></i> Delete item
+                                  </button>
+                                </AuthorizeView>
                             </text>;
                             <tr role="row" class="hover:bg-surface transition-colors">
                                 <td role="cell" class="px-5 py-3 text-sm font-mono text-[#2c2c2c]">
@@ -170,12 +174,16 @@
                         @foreach (var item in FilteredSupplies)
                         {
                             RenderFragment rowActions = @<text>
-                                <button @onclick="() => OpenEditSupply(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                    <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit details
-                                </button>
-                                <button @onclick="() => OpenDeleteSupply(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                    <i aria-hidden="true" class="fa-solid fa-trash-can"></i> Delete item
-                                </button>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess5">
+                                  <button @onclick="() => OpenEditSupply(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                      <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit details
+                                  </button>
+                                </AuthorizeView>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess6>
+                                  <button @onclick="() => OpenDeleteSupply(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                      <i aria-hidden="true" class="fa-solid fa-trash-can"></i> Delete item
+                                  </button>
+                                </AuthorizeView>
                             </text>;
                             <tr role="row" class="hover:bg-surface transition-colors">
                                 <td role="cell" class="px-5 py-3 text-sm font-medium text-[#2c2c2c]">
@@ -326,7 +334,7 @@
 
                 <div class="flex justify-end gap-3 mt-6">
                     <button type="button" @onclick="CloseQr" class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm">Close</button>
-                    <button type="button" @onclick="SaveQrEdit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium">Save Changes</button>
+                    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess7"><button type="button" @onclick="SaveQrEdit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium">Save Changes</button></AuthorizeView>
                 </div>
 
                 <hr class="my-5 border-black/10" />
@@ -360,9 +368,9 @@
                         }
                     </div>
                     <div class="flex justify-end">
-                        <button type="button" @onclick="ReassignToLab" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium">
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess8"><button type="button" @onclick="ReassignToLab" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium">
                             @(SelectedEquipment.CurrentComputerUnitId is not null || SelectedEquipment.CurrentLaboratoryId is not null ? "Reassign" : "Assign")
-                        </button>
+                        </button></AuthorizeView>
                     </div>
                 </div>
             </div>

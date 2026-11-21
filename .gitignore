@@ -488,3 +488,6 @@ $RECYCLE.BIN/
 
 agents.md
 AGENTS.md
+
+# Centrally uploaded application icons (preserve separately during deployment).
+CLMS.Web/wwwroot/application-icons/

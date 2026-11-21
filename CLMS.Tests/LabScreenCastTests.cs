@@ -133,12 +133,12 @@ public sealed class LabScreenCastTests
             Units.Items.Add(new() { Id = Unit, LaboratoryId = 1 });
             Units.Items.Add(new() { Id = OtherUnit, LaboratoryId = 2 });
             var services = new ServiceCollection();
-            services.AddLogging();
+            services.AddLogging(); services.AddSingleton<CLMS.Application.Identity.Interfaces.ICurrentUser>(new TestCurrentUser()); services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, TestPrivilegeHandler>();
             services.AddSignalR();
             services.AddSingleton<IScreenCastRepository>(History);
             services.AddSingleton<IUnitMonitoringRepository>(Units);
             provider = services.BuildServiceProvider();
-            Screens = new(provider.GetRequiredService<IHubContext<AgentConnectionHub>>(), Clock, NullLogger<ScreenCastService>.Instance);
+            Screens = new(provider.GetRequiredService<IHubContext<AgentConnectionHub>>(), Clock, NullLogger<ScreenCastService>.Instance, provider.GetRequiredService<IServiceScopeFactory>());
             Labs = new(provider.GetRequiredService<IServiceScopeFactory>(), Screens, Clock, NullLogger<LabScreenCastService>.Instance);
         }
 

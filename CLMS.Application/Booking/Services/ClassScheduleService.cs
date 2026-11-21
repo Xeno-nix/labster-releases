@@ -1,3 +1,5 @@
+using CLMS.Application.Authorization;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
@@ -7,14 +9,16 @@ namespace CLMS.Application.Services;
 
 public class ClassScheduleService 
 {
+    private readonly ICurrentUser actor;
     private readonly IClassScheduleRepository _repository;
     private readonly ClassListService _classListService;
     
 
     public ClassScheduleService(
         IClassScheduleRepository repository,
-        ClassListService classListService)
+        ClassListService classListService, ICurrentUser actor)
     {
+        this.actor = actor;
         _repository = repository;
         _classListService = classListService;
     }
@@ -22,6 +26,7 @@ public class ClassScheduleService
 //create sched
     public async Task<int> CreateAsync(UpsertClassScheduleDTO dto)
     {
+        await actor.RequirePrivilegeAsync(Privileges.SchedulesManage);
         var schedule = new ClassSchedule
         {
             CourseId = dto.CourseId,
@@ -63,12 +68,14 @@ public class ClassScheduleService
 //delete sched
     public async Task DeleteAsync(int id)
     {
+        await actor.RequirePrivilegeAsync(Privileges.SchedulesManage);
         await _repository.DeleteAsync(id);
     }
 
 //get all sched
     public async Task<IEnumerable<ClassScheduleDTO>> GetAllAsync()
     {
+        await actor.RequirePrivilegeAsync(Privileges.SchedulesView);
         return await _repository.GetAllAsync();
     }
 
@@ -76,11 +83,13 @@ public class ClassScheduleService
 
     public async Task<ClassScheduleDTO?> GetByIdAsync(int id)
     {
+        await actor.RequirePrivilegeAsync(Privileges.SchedulesView);
         return  await _repository.GetByIdAsync(id);
     }
 
     public async Task<bool> CheckScheduleConflictAsync(UpsertClassScheduleDTO dto, int? excludingClassScheduleId = null)
     {
+        await actor.RequirePrivilegeAsync(Privileges.SchedulesManage);
         var allSchedules = await _repository.GetAllAsync();
 
         return allSchedules
@@ -103,6 +112,7 @@ public class ClassScheduleService
         int id,
         UpsertClassScheduleDTO dto)
     {
+        await actor.RequirePrivilegeAsync(Privileges.SchedulesManage);
         var schedule = new ClassSchedule
         {
             Id = id,

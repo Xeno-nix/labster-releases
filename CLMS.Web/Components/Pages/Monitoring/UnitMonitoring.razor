@@ -1,3 +1,5 @@
+@page "/unit-monitoring"
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.UnitsView)]
 @using CLMS.Web.Models
 @using CLMS.Application.DTOs.Monitoring
 @using CLMS.Application.Identity.Interfaces
@@ -26,7 +28,9 @@
             </p>
         </div>
         <ActionMenu Horizontal="true" Label="Unit monitoring options">
-            <a href="@ScreensUrl" target="_blank" rel="noopener noreferrer" aria-label="View all screens (opens in a new tab)">View all screens</a>
+            <AuthorizeView Policy="@(Privileges.Prefix + Privileges.MonitoringLabScreens)">
+              <a href="@ScreensUrl" target="_blank" rel="noopener noreferrer" aria-label="View all screens (opens in a new tab)">View all screens</a>
+            </AuthorizeView>
             @if (CanViewSessions)
             {
                 <a href="/unit-monitoring/sessions">Session history</a>
@@ -39,6 +43,8 @@
             </details>
         </ActionMenu>
     </header>
+
+    <MonitoringTabs />
 
     @if (Error is not null)
     {
@@ -144,7 +150,7 @@
         ActiveSessions = new Dictionary<Guid, WorkstationSession>();
         try
         {
-            await CurrentUser.RequireAdminAsync();
+            await CurrentUser.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.MonitoringSessionsView);
             CanViewSessions = true;
             ActiveSessions = await WorkstationSessions.GetActiveAsync(cancellationToken);
             SessionsAvailable = true;

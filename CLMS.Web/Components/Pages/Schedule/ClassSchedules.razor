@@ -1,5 +1,5 @@
 @inject CLMS.Web.Services.ToastService Toasts
-@attribute [Authorize]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.SchedulesView)]
 @using CLMS.Application.Services
 @using CLMS.Web.Services
 @inject ClassScheduleService ScheduleService
@@ -75,17 +75,21 @@
                         @foreach (var schedule in SchedulePageItems)
                         {
                             RenderFragment rowActions = @<text>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.SchedulesManage)" Context="actionAccess12">
                                 <button type="button"
                                     @onclick="() => OpenEditSchedule(schedule.Id)"
                                     class="rounded-lg p-2 text-muted hover:bg-gray-100 hover:text-primary">
                                     <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit
                                 </button>
+                                </AuthorizeView>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.SchedulesManage)" Context="actionAccess13>
                                 <button type="button"
                                     @onclick="() => DeleteSchedule(schedule.Id)"
                                     disabled="@(deletingScheduleId == schedule.Id)"
                                     class="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50">
                                     <i aria-hidden="true" class="fa-solid fa-trash-can"></i> @(deletingScheduleId == schedule.Id ? "Deleting..." : "Delete")
                                 </button>
+                                </AuthorizeView>
                             </text>;
                             <tr role="row" class="transition-colors hover:bg-gray-50/70">
                                 <td role="cell" class="px-5 py-4">
@@ -169,12 +173,12 @@
     public RenderFragment<RenderFragment> HeaderTemplate { get; set; } = default!;
 
     private RenderFragment HeaderActions => @<div class="flex flex-wrap items-center gap-2 sm:gap-3">
-        <button type="button"
+        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.SchedulesManage)" Context="actionAccess14"><button type="button"
                 @onclick="OpenCreateSchedule"
                 class="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90">
             + Add Class Schedule
 
-        </button>
+        </button></AuthorizeView>
     </div>;
 
     private const int PageSize = 10;

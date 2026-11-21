@@ -123,7 +123,7 @@ public sealed class EmailLoginTests
     {
         var user = User(); var principal = Principal(Claims(user)); var users = new TestUsers(user);
         var context = new DefaultHttpContext { User = principal };
-        var current = new CurrentUser(new HttpContextAccessor { HttpContext = context }, new TestState(principal), users, crypto);
+        var current = new CurrentUser(new HttpContextAccessor { HttpContext = context }, new TestState(principal), users, crypto, new TestAuthorizationStore(users));
         Assert.Equal(user.Id, await current.RequireAdminAsync());
         var validator = new HumanSessionValidator(users, crypto);
         Assert.True(await validator.IsCurrentAsync(principal));
@@ -243,7 +243,7 @@ public sealed class EmailLoginTests
     }
     private sealed class TestState(ClaimsPrincipal principal) : AuthenticationStateProvider
     { public override Task<AuthenticationState> GetAuthenticationStateAsync() => Task.FromResult(new AuthenticationState(principal)); }
-    private sealed class TestUsers(User user) : IUserRepository
+    internal sealed class TestUsers(User user) : IUserRepository
     {
         public Task<User?> FindByIdAsync(Guid id) => Task.FromResult<User?>(id == user.Id ? user : null);
         public Task<User?> FindByEmailAsync(string email) => Task.FromResult<User?>(email == user.Email ? user : null);

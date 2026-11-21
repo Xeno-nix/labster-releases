@@ -74,7 +74,8 @@ public class AuthController(AuthenticationService authService) : ControllerBase
 
     [IgnoreAntiforgeryToken]
     [HttpPost("api/auth/register")]
-    [Authorize(Policy = "JwtPolicy", Roles = "Admin")]
+    [Authorize(Policy = "JwtPolicy")]
+    [Authorize(Policy = CLMS.Application.Authorization.Privileges.Prefix + CLMS.Application.Authorization.Privileges.UsersCreate)]
     public async Task<IActionResult> Register([FromBody] RegisterDto request)
     {
         RegistrationResultDto result;

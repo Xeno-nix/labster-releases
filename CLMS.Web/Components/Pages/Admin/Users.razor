@@ -1,8 +1,7 @@
 @page "/admin/users"
-@page "/admin/users/register"
 @page "/admin/users/view"
 
-@attribute [Authorize(Policy = "RegisterUsers")]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.UsersView)]
 @rendermode InteractiveServer
 @implements IDisposable
 @using System.Security.Claims
@@ -33,11 +32,12 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 class="text-primary text-2xl">User Management</h1>
         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-            <button type="button"
+            <AuthorizeView Policy="@(Privileges.Prefix + Privileges.SecurityManage)"><a href="/admin/users/roles" class="rounded-lg border border-black/10 px-4 py-2 text-sm text-primary">Role privileges</a></AuthorizeView>
+            <AuthorizeView Policy="RegisterUsers" Context="actionAccess21"><button type="button"
                     @onclick="OpenRegisterModal"
                     class="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20">
                 Register User
-            </button>
+            </button></AuthorizeView>
         </div>
     </div>
 

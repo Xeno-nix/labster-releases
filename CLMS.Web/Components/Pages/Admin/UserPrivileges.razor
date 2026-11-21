@@ -1,0 +1,60 @@
+@implements IDisposable
+@using CLMS.Domain.Enums
+@inject PrivilegeManagementService Access
+@inject CLMS.Web.Authentication.AuthorizationChanges Changes
+
+<section class="mt-5 border-t border-black/10 pt-4" aria-label="User privileges">
+    <h3 class="font-semibold text-primary">Privileges</h3>
+    <p class="mt-1 text-xs text-muted">Effective access combines role defaults and grants, then removes explicit revocations. Inherit removes an override.</p>
+    @if (Error is not null) { <p role="alert" class="mt-3 text-sm text-error">@Error</p> }
+    @if (Snapshot is not null)
+    {
+        @if (Snapshot.Role == Role.SuperAdmin) { <p class="mt-3 rounded-lg bg-surface p-3 text-sm">Protected SuperAdmin account: all privileges are automatic; individual overrides are unavailable.</p> }
+        @foreach (var module in Privileges.All.GroupBy(p => p.Module))
+        {
+            <h4 class="mb-2 mt-4 text-sm font-semibold">@module.Key</h4>
+            <div class="overflow-x-auto"><table class="w-full text-left text-xs"><thead class="bg-surface"><tr><th class="p-2">Privilege</th><th class="p-2">Inherited</th><th class="p-2">Override</th><th class="p-2">Effective</th></tr></thead><tbody>
+                @foreach (var privilege in module)
+                {
+                    <tr class="border-b border-black/5"><td class="p-2">@privilege.Description<span class="block text-muted">@privilege.Id</span></td><td class="p-2">@(Snapshot.Role == Role.SuperAdmin || Snapshot.Inherited.Contains(privilege.Id) ? "Granted" : "Not granted")</td><td class="p-2">
+                    @if (Snapshot.Role != Role.SuperAdmin && !privilege.SuperAdminOnly)
+                    {
+                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UsersManagePrivileges)" Context="overrideAccess"><Authorized><select aria-label="@($"Override {privilege.Description}")" value="@Mode(privilege.Id)" @onchange="args => SaveAsync(privilege.Id, args.Value?.ToString())" disabled="@Busy" class="rounded border border-black/10 p-1"><option>Inherit</option><option>Grant</option><option>Revoke</option></select></Authorized><NotAuthorized>@Mode(privilege.Id)</NotAuthorized></AuthorizeView>
+                    }
+                    else { <span>@(privilege.SuperAdminOnly ? "SuperAdmin only" : "Automatic")</span> }
+                    </td><td class="p-2">@(Snapshot.Effective.Contains(privilege.Id) ? "Allowed" : "Denied")</td></tr>
+                }
+            </tbody></table></div>
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public Guid UserId { get; set; }
+    private AuthorizationSnapshot? Snapshot;
+    private bool Busy, Disposed;
+    private string? Error;
+    protected override void OnInitialized() => Changes.Changed += Changed;
+    protected override Task OnParametersSetAsync() => LoadAsync();
+    private string Mode(string id) => Snapshot!.Overrides.TryGetValue(id, out var grant) ? grant ? "Grant" : "Revoke" : "Inherit";
+    private async Task LoadAsync()
+    {
+        if (Disposed) return;
+        try { Snapshot = await Access.UserAsync(UserId); Error = null; }
+        catch (UnauthorizedAccessException) { Snapshot = null; Error = "You do not have access to this user's privileges."; }
+        catch { Snapshot = null; Error = "Could not load privileges. Try reopening this user."; }
+    }
+    private async Task SaveAsync(string privilege, string? mode)
+    {
+        if (Busy) return;
+        Busy = true; Error = null;
+        try { await Access.SetOverrideAsync(UserId, privilege, mode == "Inherit" ? null : mode == "Grant"); await LoadAsync(); }
+        catch (UnauthorizedAccessException) { Error = "Only an active SuperAdmin may change overrides on ordinary staff accounts."; }
+        catch (ArgumentException ex) { Error = ex.Message; }
+        catch { Error = "Could not save the override. Try again."; }
+        finally { Busy = false; }
+    }
+    private void Changed() => _ = RefreshAsync();
+    private async Task RefreshAsync() { try { await InvokeAsync(async () => { await LoadAsync(); if (!Disposed) StateHasChanged(); }); } catch when (Disposed) { } }
+    public void Dispose() { Disposed = true; Changes.Changed -= Changed; }
+}

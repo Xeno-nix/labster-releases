@@ -25,10 +25,17 @@ public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCast
 
     private static Guid RequireViewer(ClaimsPrincipal viewer)
     {
-        if (viewer.Identity?.IsAuthenticated != true || !(viewer.IsInRole("Admin") || viewer.IsInRole("Faculty"))
+        if (viewer.Identity?.IsAuthenticated != true || !(viewer.IsInRole("Admin") || viewer.IsInRole("Faculty") || viewer.IsInRole("SuperAdmin"))
             || !Guid.TryParse(viewer.FindFirstValue(ClaimTypes.NameIdentifier), out var id))
             throw new UnauthorizedAccessException("Only authorized staff can start a lab screen-cast session.");
         return id;
+    }
+
+    private async Task<Guid> RequirePrivilegeAsync(ClaimsPrincipal viewer)
+    {
+        using var scope = scopes.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<CLMS.Application.Identity.Interfaces.ICurrentUser>()
+            .RequirePrivilegeForAsync(viewer, CLMS.Application.Authorization.Privileges.MonitoringLabScreens);
     }
 
     private LabSession Owned(ClaimsPrincipal viewer, int id)
@@ -42,7 +49,7 @@ public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCast
 
     public async Task<int> StartAsync(ClaimsPrincipal viewer, int labId)
     {
-        var viewerId = RequireViewer(viewer);
+        var viewerId = await RequirePrivilegeAsync(viewer);
         await gate.WaitAsync();
         try
         {
@@ -68,6 +75,7 @@ public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCast
 
     public async Task<bool> RenewAsync(ClaimsPrincipal viewer, int id)
     {
+        try { await RequirePrivilegeAsync(viewer); } catch (UnauthorizedAccessException) { return false; }
         await gate.WaitAsync();
         try
         {
@@ -81,6 +89,7 @@ public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCast
 
     public async Task<Guid> StartViewingAsync(ClaimsPrincipal viewer, int id, Guid unitId)
     {
+        await RequirePrivilegeAsync(viewer);
         await gate.WaitAsync();
         try
         {

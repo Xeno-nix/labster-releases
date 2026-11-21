@@ -1,3 +1,5 @@
+using CLMS.Application.Authorization;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.DTOs.Dashboard;
 using CLMS.Application.Interfaces.Repositories;
 
@@ -9,6 +11,7 @@ namespace CLMS.Application.Services;
 /// </summary>
 public class DashboardService
 {
+    private readonly ICurrentUser actor;
     private readonly ILabUtilizationRepository _labUtilizationRepository;
     private readonly IClassScheduleRepository _classScheduleRepository;
     private readonly IBookingRepository _bookingRepository;
@@ -24,8 +27,9 @@ public class DashboardService
         ILaboratoryRepository laboratoryRepository,
         IComputerUnitRepository computerUnitRepository,
         ISupplyRepository supplyRepository,
-        IEquipmentRepository equipmentRepository)
+        IEquipmentRepository equipmentRepository, ICurrentUser actor)
     {
+        this.actor = actor;
         _labUtilizationRepository = labUtilizationRepository;
         _classScheduleRepository = classScheduleRepository;
         _bookingRepository = bookingRepository;
@@ -35,9 +39,11 @@ public class DashboardService
         _equipmentRepository = equipmentRepository;
     }
 
-    /// <param name="facultyId">null = admin (everything); otherwise scope to this instructor.</param>
-    public async Task<DashboardSnapshotDTO> GetSnapshotAsync(Guid? facultyId)
+    public async Task<DashboardSnapshotDTO> GetSnapshotAsync()
     {
+        await actor.RequirePrivilegeAsync(Privileges.DashboardView);
+        var current = await actor.GetActorAsync();
+        Guid? facultyId = Privileges.HasAdministrativeScope(current.UserRole) ? null : current.Id;
         var now = DateTime.Now;
         var today = DateOnly.FromDateTime(now);
         var currentTime = TimeOnly.FromDateTime(now);

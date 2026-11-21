@@ -1,3 +1,5 @@
+@page "/unit-monitoring/sessions"
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.MonitoringSessionsView)]
 @implements IDisposable
 @using CLMS.Application.DTOs.Monitoring
 @using CLMS.Application.Identity.Interfaces
@@ -78,7 +80,7 @@ else
         error = null;
         try
         {
-            await CurrentUser.RequireAdminAsync();
+            await CurrentUser.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.MonitoringSessionsView);
             var page = await Sessions.GetHistoryAsync(nextOffset, PageSize + 1, lifetime.Token);
             // If the result set changed between requests, preserve a route back to earlier pages.
             sessions = page;

@@ -1,6 +1,6 @@
 @page "/logbook"
 
-@attribute [Authorize]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.LogbookView)]
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components
 @using CLMS.Application.DTOs.Logbook

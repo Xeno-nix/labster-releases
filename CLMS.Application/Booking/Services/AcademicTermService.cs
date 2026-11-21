@@ -1,3 +1,5 @@
+using CLMS.Application.Authorization;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
@@ -8,16 +10,19 @@ namespace CLMS.Application.Services;
 
 public class AcademicTermService
 {
+    private readonly ICurrentUser actor;
     private readonly IAcademicTermRepository _repository;
 
     public AcademicTermService(
-        IAcademicTermRepository repository)
+        IAcademicTermRepository repository, ICurrentUser actor)
     {
+        this.actor = actor;
         _repository = repository;
     }
 
     public async Task<IEnumerable<AcademicTermDTO>> GetAllAsync()
     {
+        await actor.RequirePrivilegeAsync(Privileges.TermsView);
         var academicTerms = await _repository.GetAllAsync();
 
         return academicTerms.Select(MapToDto);
@@ -25,6 +30,7 @@ public class AcademicTermService
 
     public async Task<int> CreateAsync(CreateAcademicTermDTO model)
     {
+        await actor.RequirePrivilegeAsync(Privileges.TermsManage);
         System.ComponentModel.DataAnnotations.Validator.ValidateObject(model, new(model), true);
         if ((await _repository.GetAllAsync()).Any(t => t.AcademicYear == model.AcademicYear && t.Semester == model.Semester))
             throw new InvalidOperationException("This semester already exists for the selected school year.");
@@ -40,6 +46,7 @@ public class AcademicTermService
 
     public async Task UpdateAsync(int id, CreateAcademicTermDTO model)
     {
+        await actor.RequirePrivilegeAsync(Privileges.TermsManage);
         System.ComponentModel.DataAnnotations.Validator.ValidateObject(model, new(model), true);
         if ((await _repository.GetAllAsync()).Any(t => t.Id != id && t.AcademicYear == model.AcademicYear && t.Semester == model.Semester))
             throw new InvalidOperationException("This semester already exists for the selected school year.");
@@ -57,6 +64,7 @@ public class AcademicTermService
 
     public async Task DeleteAsync(int id)
     {
+        await actor.RequirePrivilegeAsync(Privileges.TermsManage);
         if (!await _repository.DeleteAsync(id))
             throw new InvalidOperationException("This school semester no longer exists. Refresh the list and try again.");
     }

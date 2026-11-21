@@ -207,7 +207,7 @@
 
         try
         {
-            var message = await ClassListService.AddStudentAsync(UserId, Role, ScheduleId, dto);
+            var message = await ClassListService.AddStudentAsync(ScheduleId, dto);
             Reset();
             await OnAdded.InvokeAsync(message);
         }

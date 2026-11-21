@@ -40,6 +40,7 @@ public sealed class AgentAuthorizationTests
         { ["Jwt:Issuer"] = "test", ["Jwt:Audience"] = "human", ["Jwt:Key"] = key, ["Jwt:SigningAlgorithm"] = signingAlgorithm });
         var repository = new AuthorizationRepository();
         builder.Services.AddSingleton<IUnitRegistryRepository>(repository);
+        builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, TestPrivilegeHandler>();
         builder.Services.AddAuthentication(AuthenticationSchemes.Cookie)
             .AddCookie(AuthenticationSchemes.Cookie, o =>
             {

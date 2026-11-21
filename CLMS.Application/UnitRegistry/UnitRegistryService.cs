@@ -50,7 +50,7 @@ public sealed class UnitRegistryService(IUnitRegistryRepository repository, ILab
 
     public async Task DecideAsync(Guid id, bool approve, bool physicalCodeVerified, CancellationToken ct = default)
     {
-        var administrator = await actor.RequireAdminAsync();
+        var administrator = await actor.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.UnitsManage);
         if (approve && !physicalCodeVerified) throw new RegistryException("verify_code", "Verify the code on the physical computer before approving.", 400);
         // Return terminal conflicts after commit so expiration is persisted.
         var conflict = await repository.TransactionAsync<RegistryException?>(new(RegistryLockKind.Registration, id.ToString()), async tx =>
@@ -95,13 +95,13 @@ public sealed class UnitRegistryService(IUnitRegistryRepository repository, ILab
 
     public async Task<RegistryPage<RegistryUnit>> UnitsAsync(int? lab, string? search, int page = 1, int pageSize = 25, CancellationToken ct = default)
     {
-        await actor.RequireAdminAsync();
+        await actor.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.UnitsManage);
         return await repository.UnitsAsync(lab, search, Math.Max(1, page), Math.Clamp(pageSize, 1, 100), ct);
     }
 
     public async Task<RegistryPage<RegistryRegistration>> RegistrationsAsync(string? status = "Pending", int page = 1, int pageSize = 25, CancellationToken ct = default)
     {
-        await actor.RequireAdminAsync();
+        await actor.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.UnitsManage);
         if (status is not null && !Enum.TryParse<RegistrationStatus>(status, false, out _))
             throw new RegistryException("invalid_status", "Unknown registration status.", 400);
         return await repository.RegistrationsAsync(status, Math.Max(1, page), Math.Clamp(pageSize, 1, 100), ct);
@@ -115,7 +115,7 @@ public sealed class UnitRegistryService(IUnitRegistryRepository repository, ILab
 
     private async Task DeactivateAsync(Guid id, bool delete, CancellationToken ct)
     {
-        await actor.RequireAdminAsync();
+        await actor.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.UnitsManage);
         await repository.TransactionAsync(new(RegistryLockKind.Unit, id.ToString()), async tx =>
         {
             var unit = await tx.UnitAsync(id) ?? throw new RegistryException("unit_not_found", "Unit not found.", 404);
