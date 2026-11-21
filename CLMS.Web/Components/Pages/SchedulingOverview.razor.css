@@ -1,0 +1,37 @@
+.dashboard { container-type: inline-size; margin-block: 1.25rem; }
+.schedule-layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 1rem; }
+@container (min-width: 760px) {
+    .schedule-layout { grid-template-columns: minmax(0, 1fr) clamp(15rem, 27%, 22rem); }
+    .agenda-panel { align-self: stretch; height: 0; min-height: 100%; overflow-y: auto; }
+    .month-panel .date-button { min-height: clamp(74px, 7.5cqi, 105px); padding-top: .65rem; }
+}
+.month-panel { padding: .75rem; background: white; border: 1px solid #e1e4e8; border-radius: .75rem; }
+.month-header { display: flex; align-items: center; }
+.month-header h2 { flex: 1; font-size: 1.125rem; font-weight: 600; }
+.month-header button { width: 44px; font-size: 1.5rem; border-radius: .5rem; }
+.month-header button:hover, .today-button:hover { background: #faf3f5; }
+.month-footer { display: flex; align-items: center; gap: .875rem; padding-top: .625rem; font-size: .8125rem; }
+.month-footer > span { display: inline-flex; align-items: center; gap: .375rem; }
+.today-button { margin-left: auto; padding-inline: .875rem; border: 1px solid #d9bdc5; border-radius: .375rem; color: #831636; font-size: .8125rem; }
+.month-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); border-top: 1px solid #e1e4e8; border-left: 1px solid #e1e4e8; }
+.weekday, .month-cell { border-right: 1px solid #e1e4e8; border-bottom: 1px solid #e1e4e8; }
+.weekday { text-align: center; padding-block: .3rem; font-size: .68rem; text-transform: uppercase; color: #656770; }
+.month-cell { position: relative; min-width: 0; }
+.date-button { display: flex; width: 100%; height: 100%; min-height: 48px; flex-direction: column; align-items: center; padding: .25rem; gap: .2rem; font-size: .8rem; }
+.date-button:hover { background: #faf5f6; }
+.date-button:focus-visible { outline-offset: -2px; }
+.date-number { display: grid; place-items: center; width: 1.55rem; height: 1.55rem; border-radius: 50%; }
+.other-month { color: #777a80; }
+.date-button[aria-pressed=true] .date-number { outline: 1px solid #831636; outline-offset: 1px; }
+.date-button[aria-current=date] .date-number { background: #831636; color: white; }
+.event-markers { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 100%; }
+.class-marker, .booking-marker { width: 6px; height: 6px; flex: none; }
+.class-marker { border-radius: 50%; background: #831636; }
+.booking-marker { transform: rotate(45deg); background: #31578e; }
+.class-preview { display: none; position: absolute; z-index: 5; top: 100%; width: min(15rem, 90cqi); left: clamp(calc(-100% * var(--column)), calc(50% - 7.5rem), calc((7 - var(--column)) * 100% - min(15rem, 90cqi))); padding: .75rem; border: 1px solid #ddd; border-radius: .5rem; box-shadow: 0 4px 16px #0002; background: white; font-size: .8rem; max-height: 14rem; overflow: auto; }
+.preview-entry { display: grid; margin-top: .45rem; padding-top: .45rem; border-top: 1px solid #eee; }
+.preview-entry span { color: #555962; }
+@media (hover: hover) {
+    .month-cell:not([data-dismissed]):hover > .class-preview { display: block; }
+}
+.month-cell:not([data-dismissed]) > .date-button:focus-visible + .class-preview { display: block; }

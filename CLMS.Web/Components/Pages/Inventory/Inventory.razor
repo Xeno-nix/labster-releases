@@ -9,10 +9,7 @@
 <div class="space-y-6">
 
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-            <h1 class="text-primary text-2xl mb-1">Inventory Management</h1>
-            <p class="text-muted text-sm">Physical count records for equipment and consumable supplies</p>
-        </div>
+        <h1 class="text-primary text-2xl">Inventory Management</h1>
         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
             <a href="@($"/inventory/print?tab={ActiveTab}")" target="_blank"
                class="flex items-center gap-2 px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-[#2c2c2c]">
@@ -20,8 +17,8 @@
             </a>
             @if (ActiveTab == "equipment")
             {
-                <button @onclick="OpenScanner"
-                        class="flex items-center gap-2 px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-[#2c2c2c]">
+                <button type="button" @onclick="OpenScanner"
+                        class="inventory-scan-button rounded-lg px-4 py-2 border border-black/10 text-sm font-semibold">
                     Scan QR
                 </button>
                 <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess1"><button @onclick="OpenAddEquipment"
@@ -40,16 +37,16 @@
     </div>
 
     <div class="border-b border-black/10">
-        <nav class="flex gap-1">
-            <button @onclick='() => ActiveTab = "equipment"'
+        <nav class="tab-strip segmented-tabs" aria-label="Inventory sections">
+            <button type="button" aria-pressed='@(ActiveTab == "equipment")' @onclick='() => ActiveTab = "equipment"'
                     class="px-5 py-3 text-sm font-medium transition-colors flex items-center gap-2 -mb-px @(ActiveTab == "equipment" ? "border-b-2 border-primary text-primary" : "text-muted hover:text-[#2c2c2c]")">
-                Equipment / Hardware
-                <span class="px-2 py-0.5 bg-surface rounded-full text-xs">@Equipment.Count</span>
+                Equipment
+                <span class="tab-count text-xs">(@Equipment.Count)</span>
             </button>
-            <button @onclick='() => ActiveTab = "supplies"'
+            <button type="button" aria-pressed='@(ActiveTab == "supplies")' @onclick='() => ActiveTab = "supplies"'
                     class="px-5 py-3 text-sm font-medium transition-colors flex items-center gap-2 -mb-px @(ActiveTab == "supplies" ? "border-b-2 border-primary text-primary" : "text-muted hover:text-[#2c2c2c]")">
-                Consumable Supplies
-                <span class="px-2 py-0.5 bg-surface rounded-full text-xs">@Supplies.Count</span>
+                Supplies
+                <span class="tab-count text-xs">(@Supplies.Count)</span>
             </button>
         </nav>
     </div>
@@ -58,36 +55,18 @@
     {
         <div class="bg-white rounded-lg border border-black/10 shadow-sm">
             <div class="p-5 border-b border-black/10">
-                <div class="flex flex-wrap items-center gap-3">
-                    <input type="text" @bind="EqSearch" @bind:event="oninput"
+                <div class="filter-bar mobile-search-filters items-center">
+                    <input type="search" aria-label="Search equipment" @bind="EqSearch" @bind:event="oninput"
                            placeholder="Search name, serial no., brand..."
                            class="flex-1 min-w-[180px] max-w-sm px-4 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
-                    <select @bind="EqTypeFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
-                        <option value="all">All Types</option>
-                        <option value="computer_unit">Computer Unit</option>
-                        <option value="peripheral">Peripheral</option>
-                        <option value="component">Component</option>
-                        <option value="miscellaneous">Miscellaneous</option>
-                    </select>
-                    <select @bind="EqLabFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
-                        <option value="all">All Labs</option>
-                        @foreach (var lab in Labs)
-                        {
-                            <option value="@lab.LabId">@lab.LabName</option>
-                        }
-                    </select>
-                    <select @bind="EqStatusFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
-                        <option value="all">All Statuses</option>
-                        <option value="available">Available</option>
-                        <option value="in_use">In Use</option>
-                        <option value="maintenance">Maintenance</option>
-                        <option value="damaged">Damaged</option>
-                    </select>
+                    <ResponsiveFilters Fields="EquipmentFilters" OnApply="ApplyEquipmentFilters" />
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full">
+            <p class="table-hint">Scroll sideways for more details.</p>
+
+            <div class="table-scroll overflow-x-auto" tabindex="0" role="region" aria-label="Scrollable records">
+                <table role="table" class="responsive-records inventory-equipment-table data-table table-wide w-full">
                     <thead class="bg-surface">
                         <tr>
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Equip. No.</th>
@@ -98,36 +77,54 @@
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Location</th>
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Status</th>
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">PM</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">CAL</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Actions</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">CAL <span class="row-actions-caption">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-black/5">
                         @foreach (var item in FilteredEquipment)
                         {
-                            <tr class="hover:bg-surface transition-colors">
-                                <td class="px-5 py-3 text-sm font-mono text-[#2c2c2c]">@item.EquipmentNo</td>
-                                <td class="px-5 py-3 text-sm font-mono text-muted">@(item.SerialNo ?? "—")</td>
-                                <td class="px-5 py-3 text-sm font-medium text-[#2c2c2c]">@item.EquipmentName</td>
-                                <td class="px-5 py-3 text-sm text-muted">
-                                    @(item.Brand ?? "—")@(item.ModelNumber is not null ? $" / {item.ModelNumber}" : "")
+                            RenderFragment rowActions = @<text>
+                                <button @onclick="() => OpenQr(item)" title="View / Print QR Code" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                    <i aria-hidden="true" class="fa-solid fa-qrcode"></i> View / Print QR
+                                </button>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess3">
+                                  <button @onclick="() => OpenEditEquipment(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                      <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit details
+                                  </button>
+                                </AuthorizeView>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess4">
+                                  <button @onclick="() => OpenDeleteEquipment(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                      <i aria-hidden="true" class="fa-solid fa-trash-can"></i> Delete item
+                                  </button>
+                                </AuthorizeView>
+                            </text>;
+                            <tr role="row" class="hover:bg-surface transition-colors">
+                                <td role="cell" class="px-5 py-3 text-sm font-mono text-[#2c2c2c]">
+                                    <div class="row-identity">
+                                        <span class="record-identity">
+
+                                            <span class="phone-record-name">
+                                                <span class="phone-card-heading">
+                                                    <strong>@item.EquipmentName</strong>
+                                                    <StatusBadge Status="@item.EquipmentStatus" Kind="equipment" />
+                                                </span>
+                                                <span class="phone-card-subtitle">@item.EquipmentNo</span>
+                                            </span>
+                                            <span class="desktop-record-subtitle">@item.EquipmentNo</span>
+                                        </span>
+                                    </div>
                                 </td>
-                                <td class="px-5 py-3 text-sm text-[#2c2c2c]">@InventoryLookups.EquipmentTypeLabels.GetValueOrDefault(item.EquipmentType, item.EquipmentType)</td>
-                                <td class="px-5 py-3 text-sm text-muted">@item.LocationLabel</td>
-                                <td class="px-5 py-3"><StatusBadge Status="@item.EquipmentStatus" Kind="equipment" /></td>
-                                <td class="px-5 py-3 text-sm text-[#2c2c2c]">@(item.NeedsPm ? "Yes" : "No")</td>
-                                <td class="px-5 py-3 text-sm text-[#2c2c2c]">@(item.NeedsCalibration ? "Yes" : "No")</td>
-                                <td class="px-5 py-3">
-                                    <div class="flex items-center gap-1">
-                                        <button @onclick="() => OpenQr(item)" title="View / Print QR Code" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="qr-code" class="w-4 h-4 text-success"></i>
-                                        </button>
-                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess3"><button @onclick="() => OpenEditEquipment(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="pencil" class="w-4 h-4 text-muted"></i>
-                                        </button></AuthorizeView>
-                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess4"><button @onclick="() => OpenDeleteEquipment(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="trash-2" class="w-4 h-4 text-muted"></i>
-                                        </button></AuthorizeView>
+                                <td role="cell" class="px-5 py-3 text-sm font-mono text-muted" data-label="Serial No.">@(item.SerialNo ?? "—")</td>
+                                <td role="cell" class="px-5 py-3 text-sm font-medium text-[#2c2c2c]" data-label="Item Name">@item.EquipmentName</td>
+                                <td role="cell" class="px-5 py-3 text-sm text-muted" data-label="Brand / Model">@(item.Brand ?? "—")@(item.ModelNumber is not null ? $" / {item.ModelNumber}" : "")</td>
+                                <td role="cell" class="px-5 py-3 text-sm text-[#2c2c2c]" data-label="Type">@InventoryLookups.EquipmentTypeLabels.GetValueOrDefault(item.EquipmentType, item.EquipmentType)</td>
+                                <td role="cell" class="px-5 py-3 text-sm text-muted" data-label="Location">@item.LocationLabel</td>
+                                <td role="cell" class="px-5 py-3" data-label="Status"><StatusBadge Status="@item.EquipmentStatus" Kind="equipment" /></td>
+                                <td role="cell" class="px-5 py-3 text-sm text-[#2c2c2c]" data-label="PM"><span>@(item.NeedsPm ? "Yes" : "No")<span class="phone-inline"> / @(item.NeedsCalibration ? "Yes" : "No")</span></span></td>
+                                <td role="cell" class="px-5 py-3 text-sm text-[#2c2c2c] row-end-cell phone-menu-only" data-label="CAL">
+                                    <div class="row-end-content">
+                                        <div class="row-end-value">@(item.NeedsCalibration ? "Yes" : "No")</div>
+                                        <div class="row-end-actions"><ActionMenu Label="@($"Actions for {item.EquipmentName}")">@rowActions</ActionMenu></div>
                                     </div>
                                 </td>
                             </tr>
@@ -135,7 +132,7 @@
                         @if (!FilteredEquipment.Any())
                         {
                             <tr>
-                                <td colspan="10" class="px-5 py-12 text-center text-sm text-muted">
+                                <td colspan="9" class="px-5 py-12 text-center text-sm text-muted">
                                     @(Equipment.Count == 0 ? "No equipment added yet" : "No equipment matches your filters.")
                                 </td>
                             </tr>
@@ -152,64 +149,67 @@
     {
         <div class="bg-white rounded-lg border border-black/10 shadow-sm">
             <div class="p-5 border-b border-black/10">
-                <div class="flex flex-wrap items-center gap-3">
-                    <input type="text" @bind="SupSearch" @bind:event="oninput"
+                <div class="filter-bar mobile-search-filters items-center">
+                    <input type="search" aria-label="Search supplies" @bind="SupSearch" @bind:event="oninput"
                            placeholder="Search supply name..."
                            class="flex-1 min-w-[180px] max-w-sm px-4 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
-                    <select @bind="SupCategoryFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
-                        <option value="all">All Categories</option>
-                        @foreach (var category in InventoryLookups.SupplyCategories)
-                        {
-                            <option value="@category">@category</option>
-                        }
-                    </select>
-                    <select @bind="SupStatusFilter" class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
-                        <option value="all">All Statuses</option>
-                        <option value="fully_stocked">Fully Stocked</option>
-                        <option value="in_stock">In Stock</option>
-                        <option value="low_stock">Low Stock</option>
-                        <option value="out_of_stock">Out of Stock</option>
-                    </select>
+                    <ResponsiveFilters Fields="SupplyFilters" OnApply="ApplySupplyFilters" />
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full">
+            <p class="table-hint">Scroll sideways for more details.</p>
+
+            <div class="table-scroll overflow-x-auto" tabindex="0" role="region" aria-label="Scrollable records">
+                <table role="table" class="responsive-records data-table w-full">
                     <thead class="bg-surface">
                         <tr>
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Supply Name</th>
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Category</th>
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Unit</th>
                             <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Status</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Remarks</th>
-                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Actions</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Remarks <span class="row-actions-caption">Actions</span></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-black/5">
                         @foreach (var item in FilteredSupplies)
                         {
-                            <tr class="hover:bg-surface transition-colors">
-                                <td class="px-5 py-3 text-sm font-medium text-[#2c2c2c]">@item.SupplyName</td>
-                                <td class="px-5 py-3 text-sm text-muted">@item.Category</td>
-                                <td class="px-5 py-3 text-sm text-muted">@(item.Unit ?? "—")</td>
-                                <td class="px-5 py-3">
-                                    <select value="@item.Status" @onchange="e => ConfirmStatusChange(item, (string)e.Value!)"
-                                            class="px-2 py-1 border border-black/10 rounded-md bg-white text-xs focus:border-primary focus:outline-none cursor-pointer">
-                                        <option value="fully_stocked">Fully Stocked</option>
-                                        <option value="in_stock">In Stock</option>
-                                        <option value="low_stock">Low Stock</option>
-                                        <option value="out_of_stock">Out of Stock</option>
-                                    </select>
+                            RenderFragment rowActions = @<text>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess5">
+                                  <button @onclick="() => OpenEditSupply(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                      <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit details
+                                  </button>
+                                </AuthorizeView>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess6">
+                                  <button @onclick="() => OpenDeleteSupply(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
+                                      <i aria-hidden="true" class="fa-solid fa-trash-can"></i> Delete item
+                                  </button>
+                                </AuthorizeView>
+                            </text>;
+                            <tr role="row" class="hover:bg-surface transition-colors">
+                                <td role="cell" class="px-5 py-3 text-sm font-medium text-[#2c2c2c]">
+                                    <div class="row-identity">
+                                        <span class="record-identity">
+                                            <span class="phone-card-heading">
+                                                <strong>@item.SupplyName</strong>
+                                                <span class="phone-card-status"><StatusBadge Status="@item.Status" Kind="supply" /></span>
+                                            </span>
+                                            <span class="phone-only phone-card-subtitle">#@item.SupplyId</span>
+                                        </span>
+                                    </div>
                                 </td>
-                                <td class="px-5 py-3 text-sm text-muted max-w-[160px] truncate">@(item.Remarks ?? "—")</td>
-                                <td class="px-5 py-3">
-                                    <div class="flex items-center gap-1">
-                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess5"><button @onclick="() => OpenEditSupply(item)" title="Edit" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="pencil" class="w-4 h-4 text-muted"></i>
-                                        </button></AuthorizeView>
-                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.InventoryManage)" Context="actionAccess6"><button @onclick="() => OpenDeleteSupply(item)" title="Delete" class="p-1.5 hover:bg-white rounded-lg transition-colors">
-                                            <i data-lucide="trash-2" class="w-4 h-4 text-muted"></i>
-                                        </button></AuthorizeView>
+                                <td role="cell" class="px-5 py-3 text-sm text-muted" data-label="Category">@item.Category</td>
+                                <td role="cell" class="px-5 py-3 text-sm text-muted" data-label="Unit">@(item.Unit ?? "—")</td>
+                                <td role="cell" class="px-5 py-3" data-label="Status"><select value="@item.Status" @onchange="e => ConfirmStatusChange(item, (string)e.Value!)"
+                                                                        class="px-2 py-1 border border-black/10 rounded-md bg-white text-xs focus:border-primary focus:outline-none cursor-pointer">
+                                                                    <option value="fully_stocked">Fully Stocked</option>
+                                                                    <option value="in_stock">In Stock</option>
+                                                                    <option value="low_stock">Low Stock</option>
+                                                                    <option value="out_of_stock">Out of Stock</option>
+                                                                </select></td>
+                                <td role="cell" class="px-5 py-3 text-sm text-muted max-w-[160px] row-end-cell" data-label="Remarks">
+                                    <div class="row-end-content">
+                                        <div class="row-end-value"><span class="block truncate">@(item.Remarks ?? "—")</span></div>
+                                        <div class="row-end-actions"><ActionMenu Label="@($"Actions for {item.SupplyName}")">@rowActions</ActionMenu></div>
                                     </div>
                                 </td>
                             </tr>
@@ -217,7 +217,7 @@
                         @if (!FilteredSupplies.Any())
                         {
                             <tr>
-                                <td colspan="6" class="px-5 py-12 text-center text-sm text-muted">
+                                <td colspan="5" class="px-5 py-12 text-center text-sm text-muted">
                                     @(Supplies.Count == 0 ? "No supplies added yet" : "No supplies match your filters.")
                                 </td>
                             </tr>
@@ -233,122 +233,72 @@
 
     @if (ShowScanner)
     {
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @onclick="CloseScanner">
-            <div class="bg-white rounded-xl w-full max-w-md shadow-2xl p-6" @onclick:stopPropagation="true">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-[#2c2c2c]">Scan equipment QR</h3>
-                    <button type="button" @onclick="CloseScanner" class="p-2 hover:bg-surface rounded-lg transition-colors">✕</button>
-                </div>
-
-                @if (ScannerHasCamera == null)
+        <UiSheet Label="Scan equipment" OnClose="CloseScanner">
+            <section class="scanner-sheet p-4 sm:p-6">
+                <header class="sheet-header flex items-center justify-between pb-3">
+                    <h2 class="text-lg font-semibold">Scan equipment QR</h2>
+                    <button type="button" @onclick="CloseScanner" aria-label="Close scanner">✕</button>
+                </header>
+                @if (ScannerHasCamera != false)
                 {
-                    <div class="aspect-square bg-surface rounded-lg flex items-center justify-center mb-4">
-                        <p class="text-sm text-muted">Checking for a camera…</p>
+                    <div class="scanner-preview">
+                        <video id="@ScannerVideoElementId" autoplay muted playsinline aria-label="Camera preview"></video>
+                        <span class="scanner-target" aria-hidden="true"></span>
+                        @if (ScannerHasCamera is null)
+                        {
+                            <p role="status" class="scanner-status">Starting camera…</p>
+                        }
                     </div>
-                }
-                else if (ScannerHasCamera == true)
-                {
-                    <div class="relative aspect-square bg-black rounded-lg overflow-hidden mb-4">
-                        <video id="@ScannerVideoElementId" class="w-full h-full object-cover"></video>
-                        <!-- Giingonani ra nako kay di mugana ang sa library na frame hehe -->
-                        <div class="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                            <div style="
-                                width: 75%;
-                                height: 75%;
-                                position: relative;
-                            ">
-                                <!-- Top Left -->
-                                <div style="
-                                    position: absolute;
-                                    top: 0;
-                                    left: 0;
-                                    width: 45px;
-                                    height: 45px;
-                                    border-top: 4px solid #facc15;
-                                    border-left: 4px solid #facc15;
-                                "></div>
-
-                                <!-- Top Right -->
-                                <div style="
-                                    position: absolute;
-                                    top: 0;
-                                    right: 0;
-                                    width: 45px;
-                                    height: 45px;
-                                    border-top: 4px solid #facc15;
-                                    border-right: 4px solid #facc15;
-                                "></div>
-
-                                <!-- Bottom Left -->
-                                <div style="
-                                    position: absolute;
-                                    bottom: 0;
-                                    left: 0;
-                                    width: 45px;
-                                    height: 45px;
-                                    border-bottom: 4px solid #facc15;
-                                    border-left: 4px solid #facc15;
-                                "></div>
-
-                                <!-- Bottom Right -->
-                                <div style="
-                                    position: absolute;
-                                    bottom: 0;
-                                    right: 0;
-                                    width: 45px;
-                                    height: 45px;
-                                    border-bottom: 4px solid #facc15;
-                                    border-right: 4px solid #facc15;
-                                "></div>
-                            </div>
-                        </div>
-                    </div>
-                    <p class="text-xs text-muted mb-4">Point the camera at an equipment QR code.</p>
+                    <p class="mt-2 text-sm text-muted">Center the equipment QR code in the frame.</p>
                 }
                 else
                 {
-                    <div class="px-3 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 mb-4">
-                        @(ScannerError ?? "Unable to find a camera.")
-                    </div>
+                    @if (ScannerError is not null)
+                    {
+                        <p role="alert" class="my-3 text-sm text-error">@ScannerError</p>
+                    }
+                    <button type="button" class="mt-3 rounded-lg border px-4" @onclick="StartScannerCamera">Retry camera</button>
                 }
-
-                <label class="block text-sm font-medium text-[#2c2c2c] mb-2">Or enter equipment code / serial manually</label>
-                <input @bind="ScannerCode" @bind:event="oninput" placeholder="e.g. EQ-001 or SN-A001"
-                       class="w-full px-4 py-3 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
-
-                <div class="flex justify-end gap-3 mt-5">
-                    <button type="button" @onclick="CloseScanner" class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm">Close</button>
-                    <button type="button" @onclick="ScanEquipmentCode" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium">Scan</button>
-                </div>
-            </div>
-        </div>
+                @if (scanFeedback is not null)
+                {
+                    <p role="alert" class="mt-3 text-sm text-error">@scanFeedback</p>
+                }
+                <form class="mt-4 space-y-2" @onsubmit="ScanEquipmentCode" @onsubmit:preventDefault>
+                    <label for="scanner-tag" class="block text-sm font-medium">Equipment tag or serial number</label>
+                    <div class="flex flex-wrap gap-2">
+                        <input id="scanner-tag" @bind="ScannerCode" @bind:event="oninput" placeholder="e.g. EQ-001"
+                               class="min-w-0 flex-1 rounded-lg border border-black/10 bg-surface px-3" />
+                        <button type="submit" class="rounded-lg bg-primary px-4 text-sm font-medium text-white">Find item</button>
+                    </div>
+                </form>
+            </section>
+        </UiSheet>
     }
 
     @if (ShowQr && SelectedEquipment is not null)
     {
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @onclick="CloseQr">
+        <UiSheet Label="Equipment details and assignment" OnClose="CloseQr" >
             <div class="bg-white rounded-xl w-full max-w-lg shadow-2xl p-6 max-h-[90vh] overflow-y-auto" @onclick:stopPropagation="true">
                 <div class="flex items-center justify-between mb-5">
-                    <h3 class="text-lg font-semibold text-[#2c2c2c]">Equipment QR</h3>
+                    <h3 class="text-lg font-semibold text-[#2c2c2c]">@SelectedEquipment.EquipmentName</h3>
                     <button type="button" @onclick="CloseQr" class="p-2 hover:bg-surface rounded-lg transition-colors">✕</button>
                 </div>
 
-                <div class="flex flex-col sm:flex-row gap-5 items-center sm:items-start">
-                    <div id="@QrElementId" class="flex items-center justify-center min-w-[180px] min-h-[180px]"></div>
-
-                    <div class="flex-1 space-y-2">
-                        <p class="text-sm text-muted">Equipment #</p>
-                        <p class="text-xl font-semibold text-[#2c2c2c]">@SelectedEquipment.EquipmentNo</p>
-                        <p class="text-sm text-[#2c2c2c]">@SelectedEquipment.EquipmentName</p>
-                        <p class="text-sm text-muted">Serial: @(SelectedEquipment.SerialNo ?? "N/A")</p>
-                        <p class="text-sm text-muted">Location: @SelectedEquipment.LocationLabel</p>
-                    </div>
-                </div>
-
-                <div class="flex justify-center mt-4">
-                    <button type="button" @onclick="DownloadQr" class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm">Download QR</button>
-                </div>
-
+                <dl class="grid grid-cols-2 gap-3 rounded-lg bg-surface p-3 text-sm">
+                    <div><dt class="text-muted">Equipment tag</dt><dd class="font-medium break-words">@SelectedEquipment.EquipmentNo</dd></div>
+                    <div><dt class="text-muted">Status</dt><dd><StatusBadge Status="@SelectedEquipment.EquipmentStatus" Kind="equipment" /></dd></div>
+                    <div><dt class="text-muted">Location</dt><dd class="break-words">@SelectedEquipment.LocationLabel</dd></div>
+                    <div><dt class="text-muted">Serial number</dt><dd class="break-words">@(SelectedEquipment.SerialNo ?? "—")</dd></div>
+                </dl>
+                @if (scannedItem)
+                {
+                    <button type="button" class="my-3 w-full rounded-lg bg-primary px-4 text-sm font-semibold text-white sm:w-auto" @onclick="ScanAnother">Scan another</button>
+                }
+                <details open="@(!scannedItem)" class="mt-3">
+                    <summary class="cursor-pointer py-2 text-sm font-medium text-primary">Equipment QR code</summary>
+                    <div id="@QrElementId" class="flex min-h-[180px] items-center justify-center"></div>
+                    <button type="button" @onclick="DownloadQr" class="mt-2 rounded-lg border border-black/10 px-4 py-2 text-sm">Download QR</button>
+                </details>
                 <hr class="my-5 border-black/10" />
 
                 <h4 class="text-sm font-semibold text-[#2c2c2c] mb-3">Update record</h4>
@@ -424,7 +374,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </UiSheet>
     }
 </div>
 

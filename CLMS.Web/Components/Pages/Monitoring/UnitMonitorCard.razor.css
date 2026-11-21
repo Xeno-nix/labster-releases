@@ -1,0 +1,33 @@
+.unit-tile {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: .3rem;
+    min-height: 4.75rem;
+    padding: .4rem;
+    border: 1px solid var(--tile-border);
+    border-radius: .55rem;
+    background: var(--tile-bg);
+    color: var(--tile-ink);
+    cursor: pointer;
+    font-size: .8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.online { --tile-bg: #effaf2; --tile-border: #9bcfa9; --tile-ink: #185b30; }
+.offline { --tile-bg: #fff3f2; --tile-border: #e6b2ad; --tile-ink: #973730; }
+.unit-tile:hover { border-color: currentColor; box-shadow: 0 2px 5px #0002; }
+.unit-tile:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.unit-tile:active { transform: translateY(1px); box-shadow: inset 0 1px 3px #0002; }
+
+.unit-row {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    align-items: center;
+    justify-items: start;
+    gap: .625rem;
+    padding: .5rem .75rem;
+    min-height: 2.75rem;
+    text-align: left;
+}
+.pc-name { overflow-wrap: anywhere; font-weight: 400; }
+.presence { font-size: .75rem; }

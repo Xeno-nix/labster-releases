@@ -8,17 +8,13 @@
 @using CLMS.Application.Services
 
 @inject LogbookService LogbookService
+@inject LaboratoryService LaboratoryService
 
 <PageTitle>CLMS — Logbook</PageTitle>
 
 <div class="space-y-6">
 
-    <div>
-        <h1 class="text-primary text-2xl mb-1">Logbook</h1>
-        <p class="text-muted text-sm">
-            Track laboratory usage and sign-in history
-        </p>
-    </div>
+    <h1 class="text-primary text-2xl">Logbook</h1>
     
     @if (!string.IsNullOrEmpty(Success))
     {
@@ -36,11 +32,11 @@
 
     <div class="bg-white rounded-lg border border-black/10 shadow-sm">
 
-        <div class="p-6 border-b border-black/10 flex items-center gap-3 flex-wrap">
+        <div class="p-4 sm:p-6 border-b border-black/10 flex items-center gap-3 flex-wrap">
 
-            <div class="flex items-center gap-3 flex-wrap flex-1">
+            <div class="filter-bar mobile-search-filters items-center flex-1">
 
-                <div class="relative flex-1 min-w-[200px] max-w-md">
+                <div class="filter-search relative flex-1 min-w-0 w-full sm:min-w-[200px] max-w-md">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -57,21 +53,12 @@
                                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
                 </div>
 
-                <select @bind="Filter"
-                        @bind:after="OnFiltersChangedAsync"
-                        class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm
-                               focus:border-primary focus:outline-none cursor-pointer">
-                    <option value="">All time</option>
-                    <option value="day">Today</option>
-                    <option value="week">This week</option>
-                    <option value="month">This month</option>
-                </select>
-
-                @if (!string.IsNullOrEmpty(Search) || !string.IsNullOrEmpty(Filter))
+                <ResponsiveFilters Fields="LogbookFilters" OnApply="ApplyLogbookFiltersAsync" />
+                @if (!string.IsNullOrEmpty(Search) || !string.IsNullOrEmpty(Filter) || LaboratoryId.HasValue)
                 {
                     <button type="button"
                             @onclick="ClearFiltersAsync"
-                       class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-muted">
+                       class="inline-filter-clear px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-muted">
                         Clear
                     </button>
                 }
@@ -89,13 +76,19 @@
             </a>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full">
+        <p class="table-hint">Scroll sideways for more details.</p>
+
+        <div class="table-scroll overflow-x-auto" tabindex="0" role="region" aria-label="Scrollable records">
+            <table role="table" class="responsive-records data-table w-full">
                 <thead class="bg-surface">
                     <tr class="text-left text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">
+                        <th class="px-6 py-4">Name</th>
+                        @if (PageResult.SupportsLaboratory)
+                        {
+                            <th scope="col" class="px-6 py-4">Laboratory</th>
+                        }
                         <th class="px-6 py-4">Date</th>
                         <th class="px-6 py-4">Student ID</th>
-                        <th class="px-6 py-4">Name</th>
                         <th class="px-6 py-4">Purpose</th>
                         <th class="px-6 py-4">Time-in</th>
                         <th class="px-6 py-4">Time-out</th>
@@ -106,7 +99,7 @@
                     @if (PageResult.Entries.Count == 0)
                     {
                         <tr>
-                            <td colspan="6" class="px-6 py-12 text-center text-sm text-muted">
+                            <td colspan="@(PageResult.SupportsLaboratory ? 7 : 6)" class="px-6 py-12 text-center text-sm text-muted">
                                 No entries found.
                             </td>
                         </tr>
@@ -115,24 +108,17 @@
                     {
                         @foreach (var entry in PageResult.Entries)
                         {
-                            <tr class="hover:bg-surface transition-colors">
-                                <td class="px-6 py-4 text-sm text-muted whitespace-nowrap">
-                                    @(entry.Date?.ToString("MMM dd, yyyy") ?? "—")
-                                </td>
-                                <td class="px-6 py-4 text-sm font-mono text-xs text-[#2c2c2c] whitespace-nowrap">
-                                    @entry.StudentId
-                                </td>
-                                <td class="px-6 py-4 text-sm font-medium text-[#2c2c2c]">
-                                    @entry.Name
-                                </td>
-                                <td class="px-6 py-4 text-sm text-[#2c2c2c]">
-                                    @entry.Purpose
-                                </td>
-                                <td class="px-6 py-4 text-sm text-[#2c2c2c] whitespace-nowrap">
-                                    @(entry.TimeIn?.ToString("h:mm tt") ?? "—")
-                                </td>
-                                <td class="px-6 py-4 text-sm whitespace-nowrap">
-                                    @if (entry.TimeOut.HasValue)
+                            <tr role="row" class="hover:bg-surface transition-colors">
+                                <td role="cell" class="px-6 py-4 text-sm font-medium text-[#2c2c2c]">@entry.Name</td>
+                                @if (PageResult.SupportsLaboratory)
+                                {
+        <td role="cell" class="px-6 py-4 text-sm text-muted" data-label="Laboratory">@(entry.Laboratory ?? "—")</td>
+                                }
+                                <td role="cell" class="px-6 py-4 text-sm text-muted whitespace-nowrap" data-label="Date">@(entry.Date?.ToString("MMM dd, yyyy") ?? "—")</td>
+                                <td role="cell" class="px-6 py-4 text-sm font-mono text-xs text-[#2c2c2c] whitespace-nowrap" data-label="Student ID">@entry.StudentId</td>
+                                <td role="cell" class="px-6 py-4 text-sm text-[#2c2c2c]" data-label="Purpose">@entry.Purpose</td>
+                                <td role="cell" class="px-6 py-4 text-sm text-[#2c2c2c] whitespace-nowrap" data-label="Time-in">@(entry.TimeIn?.ToString("h:mm tt") ?? "—")</td>
+                                <td role="cell" class="px-6 py-4 text-sm whitespace-nowrap" data-label="Time-out">@if (entry.TimeOut.HasValue)
                                     {
                                         <span class="text-[#2c2c2c]">@entry.TimeOut.Value.ToString("h:mm tt")</span>
                                     }
@@ -141,8 +127,7 @@
                                         <span class="inline-block px-2 py-1 bg-success text-white rounded text-xs font-medium">
                                             In Session
                                         </span>
-                                    }
-                                </td>
+                                    }</td>
                             </tr>
                         }
                     }
@@ -202,11 +187,35 @@
 </div>
 
 @code {
+    private IReadOnlyList<ResponsiveFilterField> LogbookFilters
+    {
+        get
+        {
+            var fields = new List<ResponsiveFilterField>
+            {
+                new("Date range", "All time", "", Filter, [("day", "Today"), ("week", "This week"), ("month", "This month")])
+            };
+            if (PageResult.SupportsLaboratory)
+                fields.Add(new("Laboratory", "All labs", "", LaboratoryId?.ToString(), Laboratories.Select(lab => (lab.Id.ToString(), lab.Name))));
+            return fields;
+        }
+    }
+
+    private Task ApplyLogbookFiltersAsync(string[] values)
+    {
+        Filter = values[0];
+        LaboratoryId = int.TryParse(values.ElementAtOrDefault(1), out var lab) ? lab : null;
+        return OnFiltersChangedAsync();
+    }
+
     [SupplyParameterFromQuery(Name = "search")]
     private string? Search { get; set; }
 
     [SupplyParameterFromQuery(Name = "filter")]
     private string? Filter { get; set; }
+
+    [SupplyParameterFromQuery(Name = "lab")]
+    private int? LaboratoryId { get; set; }
 
     [SupplyParameterFromQuery(Name = "page")]
     private int? Page { get; set; }
@@ -220,6 +229,7 @@
     private int CurrentPage => Page is > 0 ? Page.Value : 1;
 
     private LogbookPageResultDTO PageResult { get; set; } = new();
+    private IReadOnlyList<CLMS.Application.DTOs.Booking.LaboratoryDTO> Laboratories { get; set; } = [];
 
     protected override Task OnParametersSetAsync() => LoadLogsAsync();
 
@@ -233,6 +243,7 @@
     {
         Search = null;
         Filter = null;
+        LaboratoryId = null;
         Page = 1;
         await LoadLogsAsync();
     }
@@ -243,8 +254,11 @@
         {
             Search = Search,
             Filter = Filter,
+            LaboratoryId = LaboratoryId,
             Page = CurrentPage,
         });
+        if (PageResult.SupportsLaboratory && Laboratories.Count == 0)
+            Laboratories = (await LaboratoryService.GetAllAsync()).OrderBy(lab => lab.Name).ToList();
     }
 
     private string PageUrl(int page)
@@ -252,6 +266,7 @@
         var qs = new List<string> { $"page={page}" };
         if (!string.IsNullOrEmpty(Search)) qs.Add($"search={Uri.EscapeDataString(Search)}");
         if (!string.IsNullOrEmpty(Filter)) qs.Add($"filter={Uri.EscapeDataString(Filter)}");
+        if (LaboratoryId is > 0) qs.Add($"lab={LaboratoryId}");
         return "/logbook?" + string.Join("&", qs);
     }
 
@@ -262,6 +277,7 @@
             var qs = new List<string>();
             if (!string.IsNullOrEmpty(Search)) qs.Add($"search={Uri.EscapeDataString(Search)}");
             if (!string.IsNullOrEmpty(Filter)) qs.Add($"filter={Uri.EscapeDataString(Filter)}");
+            if (LaboratoryId is > 0) qs.Add($"lab={LaboratoryId}");
             return "/logbook/export" + (qs.Count > 0 ? "?" + string.Join("&", qs) : string.Empty);
         }
     }

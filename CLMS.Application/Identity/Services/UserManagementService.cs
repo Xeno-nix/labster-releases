@@ -35,7 +35,7 @@ public sealed class UserManagementService(
         changes.NotifyChanged();
     }
 
-    public async Task UpdateUser(Guid userId, Role role, string firstName, string lastName, string? middleName = null,
+    public async Task UpdateUser(Guid userId, Role? role, string firstName, string lastName, string? middleName = null,
         string? suffix = null)
     {
         var actorId = await actor.RequirePrivilegeAsync(Privileges.UsersEdit);
@@ -43,7 +43,7 @@ public sealed class UserManagementService(
         if (storedUser is null) return;
         if (storedUser.DeletedAt is not null) return;
         
-        storedUser.UserRole = role;
+        if (role.HasValue) storedUser.UserRole = role.Value;
         
         storedUser.FirstName = new Name(firstName);
         storedUser.LastName = new Name(lastName);

@@ -16,7 +16,7 @@
         </div>
     }
 
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <div class="filter-bar mobile-search-filters items-center">
         <input type="text"
                @bind="bookingSearch"
                @bind:event="oninput"
@@ -24,15 +24,7 @@
                placeholder="Search requestor, email, or purpose..."
                class="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary sm:max-w-sm" />
 
-        <select @bind="bookingLabFilter"
-                @bind:after="ResetBookingPage"
-                class="rounded-lg border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-primary">
-            <option value="">All Laboratories</option>
-            @foreach (var lab in laboratories)
-            {
-                <option value="@lab.Id">@lab.Name</option>
-            }
-        </select>
+        <ResponsiveFilters Fields="BookingFilters" OnApply="ApplyBookingFilters" />
 
         <span class="text-sm text-muted sm:ml-auto">
             @FilteredBookings.Count() booking(s)
@@ -40,8 +32,9 @@
     </div>
 
     <div class="overflow-hidden rounded-xl border border-black/10 bg-white">
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[850px] text-left">
+        <p class="table-hint">Scroll sideways for more details.</p>
+        <div class="table-scroll overflow-x-auto" tabindex="0" role="region" aria-label="Scrollable records">
+            <table role="table" class="responsive-records data-table w-full min-w-[850px] text-left">
                 <thead class="border-b border-black/10 bg-gray-50">
                     <tr class="text-xs font-semibold uppercase tracking-wide text-muted">
                         <th class="px-5 py-4">Requestor</th>
@@ -49,15 +42,14 @@
                         <th class="px-5 py-4">Laboratory</th>
                         <th class="px-5 py-4">Date</th>
                         <th class="px-5 py-4">Time</th>
-                        <th class="px-5 py-4">Purpose</th>
-                        <th class="px-5 py-4 text-right">Actions</th>
+                        <th class="px-5 py-4">Purpose <span class="row-actions-caption">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-black/5">
                     @if (isLoadingBookings)
                     {
                         <tr>
-                            <td colspan="7" class="px-5 py-12 text-center text-sm text-muted">
+                            <td colspan="6" class="px-5 py-12 text-center text-sm text-muted">
                                 Loading bookings...
                             </td>
                         </tr>
@@ -65,7 +57,7 @@
                     else if (!FilteredBookings.Any())
                     {
                         <tr>
-                            <td colspan="7" class="px-5 py-14 text-center">
+                            <td colspan="6" class="px-5 py-14 text-center">
                                 <div class="flex flex-col items-center gap-2">
                                     <span class="text-2xl">📅</span>
                                     <p class="font-medium text-[#2c2c2c]">
@@ -82,41 +74,40 @@
                     {
                         @foreach (var booking in BookingPageItems)
                         {
-                            <tr class="transition-colors hover:bg-gray-50/70">
-                                <td class="px-5 py-4 text-sm font-medium text-[#2c2c2c]">
-                                    @booking.RequestorName
+                            RenderFragment rowActions = @<text>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BookingsManage)" Context="actionAccess9">
+                                <button type="button"
+                                    @onclick="() => OpenEditBooking(booking.Id)"
+                                    title="Edit booking"
+                                    class="rounded-lg p-2 text-muted hover:bg-gray-100 hover:text-primary">
+                                    <i aria-hidden="true" class="fa-solid fa-pen"></i> Edit
+                                </button>
+                                </AuthorizeView>
+                                <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BookingsManage)" Context="actionAccess10">
+                                <button type="button"
+                                    @onclick="() => DeleteBooking(booking.Id)"
+                                    disabled="@(deletingBookingId == booking.Id)"
+                                    class="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50">
+                                    <i aria-hidden="true" class="fa-solid fa-trash-can"></i> @(deletingBookingId == booking.Id ? "Deleting..." : "Delete")
+                                    </button>
+                                </AuthorizeView>
+                            </text>;
+                            <tr role="row" class="transition-colors hover:bg-gray-50/70">
+                                <td role="cell" class="px-5 py-4 text-sm font-medium text-[#2c2c2c]">
+                                    <div class="row-identity">
+                                        <span class="record-identity">@booking.RequestorName</span>
+                                    </div>
                                 </td>
-                                <td class="px-5 py-4 text-sm text-muted">
-                                    @booking.Email
-                                </td>
-                                <td class="px-5 py-4 text-sm text-[#2c2c2c]">
-                                    @GetLaboratoryName(booking.LaboratoryId)
-                                </td>
-                                <td class="whitespace-nowrap px-5 py-4 text-sm">
-                                    @booking.Date.ToString("MMM dd, yyyy")
-                                </td>
-                                <td class="whitespace-nowrap px-5 py-4 text-sm">
-                                    @booking.StartTime.ToString("hh:mm tt") - @booking.EndTime.ToString("hh:mm tt")
-                                </td>
-                                <td class="max-w-[200px] px-5 py-4 text-sm text-muted">
-                                    <span class="block truncate" title="@booking.Purpose">
-                                        @booking.Purpose
-                                    </span>
-                                </td>
-                                <td class="px-5 py-4">
-                                    <div class="flex justify-end gap-1">
-                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BookingsManage)" Context="actionAccess9"><button type="button"
-                                                @onclick="() => OpenEditBooking(booking.Id)"
-                                                title="Edit booking"
-                                                class="rounded-lg p-2 text-muted hover:bg-gray-100 hover:text-primary">
-                                            Edit
-                                        </button></AuthorizeView>
-                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BookingsManage)" Context="actionAccess10"><button type="button"
-                                                @onclick="() => DeleteBooking(booking.Id)"
-                                                disabled="@(deletingBookingId == booking.Id)"
-                                                class="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50">
-                                            @(deletingBookingId == booking.Id ? "Deleting..." : "Delete")
-                                        </button></AuthorizeView>
+                                <td role="cell" class="px-5 py-4 text-sm text-muted" data-label="Contact">@booking.Email</td>
+                                <td role="cell" class="px-5 py-4 text-sm text-[#2c2c2c]" data-label="Laboratory">@GetLaboratoryName(booking.LaboratoryId)</td>
+                                <td role="cell" class="whitespace-nowrap px-5 py-4 text-sm" data-label="Date">@booking.Date.ToString("MMM dd, yyyy")</td>
+                                <td role="cell" class="whitespace-nowrap px-5 py-4 text-sm" data-label="Time">@booking.StartTime.ToString("hh:mm tt") - @booking.EndTime.ToString("hh:mm tt")</td>
+                                <td role="cell" class="max-w-[200px] px-5 py-4 text-sm text-muted row-end-cell" data-label="Purpose">
+                                    <div class="row-end-content">
+                                        <div class="row-end-value"><span class="block truncate" title="@booking.Purpose">
+                                                                    @booking.Purpose
+                                                                </span></div>
+                                        <div class="row-end-actions"><ActionMenu Label="@($"Actions for {booking.RequestorName}")">@rowActions</ActionMenu></div>
                                     </div>
                                 </td>
                             </tr>
@@ -163,6 +154,15 @@
 </div>
 
 @code {
+    private ResponsiveFilterField[] BookingFilters =>
+        [new("Laboratory", "All labs", "", bookingLabFilter, laboratories.Select(lab => (lab.Id.ToString(), lab.Name)))];
+
+    private void ApplyBookingFilters(string[] values)
+    {
+        bookingLabFilter = values[0];
+        ResetBookingPage();
+    }
+
     [Parameter, EditorRequired]
     public RenderFragment<RenderFragment> HeaderTemplate { get; set; } = default!;
 

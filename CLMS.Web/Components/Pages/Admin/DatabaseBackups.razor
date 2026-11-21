@@ -37,23 +37,36 @@
 
     <p class="text-sm text-muted">Restore during maintenance, with agents and other users disconnected. It replaces tables contained in the backup; tables added afterward remain. A recovery backup is created first. Restore is not transactional.</p>
 
-    <div class="overflow-x-auto rounded-lg border border-black/10">
-        <table class="w-full text-left text-sm">
+    <div class="table-scroll overflow-x-auto rounded-lg border border-black/10">
+        <table role="table" class="responsive-records data-table w-full text-left text-sm">
             <caption class="sr-only">Available database backups</caption>
-            <thead class="bg-surface"><tr><th class="p-3">Created (PH time)</th><th class="p-3">Type</th><th class="p-3">Size</th><th class="p-3">Action</th></tr></thead>
+            <thead class="bg-surface"><tr><th class="p-3">Created (PH time)</th><th class="p-3">Type</th><th class="p-3">Size <span class="row-actions-caption">Action</span></th></tr></thead>
             <tbody>
                 @foreach (var backup in Items)
                 {
-                    <tr class="border-t border-black/10" @key="backup.FileName">
-                        <td class="p-3" title="@backup.FileName">@backup.CreatedUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td class="p-3">@backup.Kind</td>
-                        <td class="p-3">@((backup.Bytes / 1024d).ToString("N1")) KB</td>
-                        <td class="p-3"><AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsRestore)" Context="actionAccess22"><button type="button" disabled="@Busy" @onclick="() => SelectRestore(backup)" class="rounded-lg border border-black/10 px-3 py-2 disabled:opacity-50">Restore</button></AuthorizeView></td>
+                    RenderFragment rowActions = @<text>
+                        <button type="button" disabled="@Busy" @onclick="() => SelectRestore(backup)" class="rounded-lg border border-black/10 px-3 py-2 disabled:opacity-50"><i aria-hidden="true" class="fa-solid fa-clock-rotate-left"></i> Restore</button>
+                    </text>;
+                    <tr role="row" class="border-t border-black/10" @key="backup.FileName">
+                        <td role="cell" class="p-3" title="@backup.FileName">
+                            <div class="row-identity">
+                                <span class="record-identity">@backup.CreatedUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd HH:mm:ss")</span>
+                            </div>
+                        </td>
+                        <td role="cell" class="p-3" data-label="Type">@backup.Kind</td>
+                        <td role="cell" class="p-3 row-end-cell" data-label="Size">
+                          <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsRestore)" Context="actionAccess22">
+                            <div class="row-end-content">
+                              <div class="row-end-value">@((backup.Bytes / 1024d).ToString("N1")) KB</div>
+                              <div class="row-end-actions"><span class="compact-row-menu"><ActionMenu Label="Backup actions">@rowActions</ActionMenu></span><span class="desktop-row-actions">@rowActions</span></div>
+                            </div>
+                          </AuthorizeView>
+                        </td>
                     </tr>
                 }
                 @if (Items.Count == 0)
                 {
-                    <tr><td colspan="4" class="p-5 text-center text-muted">No backups available yet.</td></tr>
+                    <tr><td colspan="3" class="p-5 text-center text-muted">No backups available yet.</td></tr>
                 }
             </tbody>
         </table>

@@ -1,3 +1,4 @@
+using CLMS.Web.Components.Shared;
 using CLMS.Application.DTOs.Inventory;
 using CLMS.Application.Interfaces;
 using Microsoft.AspNetCore.Components;
@@ -64,6 +65,27 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     private EquipmentItem EquipmentFormModel { get; set; } = new();
 
     private bool ShowQr { get; set; }
+    private ResponsiveFilterField[] EquipmentFilters =>
+    [
+        new("Type", "All types", "all", EqTypeFilter, InventoryLookups.EquipmentTypeLabels.Select(entry => (entry.Key, entry.Value))),
+        new("Laboratory", "All labs", "all", EqLabFilter, Labs.Select(lab => (lab.LabId.ToString(), lab.LabName))),
+        new("Status", "All statuses", "all", EqStatusFilter,
+            [("available", "Available"), ("in_use", "In use"), ("maintenance", "Maintenance"), ("damaged", "Damaged")])
+    ];
+
+    private ResponsiveFilterField[] SupplyFilters =>
+    [
+        new("Category", "All categories", "all", SupCategoryFilter, InventoryLookups.SupplyCategories.Select(category => (category, category))),
+        new("Status", "All statuses", "all", SupStatusFilter,
+            [("fully_stocked", "Fully stocked"), ("in_stock", "In stock"), ("low_stock", "Low stock"), ("out_of_stock", "Out of stock")])
+    ];
+
+    private void ApplyEquipmentFilters(string[] values) =>
+        (EqTypeFilter, EqLabFilter, EqStatusFilter) = (values[0], values[1], values[2]);
+
+    private void ApplySupplyFilters(string[] values) =>
+        (SupCategoryFilter, SupStatusFilter) = (values[0], values[1]);
+
     private bool ShowScanner { get; set; }
     private EquipmentItem? SelectedEquipment { get; set; }
     private string QrEditStatus { get; set; } = "available";
@@ -78,7 +100,9 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
     private string ScannerCode { get; set; } = string.Empty;
     private bool? ScannerHasCamera { get; set; } // null = checking, true = active, false = none found
     private string? ScannerError { get; set; }
-    private bool _pendingCameraCheck;
+    private int scannerRun;
+    private bool scannedItem;
+    private string? scanFeedback;
     private bool _pendingCameraStart;
 
     private bool ShowSupplyForm { get; set; }
@@ -116,51 +140,31 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await JS.InvokeVoidAsync("lucide.createIcons");
+        await JS.InvokeVoidAsync("clms.refreshIcons");
         if (_pendingQrRender && ShowQr && SelectedEquipment is not null)
         {
             _pendingQrRender = false;
             await JS.InvokeVoidAsync("clmsInventoryQr.render", QrElementId, BuildEquipmentQrPayload(SelectedEquipment));
         }
 
-        if (_pendingCameraCheck && ShowScanner)
-        {
-            _pendingCameraCheck = false;
-
-            var hasCamera = await JS.InvokeAsync<bool>("clmsInventoryScanner.hasCamera");
-            ScannerHasCamera = hasCamera;
-
-            if (hasCamera)
-            {
-                // Don't start the camera yet — the <video> element only exists in the
-                // DOM once Blazor re-renders with ScannerHasCamera == true. Flag it for
-                // the *next* OnAfterRenderAsync pass, which fires after that render.
-                _pendingCameraStart = true;
-            }
-            else
-            {
-                ScannerError = "Unable to find a camera.";
-            }
-
-            StateHasChanged();
-            return;
-        }
-
-        if (_pendingCameraStart && ShowScanner && ScannerHasCamera == true)
+        if (_pendingCameraStart && ShowScanner && ScannerHasCamera != false)
         {
             _pendingCameraStart = false;
 
             _selfRef ??= DotNetObjectReference.Create(this);
+            var run = scannerRun;
             var result = await JS.InvokeAsync<ScannerStartResult>(
-                "clmsInventoryScanner.start", ScannerVideoElementId, _selfRef);
+                "clmsInventoryScanner.start", ScannerVideoElementId, _selfRef, run);
+            if (run != scannerRun || !ShowScanner) return;
 
+            ScannerHasCamera = result.Ok;
             if (!result.Ok)
             {
                 // e.g. camera permission denied, or already in use by another app/tab.
                 ScannerHasCamera = false;
                 ScannerError = result.Error ?? "Unable to find a camera.";
-                StateHasChanged();
             }
+            StateHasChanged();
         }
     }
 
@@ -172,12 +176,13 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
     /// <summary>Invoked from JS (inventory-scanner.js) whenever the camera decodes a QR code.</summary>
     [JSInvokable]
-    public async Task OnQrScanned(string data)
+    public Task OnQrScanned(string data, int run) => InvokeAsync(() =>
     {
-        await JS.InvokeVoidAsync("clmsInventoryScanner.stop");
+        if (run != scannerRun || !ShowScanner) return;
+        ScannerHasCamera = false;
         ResolveAndOpenFromScan(data);
         StateHasChanged();
-    }
+    });
 
     public async ValueTask DisposeAsync()
     {
@@ -284,6 +289,7 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
 
     private void OpenQr(EquipmentItem item)
     {
+        scannedItem = false;
         SelectedEquipment = item;
         LoadQrEditFields(item);
         ShowQr = true;
@@ -381,28 +387,50 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
         ShowScanner = true;
         ScannerCode = string.Empty;
         ScannerError = null;
-        ScannerHasCamera = null; // triggers the "checking..." state, resolved in OnAfterRenderAsync
-        _pendingCameraCheck = true;
+        scanFeedback = null;
+        StartScannerCamera();
+    }
+
+    private void StartScannerCamera()
+    {
+        scannerRun++;
+        ScannerHasCamera = null;
+        ScannerError = null;
+        scanFeedback = null;
+        _pendingCameraStart = true;
+    }
+
+    private void ScanAnother()
+    {
+        CloseQr();
+        OpenScanner();
     }
 
     private async Task CloseScanner()
     {
-        await JS.InvokeVoidAsync("clmsInventoryScanner.stop");
+        scannerRun++;
+        _pendingCameraStart = false;
         ShowScanner = false;
         ScannerCode = string.Empty;
         ScannerHasCamera = null;
         ScannerError = null;
+        scanFeedback = null;
+        await JS.InvokeVoidAsync("clmsInventoryScanner.stop");
     }
 
-    private void ScanEquipmentCode() => ResolveAndOpenFromScan(ScannerCode);
+    private async Task ScanEquipmentCode()
+    {
+        if (!ResolveAndOpenFromScan(ScannerCode)) return;
+        await JS.InvokeVoidAsync("clmsInventoryScanner.stop");
+    }
 
-    private void ResolveAndOpenFromScan(string query)
+    private bool ResolveAndOpenFromScan(string query)
     {
         query = (query ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(query))
         {
-            Toasts.Show("No code detected. Try again or enter it manually.", ToastService.ToastType.Warning);
-            return;
+            scanFeedback = "Enter an equipment tag or serial number.";
+            return false;
         }
 
         EquipmentItem? match = null;
@@ -420,21 +448,24 @@ public partial class Inventory : ComponentBase, IAsyncDisposable
         }
 
         match ??= Equipment.FirstOrDefault(item =>
-            item.EquipmentNo.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-            (item.SerialNo ?? string.Empty).Contains(query, StringComparison.OrdinalIgnoreCase));
+            string.Equals(item.EquipmentNo, query, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(item.SerialNo, query, StringComparison.OrdinalIgnoreCase));
 
         if (match is null)
         {
-            Toasts.Show("No matching equipment was found for that scan.", ToastService.ToastType.Warning);
-            return;
+            scanFeedback = "No equipment matches this code. Try another label or search by tag.";
+            return false;
         }
 
+        scannerRun++;
+        scannedItem = true;
         SelectedEquipment = match;
         LoadQrEditFields(match);
         ShowScanner = false;
         ShowQr = true;
         _pendingQrRender = true;
         ScannerCode = string.Empty;
+        return true;
     }
 
     private void OpenAddSupply()

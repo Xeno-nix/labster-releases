@@ -37,4 +37,11 @@
 
 .screen-pagination button:disabled { opacity: .4; }
 .screen-pagination button:not(:disabled):hover { background: #1f2937; }
+
+@media (max-width: 639px), (max-height: 480px) {
+    .screen-wall-page { overflow-y: auto; }
+    .screen-wall-area { min-height: min(62vw, 18rem); }
+    .screen-pagination { flex-wrap: wrap; }
+    .screen-pagination button { min-height: 44px; }
+}
 .screen-pagination button:focus-visible { outline: 2px solid white; outline-offset: 2px; }

@@ -54,15 +54,15 @@ else
             </div>
         }
 
-        <div class="p-6">
-            <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-                <div class="relative w-full sm:w-72">
+        <div class="p-3 sm:p-6">
+            <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 mb-4">
+                <div class="relative w-full sm:w-72 sm:min-w-[200px]">
                     <input @bind="SearchQuery"
                            @bind:event="oninput"
                            placeholder="Search by ID or name..."
                            class="w-full px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
                 </div>
-                <div class="flex items-center justify-end gap-2 sm:ml-auto">
+                <div class="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
                     <AuthorizeView Policy="@(Privileges.Prefix + Privileges.ClassListsManage)" Context="actionAccess18"><button type="button"
                             class="flex items-center gap-2 px-4 py-2.5 border border-black/10 rounded-lg bg-surface text-sm font-medium text-[#2c2c2c] hover:bg-black/5 transition-colors"
                             title="Import students from a CSV file"
@@ -90,28 +90,41 @@ else
             }
             else
             {
-                <div class="roster-scroll">
-                    <table class="w-full text-sm">
+                <p class="table-hint">Scroll sideways for more details.</p>
+                <div class="table-scroll roster-scroll" tabindex="0" role="region" aria-label="Scrollable records">
+                    <table role="table" class="responsive-records data-table table-roster w-full text-sm">
                         <thead>
                             <tr class="text-left text-xs uppercase tracking-wide text-muted">
                                 <th class="sticky top-0 z-10 bg-white py-2.5 pr-4 font-medium border-b border-black/10">Student ID</th>
-                                <th class="sticky top-0 z-10 bg-white py-2.5 pr-4 font-medium border-b border-black/10">Name</th>
-                                <th class="sticky top-0 z-10 bg-white w-16 py-2.5 text-right font-medium border-b border-black/10">Remove</th>
+                                <th class="sticky top-0 z-10 bg-white py-2.5 pr-4 font-medium border-b border-black/10">Name <span class="row-actions-caption">Actions</span></th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var student in FilteredRoster)
                             {
-                                <tr class="border-b border-black/5 last:border-0 hover:bg-surface/60">
-                                    <td class="py-3 pr-4 font-mono text-xs">@student.StudentId</td>
-                                    <td class="py-3 pr-4">@student.DisplayName</td>
-                                    <td class="py-3 text-right">
-                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.ClassListsManage)" Context="actionAccess20"><button type="button"
-                                                class="p-1.5 rounded-lg text-muted hover:text-[#b3261e] hover:bg-red-50 transition-colors"
-                                                title="Remove from class"
-                                                @onclick="() => PromptRemoveAsync(student)">
-                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                        </button></AuthorizeView>
+                                RenderFragment rowActions = @<AuthorizeView Policy="@(Privileges.Prefix + Privileges.ClassListsManage)" Context="actionAccess20"><text>
+                                    <button type="button"
+                                        class="p-1.5 rounded-lg text-muted hover:text-[#b3261e] hover:bg-red-50 transition-colors"
+                                        title="Remove from class"
+                                        @onclick="() => PromptRemoveAsync(student)">
+                                        <i aria-hidden="true" class="fa-solid fa-trash-can"></i> Remove student
+                                    </button>
+                                </text></AuthorizeView>;
+                                <tr role="row" class="border-b border-black/5 last:border-0 hover:bg-surface/60">
+                                    <td role="cell" class="py-3 pr-4 font-mono text-xs">
+                                        <div class="row-identity">
+                                            <span class="record-identity">
+                                                <span class="card-tag">@student.StudentId</span>
+                                                <strong class="phone-record-name">@student.DisplayName</strong>
+                                                <span class="desktop-record-subtitle">@student.StudentId</span>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td role="cell" class="py-3 pr-4 row-end-cell phone-menu-only" data-label="Name">
+                                        <div class="row-end-content">
+                                            <div class="row-end-value">@student.DisplayName</div>
+                                            <div class="row-end-actions"><ActionMenu Label="@($"Actions for {student.DisplayName}")">@rowActions</ActionMenu></div>
+                                        </div>
                                     </td>
                                 </tr>
                             }

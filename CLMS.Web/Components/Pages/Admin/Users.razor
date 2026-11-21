@@ -30,10 +30,7 @@
 
 <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-            <h1 class="text-primary text-2xl mb-1">User Management</h1>
-            <p class="text-muted text-sm">Manage registered users and their roles</p>
-        </div>
+        <h1 class="text-primary text-2xl">User Management</h1>
         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
             <AuthorizeView Policy="@(Privileges.Prefix + Privileges.SecurityManage)"><a href="/admin/users/roles" class="rounded-lg border border-black/10 px-4 py-2 text-sm text-primary">Role privileges</a></AuthorizeView>
             <AuthorizeView Policy="RegisterUsers" Context="actionAccess21"><button type="button"
@@ -48,8 +45,8 @@
     <ViewUserModal @bind-IsOpen="_showViewUserModal" @bind-UserId="SelectedUserId" />
 
     <div class="bg-white rounded-lg border border-black/10 shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-black/10 flex items-center gap-3 flex-wrap">
-            <div class="relative flex-1 min-w-[200px] max-w-md">
+        <div class="filter-bar mobile-search-filters p-5 border-b border-black/10 items-center">
+            <div class="filter-search relative flex-1 min-w-[200px] max-w-md">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" aria-hidden="true">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -61,37 +58,30 @@
                        aria-label="Search users by name or email" placeholder="Search by name or email..."
                        class="w-full pl-10 pr-4 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
             </div>
-            <select @bind="RoleFilter" aria-label="Filter users by role"
-                    class="px-3 py-2 border border-black/10 rounded-lg bg-surface text-sm focus:border-primary focus:outline-none cursor-pointer">
-                <option value="">All Roles</option>
-                @foreach (var role in Enum.GetNames<Role>())
-                {
-                    <option value="@role">@role</option>
-                }
-            </select>
+            <ResponsiveFilters Fields="UserFilters" OnApply="ApplyUserFilters" />
             @if (HasFilters)
             {
                 <button type="button" @onclick="ClearFilters"
-                        class="px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-muted">
+                        class="inline-filter-clear px-4 py-2 border border-black/10 rounded-lg hover:bg-surface transition-colors text-sm text-muted">
                     Clear
                 </button>
             }
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left">
+        <p class="table-hint">Scroll sideways for more details.</p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable users table">
+            <table role="table" class="responsive-records data-table w-full text-left">
                 <thead class="bg-surface">
                     <tr>
                         <th scope="col" class="w-1/3 px-5 py-3 text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Name</th>
                         <th scope="col" class="w-1/3 px-5 py-3 text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Email</th>
-                        <th scope="col" class="px-5 py-3 text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Role</th>
-                        <th scope="col" class="px-5 py-3 text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide text-right">Actions</th>
+                        <th scope="col" class="px-5 py-3 text-xs font-semibold text-[#2c2c2c] uppercase tracking-wide">Role <span class="row-actions-caption">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-black/5">
                     @if (filteredUsers.Count == 0)
                     {
                         <tr>
-                            <td colspan="4" class="px-5 py-12 text-center text-sm text-muted">
+                            <td colspan="3" class="px-5 py-12 text-center text-sm text-muted">
                                 @(_users.Count == 0 ? "No registered users to display." : "No users match your search or role filter.")
                             </td>
                         </tr>
@@ -100,18 +90,20 @@
                     {
                         @foreach (var user in pageUsers)
                         {
-                            <tr @key="user.Id" class="hover:bg-surface transition-colors">
-                                <td class="px-5 py-3 text-sm font-medium text-[#2c2c2c]">@user.FullName</td>
-                                <td class="px-5 py-3 text-sm text-muted">@user.Email</td>
-                                <td class="px-5 py-3 text-sm text-[#2c2c2c]">@user.Role</td>
-                                <td class="px-5 py-3">
-                                    <div class="flex justify-end">
-                                        <button type="button"
-                                                @onclick="() => ViewUser(user.Id)"
-                                                aria-label="View @user.FullName"
-                                                class="px-3 py-1.5 border border-black/10 rounded-lg text-sm text-primary hover:bg-surface transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20">
-                                            View
-                                        </button>
+                            RenderFragment rowActions = @<text>
+                                <button type="button" @onclick="() => ViewUser(user.Id)"><i aria-hidden="true" class="fa-solid fa-eye"></i> View</button>
+                            </text>;
+                            <tr role="row" @key="user.Id" class="hover:bg-surface transition-colors">
+                                <td role="cell" class="px-5 py-3 text-sm font-medium text-[#2c2c2c]">
+                                    <div class="row-identity">
+                                        <span class="record-identity">@user.FullName</span>
+                                    </div>
+                                </td>
+                                <td role="cell" class="px-5 py-3 text-sm text-muted" data-label="Email">@user.Email</td>
+                                <td role="cell" class="px-5 py-3 text-sm text-[#2c2c2c] row-end-cell" data-label="Role">
+                                    <div class="row-end-content">
+                                        <div class="row-end-value">@user.Role</div>
+                                        <div class="row-end-actions"><ActionMenu Label="@($"Actions for {user.FullName}")">@rowActions</ActionMenu></div>
                                     </div>
                                 </td>
                             </tr>
@@ -176,6 +168,11 @@
 </div>
 
 @code {
+    private ResponsiveFilterField[] UserFilters =>
+        [new("Role", "All roles", "", RoleFilter, Enum.GetNames<Role>().Select(role => (role, role)))];
+
+    private void ApplyUserFilters(string[] values) => RoleFilter = values[0];
+
 
     private List<UserRow> _users = new List<UserRow>();
     private bool _showRegisterModal;
