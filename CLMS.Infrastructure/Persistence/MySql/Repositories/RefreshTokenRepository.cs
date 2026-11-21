@@ -10,20 +10,7 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
 {
     public async Task<IReadOnlyList<RefreshToken>> GetActiveByUserIdAsync(Guid userId)
     {
-        const string sql = """
-                           SELECT
-                               id,
-                               user_id,
-                               token_hash,
-                               created_at,
-                               expires_at,
-                               revoked_at
-                           FROM refresh_tokens
-                           WHERE user_id = @UserId
-                             AND revoked_at IS NULL
-                             AND expires_at > UTC_TIMESTAMP()
-                           ORDER BY created_at ASC;
-                           """;
+        const string sql = "CALL sp_refresh_token_get_active_by_user_id(@UserId);";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
@@ -59,12 +46,7 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
     public async Task<bool> AddAsync(RefreshToken refreshToken)
     {
         // define SQL
-        const string sql = """
-            INSERT INTO refresh_tokens
-                (id, user_id, token_hash, expires_at, revoked_at)
-            VALUES
-                (@Id, @UserId, @TokenHash, @ExpiresAt, @RevokedAt);
-            """;
+        const string sql = "CALL sp_refresh_token_add(@Id, @UserId, @TokenHash, @ExpiresAt, @RevokedAt);";
 
         // open connection
         await using var connection = connectionFactory.CreateConnection();
@@ -79,25 +61,13 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
         command.AddParam("@RevokedAt", refreshToken.RevokedAt);
         
         // execute sql
-        var affectedRows = await command.ExecuteNonQueryAsync();
+        var affectedRows = await command.ExecuteAffectedRowsAsync();
         return affectedRows == 1;
     }
 
     public async Task<RefreshToken?> FindByHashAsync(string tokenHash)
     {
-        const string sql = """
-            SELECT
-                id,
-                user_id,
-                token_hash,
-                expires_at,
-                created_at,
-                revoked_at
-            FROM refresh_tokens
-            WHERE token_hash = @TokenHash
-            ORDER BY created_at DESC 
-            LIMIT 1;
-            """;
+        const string sql = "CALL sp_refresh_token_find_by_hash(@TokenHash);";
         
         // connection
         await using var connection = connectionFactory.CreateConnection();
@@ -129,12 +99,7 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
         Guid refreshTokenId,
         DateTime revokedAt)
     {
-        const string sql = """
-           UPDATE refresh_tokens
-           SET revoked_at = @RevokedAt
-           WHERE id = @Id
-             AND revoked_at IS NULL;
-           """;
+        const string sql = "CALL sp_refresh_token_revoke(@RevokedAt, @Id);";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
@@ -143,7 +108,7 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
         command.AddParam("@Id", refreshTokenId);
         command.AddParam("@RevokedAt", revokedAt);
 
-        var affectedRows = await command.ExecuteNonQueryAsync();
+        var affectedRows = await command.ExecuteAffectedRowsAsync();
 
         return affectedRows > 0;
     }
@@ -151,33 +116,23 @@ public class RefreshTokenRepository(MySqlConnectionFactory connectionFactory) : 
     public async Task<bool> TryIssueAsync(User expectedUser, RefreshToken replacement, string? predecessorHash,
         int maxSessions, CancellationToken cancellationToken = default)
     {
-        await using var c = connectionFactory.CreateConnection(); await c.OpenAsync(cancellationToken);
-        await using var tx = await c.BeginTransactionAsync(cancellationToken);
-        User? current;
-        await using (var read = new MySqlCommand("SELECT " + UserRepository.Columns + " FROM users WHERE user_id=@id FOR UPDATE", c, tx))
-        {
-            read.Parameters.AddWithValue("id", expectedUser.Id);
-            await using var r = await read.ExecuteReaderAsync(cancellationToken);
-            current = await r.ReadAsync(cancellationToken) ? UserRepository.ReadUser(r) : null;
-        }
-        if (current is null || current.DeletedAt.HasValue || current.IsLockedOut ||
-            current.PasswordHash != expectedUser.PasswordHash || current.Email != expectedUser.Email ||
-            current.UserRole != expectedUser.UserRole || current.PasswordChanged != expectedUser.PasswordChanged ||
-            current.TwoFactorEnabled != expectedUser.TwoFactorEnabled) return false;
-        if (predecessorHash is not null && await c.ExecuteAsync(new CommandDefinition("""
-            UPDATE refresh_tokens SET revoked_at=UTC_TIMESTAMP(6) WHERE user_id=@id AND token_hash=@hash
-                AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6)
-            """, new { id = current.Id, hash = predecessorHash }, tx, cancellationToken: cancellationToken)) != 1) return false;
-        var ids = (await c.QueryAsync<Guid>(new CommandDefinition("""
-            SELECT id FROM refresh_tokens WHERE user_id=@id AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6) ORDER BY created_at,id
-            """, new { id = current.Id }, tx, cancellationToken: cancellationToken))).ToList();
-        foreach (var id in ids.Take(Math.Max(0, ids.Count - maxSessions + 1)))
-            await c.ExecuteAsync(new CommandDefinition("UPDATE refresh_tokens SET revoked_at=UTC_TIMESTAMP(6) WHERE id=@id", new { id }, tx, cancellationToken: cancellationToken));
-        await c.ExecuteAsync(new CommandDefinition("""
-            INSERT INTO refresh_tokens(id,user_id,token_hash,created_at,expires_at) VALUES(@Id,@UserId,@TokenHash,@CreatedAt,@ExpiresAt)
-            """, replacement, tx, cancellationToken: cancellationToken));
-        await tx.CommitAsync(cancellationToken);
-        return true;
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new MySqlCommand("CALL sp_refresh_token_try_issue(@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12);", connection);
+        command.Parameters.AddWithValue("p0", expectedUser.Id);
+        command.Parameters.AddWithValue("p1", expectedUser.PasswordHash);
+        command.Parameters.AddWithValue("p2", expectedUser.Email);
+        command.Parameters.AddWithValue("p3", expectedUser.UserRole.ToString());
+        command.Parameters.AddWithValue("p4", expectedUser.PasswordChanged);
+        command.Parameters.AddWithValue("p5", expectedUser.TwoFactorEnabled);
+        command.Parameters.AddWithValue("p6", replacement.Id);
+        command.Parameters.AddWithValue("p7", replacement.UserId);
+        command.Parameters.AddWithValue("p8", replacement.TokenHash);
+        command.Parameters.AddWithValue("p9", replacement.CreatedAt);
+        command.Parameters.AddWithValue("p10", replacement.ExpiresAt);
+        command.Parameters.AddWithValue("p11", (object?)predecessorHash ?? DBNull.Value);
+        command.Parameters.AddWithValue("p12", maxSessions);
+        return await command.ExecuteAffectedRowsAsync(cancellationToken) == 1;
     }
 }
 

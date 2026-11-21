@@ -15,36 +15,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
 
     public async Task CreateAsync(Equipment equipment)
     {
-        const string sql = """
-            INSERT INTO equipment
-            (
-                equipment_id,
-                equipment_no,
-                serial_number,
-                equipment_name,
-                brand,
-                model_number,
-                equipment_type,
-                status,
-                needs_pm,
-                needs_calibration,
-                remarks
-            )
-            VALUES
-            (
-                @Id,
-                @EquipmentNo,
-                @SerialNumber,
-                @EquipmentName,
-                @Brand,
-                @ModelNumber,
-                @EquipmentType,
-                @Status,
-                @NeedsPm,
-                @NeedsCalibration,
-                @Remarks
-            );
-            """;
+        const string sql = "CALL sp_equipment_create(@Id, @EquipmentNo, @SerialNumber, @EquipmentName, @Brand, @ModelNumber, @EquipmentType, @Status, @NeedsPm, @NeedsCalibration, @Remarks);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -58,7 +29,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
 
         try
         {
-            await command.ExecuteNonQueryAsync();
+            await command.ExecuteAffectedRowsAsync();
         }
         catch (MySqlException ex) when (ex.Number == 1062)
         {
@@ -76,7 +47,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
         await connection.OpenAsync();
 
         await using var command =
-            new MySqlCommand(EquipmentWithAssignmentSql + "\nWHERE e.deleted_at IS NULL ORDER BY e.equipment_no;", connection);
+            new MySqlCommand("CALL sp_equipment_get_all();", connection);
 
         await using var reader =
             await command.ExecuteReaderAsync();
@@ -97,7 +68,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
         await connection.OpenAsync();
 
         await using var command = new MySqlCommand(
-            EquipmentWithAssignmentSql + "\nWHERE e.equipment_id = @Id AND e.deleted_at IS NULL;",
+            "CALL sp_equipment_get_by_id(@Id);",
             connection);
 
         command.Parameters.AddWithValue("@Id", id.ToString());
@@ -113,21 +84,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
 
     public async Task UpdateAsync(Equipment equipment)
     {
-        const string sql = """
-            UPDATE equipment
-            SET
-                serial_number = @SerialNumber,
-                equipment_name = @EquipmentName,
-                brand = @Brand,
-                model_number = @ModelNumber,
-                equipment_type = @EquipmentType,
-                status = @Status,
-                needs_pm = @NeedsPm,
-                needs_calibration = @NeedsCalibration,
-                remarks = @Remarks
-            WHERE equipment_id = @Id
-              AND deleted_at IS NULL;
-            """;
+        const string sql = "CALL sp_equipment_update(@SerialNumber, @EquipmentName, @Brand, @ModelNumber, @EquipmentType, @Status, @NeedsPm, @NeedsCalibration, @Remarks, @Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -139,36 +96,20 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
 
         AddEquipmentParameters(command, equipment);
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     public async Task<string> GetNextEquipmentNoAsync()
     {
-        const string sql = """
-            SELECT COALESCE(MAX(CAST(SUBSTRING(equipment_no, 4) AS UNSIGNED)), 0) + 1
-            FROM equipment
-            WHERE equipment_no REGEXP '^EQ-[0-9]+$';
-            """;
-
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
-
-        await using var command = new MySqlCommand(sql, connection);
-        var result = await command.ExecuteScalarAsync();
-        var nextNumber = Convert.ToInt32(result);
-
-        return $"EQ-{nextNumber:D3}";
+        await using var command = new MySqlCommand("CALL sp_equipment_get_next_equipment_no();", connection);
+        return (string)(await command.ExecuteScalarAsync())!;
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        const string sql = """
-            UPDATE equipment
-            SET
-                deleted_at = NOW()
-            WHERE equipment_id = @Id
-              AND deleted_at IS NULL;
-            """;
+        const string sql = "CALL sp_equipment_delete(@Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -180,7 +121,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
 
         command.Parameters.AddWithValue("@Id", id.ToString());
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     // ---------------------------------------------------------------
@@ -189,26 +130,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
 
     public async Task CreateAssignmentAsync(EquipmentAssignment assignment)
     {
-        const string sql = """
-            INSERT INTO equipment_assignments
-            (
-                assignment_id,
-                equipment_id,
-                computer_unit_id,
-                laboratory_id,
-                status,
-                assigned_at
-            )
-            VALUES
-            (
-                @Id,
-                @EquipmentId,
-                @ComputerUnitId,
-                @LaboratoryId,
-                @Status,
-                @AssignedAt
-            );
-            """;
+        const string sql = "CALL sp_equipment_create_assignment(@Id, @EquipmentId, @ComputerUnitId, @LaboratoryId, @Status, @AssignedAt);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -229,23 +151,12 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
         command.Parameters.AddWithValue("@Status", ToDbAssignmentStatus(assignment.Status));
         command.Parameters.AddWithValue("@AssignedAt", assignment.AssignedAt);
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     public async Task<EquipmentAssignment?> GetActiveAssignmentAsync(Guid equipmentId)
     {
-        const string sql = """
-            SELECT
-                assignment_id,
-                equipment_id,
-                computer_unit_id,
-                laboratory_id,
-                assigned_at
-            FROM equipment_assignments
-            WHERE equipment_id = @EquipmentId
-              AND status = 'active'
-            LIMIT 1;
-            """;
+        const string sql = "CALL sp_equipment_get_active_assignment(@EquipmentId);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -277,20 +188,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
 
     public async Task<EquipmentAssignment?> GetAssignmentByIdAsync(Guid assignmentId)
     {
-        const string sql = """
-            SELECT
-                assignment_id,
-                equipment_id,
-                computer_unit_id,
-                laboratory_id,
-                status,
-                end_reason,
-                remarks,
-                assigned_at,
-                ended_at
-            FROM equipment_assignments
-            WHERE assignment_id = @Id;
-            """;
+        const string sql = "CALL sp_equipment_get_assignment_by_id(@Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -334,16 +232,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
 
     public async Task EndAssignmentAsync(EquipmentAssignment assignment)
     {
-        const string sql = """
-            UPDATE equipment_assignments
-            SET
-                status = @Status,
-                end_reason = @EndReason,
-                remarks = @Remarks,
-                ended_at = @EndedAt
-            WHERE assignment_id = @Id
-              AND status = 'active';
-            """;
+        const string sql = "CALL sp_equipment_end_assignment(@Status, @EndReason, @Remarks, @EndedAt, @Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -365,15 +254,12 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
             "@EndedAt",
             (object?)assignment.EndedAt ?? DBNull.Value);
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     public async Task<IEnumerable<EquipmentAssignmentDTO>> GetAssignmentHistoryAsync(Guid equipmentId)
     {
-        const string sql = AssignmentSelectSql + """
-            WHERE ea.equipment_id = @EquipmentId
-            ORDER BY ea.assigned_at DESC;
-            """;
+        const string sql = "CALL sp_equipment_get_assignment_history(@EquipmentId);";
 
         var assignments = new List<EquipmentAssignmentDTO>();
 
@@ -400,11 +286,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
 
     public async Task<IEnumerable<EquipmentAssignmentDTO>> GetAssignmentsForComputerUnitAsync(Guid computerUnitId)
     {
-        const string sql = AssignmentSelectSql + """
-            WHERE ea.computer_unit_id = @ComputerUnitId
-              AND ea.status = 'active'
-            ORDER BY ea.assigned_at DESC;
-            """;
+        const string sql = "CALL sp_equipment_get_assignments_for_computer_unit(@ComputerUnitId);";
 
         var assignments = new List<EquipmentAssignmentDTO>();
 
@@ -437,59 +319,7 @@ public class EquipmentRepository(MySqlConnectionFactory connectionFactory) : IEq
     // enforced by EquipmentService before calling CreateAssignmentAsync — not by
     // a DB constraint. If that invariant is ever violated the LEFT JOIN below
     // will duplicate the equipment row per active assignment found.
-    private const string EquipmentWithAssignmentSql = """
-        SELECT
-            e.equipment_id,
-            e.equipment_no,
-            e.serial_number,
-            e.equipment_name,
-            e.brand,
-            e.model_number,
-            e.equipment_type,
-            e.status,
-            e.needs_pm,
-            e.needs_calibration,
-            e.remarks,
-            ea.computer_unit_id AS current_computer_unit_id,
-            cu.unit_name AS current_computer_unit_name,
-            COALESCE(cu.laboratory_id, ea.laboratory_id) AS current_laboratory_id,
-            COALESCE(cu_lab.lab_name, direct_lab.lab_name) AS current_laboratory_name
-        FROM equipment e
-        LEFT JOIN equipment_assignments ea
-            ON ea.equipment_id = e.equipment_id AND ea.status = 'active'
-        LEFT JOIN computer_units cu
-            ON ea.computer_unit_id = cu.computer_unit_id
-        LEFT JOIN laboratories cu_lab
-            ON cu.laboratory_id = cu_lab.lab_id
-        LEFT JOIN laboratories direct_lab
-            ON ea.laboratory_id = direct_lab.lab_id
-        """;
 
-    private const string AssignmentSelectSql = """
-        SELECT
-            ea.assignment_id,
-            ea.equipment_id,
-            e.equipment_name,
-            ea.computer_unit_id,
-            cu.unit_name AS computer_unit_name,
-            ea.laboratory_id,
-            l.lab_name AS direct_laboratory_name,
-            cu_lab.lab_name AS unit_laboratory_name,
-            ea.status,
-            ea.end_reason,
-            ea.remarks,
-            ea.assigned_at,
-            ea.ended_at
-        FROM equipment_assignments ea
-        INNER JOIN equipment e
-            ON ea.equipment_id = e.equipment_id
-        LEFT JOIN computer_units cu
-            ON ea.computer_unit_id = cu.computer_unit_id
-        LEFT JOIN laboratories l
-            ON ea.laboratory_id = l.lab_id
-        LEFT JOIN laboratories cu_lab
-            ON cu.laboratory_id = cu_lab.lab_id
-        """;
 
     private static void AddEquipmentParameters(MySqlCommand command, Equipment equipment)
     {

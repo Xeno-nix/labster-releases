@@ -11,13 +11,7 @@ public class LaboratoryRepository(MySqlConnectionFactory connectionFactory ) : I
     {
         var laboratories = new List<Laboratory>();
 
-        const string sql = """
-            SELECT
-                lab_id,
-                lab_name
-            FROM laboratories
-            ORDER BY lab_name;
-            """;
+        const string sql = "CALL sp_laboratory_get_all();";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
@@ -36,13 +30,7 @@ public class LaboratoryRepository(MySqlConnectionFactory connectionFactory ) : I
 
     public async Task<Laboratory?> GetByIdAsync(int id)
     {
-      const string sql = """
-            SELECT
-                lab_id,
-                lab_name    
-            FROM laboratories
-            WHERE lab_id = @Id;
-            """;
+      const string sql = "CALL sp_laboratory_get_by_id(@Id);";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();

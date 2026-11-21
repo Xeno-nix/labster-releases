@@ -11,172 +11,31 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
     {
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
-        var supportsLaboratory = await HasLaboratoryAsync(connection);
-        var (whereClause, parameters) = BuildWhereClause(query, supportsLaboratory);
-        var laboratoryColumn = supportsLaboratory ? "l.lab_name" : "NULL";
-        var laboratoryJoin = supportsLaboratory ? "LEFT JOIN laboratories l ON al.laboratory_id = l.lab_id" : "";
-        var offset = Math.Max(0, (query.Page - 1) * query.PageSize);
-
-        var dataSql = $"""
-            SELECT
-                al.utilization_log_id,
-                al.student_id,
-                s.first_name AS student_first_name,
-                s.last_name AS student_last_name,
-                g.guest_name,
-                al.purpose_subject,
-                al.log_date,
-                al.time_in,
-                al.time_out,
-                {laboratoryColumn} AS lab_name
-            FROM attendance_logs al
-            LEFT JOIN students s ON al.student_id = s.student_id
-            LEFT JOIN guests g ON al.guest_id = g.guest_id
-            {laboratoryJoin}
-            {whereClause}
-            ORDER BY al.time_in DESC
-            LIMIT @PageSize OFFSET @Offset;
-            """;
-
-        var countSql = $"""
-            SELECT COUNT(*)
-            FROM attendance_logs al
-            LEFT JOIN students s ON al.student_id = s.student_id
-            LEFT JOIN guests g ON al.guest_id = g.guest_id
-            {whereClause};
-            """;
-
-        int totalCount;
-        await using (var countCommand = new MySqlCommand(countSql, connection))
-        {
-            ApplyParameters(countCommand, parameters);
-            totalCount = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
-        }
-
+        await using var command = new MySqlCommand("CALL sp_logbook_get_paged(@search, @filter, @page, @size);", connection);
+        command.Parameters.AddWithValue("search", (object?)query.Search ?? DBNull.Value);
+        command.Parameters.AddWithValue("filter", (object?)query.Filter ?? DBNull.Value);
+        command.Parameters.AddWithValue("page", query.Page);
+        command.Parameters.AddWithValue("size", query.PageSize);
+        await using var reader = await command.ExecuteReaderAsync();
+        if (!await reader.ReadAsync()) throw new InvalidOperationException("Missing logbook count result.");
+        var total = Convert.ToInt32(reader.GetValue(0));
+        if (!await reader.NextResultAsync()) throw new InvalidOperationException("Missing logbook page result.");
         var entries = new List<LogbookEntryDTO>();
-        await using (var dataCommand = new MySqlCommand(dataSql, connection))
-        {
-            ApplyParameters(dataCommand, parameters);
-            dataCommand.Parameters.AddWithValue("@PageSize", query.PageSize);
-            dataCommand.Parameters.AddWithValue("@Offset", offset);
-
-            await using var reader = await dataCommand.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                entries.Add(MapEntry(reader));
-            }
-        }
-
-        return (entries, totalCount, supportsLaboratory);
+        while (await reader.ReadAsync()) entries.Add(MapEntry(reader));
+        return (entries, total, true);
     }
 
     public async Task<List<LogbookEntryDTO>> GetAllFilteredAsync(LogbookQueryDTO query)
     {
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
-        var supportsLaboratory = await HasLaboratoryAsync(connection);
-        var (whereClause, parameters) = BuildWhereClause(query, supportsLaboratory);
-        var laboratoryColumn = supportsLaboratory ? "l.lab_name" : "NULL";
-        var laboratoryJoin = supportsLaboratory ? "LEFT JOIN laboratories l ON al.laboratory_id = l.lab_id" : "";
-
-        var sql = $"""
-            SELECT
-                al.utilization_log_id,
-                al.student_id,
-                s.first_name AS student_first_name,
-                s.last_name AS student_last_name,
-                g.guest_name,
-                al.purpose_subject,
-                al.log_date,
-                al.time_in,
-                al.time_out,
-                {laboratoryColumn} AS lab_name,
-                NULLIF(TRIM(CONCAT_WS(' ', faculty.first_name, faculty.last_name)), '') AS faculty_name,
-                al.course
-            FROM attendance_logs al
-            LEFT JOIN students s ON al.student_id = s.student_id
-            LEFT JOIN guests g ON al.guest_id = g.guest_id
-            LEFT JOIN users faculty ON al.faculty_in_charge = faculty.user_id
-            {laboratoryJoin}
-            {whereClause}
-            ORDER BY al.time_in DESC, al.utilization_log_id DESC;
-            """;
-
-        await using var command = new MySqlCommand(sql, connection);
-        ApplyParameters(command, parameters);
-
-        var entries = new List<LogbookEntryDTO>();
+        await using var command = new MySqlCommand("CALL sp_logbook_get_all_filtered(@search, @filter);", connection);
+        command.Parameters.AddWithValue("search", (object?)query.Search ?? DBNull.Value);
+        command.Parameters.AddWithValue("filter", (object?)query.Filter ?? DBNull.Value);
         await using var reader = await command.ExecuteReaderAsync();
-        var facultyOrdinal = reader.GetOrdinal("faculty_name");
-        var courseOrdinal = reader.GetOrdinal("course");
-        while (await reader.ReadAsync())
-        {
-            var entry = MapEntry(reader);
-            entry.FacultyName = reader.IsDBNull(facultyOrdinal) ? null : reader.GetString(facultyOrdinal);
-            entry.Course = reader.IsDBNull(courseOrdinal) ? null : reader.GetString(courseOrdinal);
-            entries.Add(entry);
-        }
-
+        var entries = new List<LogbookEntryDTO>();
+        while (await reader.ReadAsync()) entries.Add(MapEntry(reader));
         return entries;
-    }
-
-    private static async Task<bool> HasLaboratoryAsync(MySqlConnection connection)
-    {
-        // Earlier attendance schemas did not record a laboratory.
-        await using var command = new MySqlCommand("""
-            SELECT 1 FROM information_schema.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_logs' AND COLUMN_NAME = 'laboratory_id'
-            """, connection);
-        return await command.ExecuteScalarAsync() is not null;
-    }
-
-    private static (string WhereClause, List<(string Name, object Value)> Parameters) BuildWhereClause(LogbookQueryDTO query, bool supportsLaboratory)
-    {
-        var conditions = new List<string>();
-        var parameters = new List<(string Name, object Value)>();
-
-        if (supportsLaboratory && query.LaboratoryId is > 0)
-        {
-            conditions.Add("al.laboratory_id = @LaboratoryId");
-            parameters.Add(("@LaboratoryId", query.LaboratoryId.Value));
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.Search))
-        {
-            conditions.Add("""
-                (al.purpose_subject LIKE @Search
-                 OR s.student_id LIKE @Search
-                 OR s.first_name LIKE @Search
-                 OR s.last_name LIKE @Search
-                 OR g.guest_name LIKE @Search)
-                """);
-            parameters.Add(("@Search", $"%{query.Search}%"));
-        }
-
-        switch (query.Filter)
-        {
-            case "day":
-                conditions.Add("al.log_date = CURDATE()");
-                break;
-            case "week":
-                // MySQL mode 1 = weeks start on Monday, matching Carbon's default startOfWeek().
-                conditions.Add("YEARWEEK(al.log_date, 1) = YEARWEEK(CURDATE(), 1)");
-                break;
-            case "month":
-                conditions.Add("MONTH(al.log_date) = MONTH(CURDATE()) AND YEAR(al.log_date) = YEAR(CURDATE())");
-                break;
-        }
-
-        var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : string.Empty;
-        return (whereClause, parameters);
-    }
-
-    private static void ApplyParameters(MySqlCommand command, List<(string Name, object Value)> parameters)
-    {
-        foreach (var (name, value) in parameters)
-        {
-            command.Parameters.AddWithValue(name, value);
-        }
     }
 
     private static LogbookEntryDTO MapEntry(MySqlDataReader reader)
@@ -189,7 +48,6 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
         var logDateOrdinal = reader.GetOrdinal("log_date");
         var timeInOrdinal = reader.GetOrdinal("time_in");
         var timeOutOrdinal = reader.GetOrdinal("time_out");
-        var laboratoryOrdinal = reader.GetOrdinal("lab_name");
 
         var isStudent = !reader.IsDBNull(studentIdOrdinal);
 
@@ -211,7 +69,6 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
             StudentId = isStudent ? reader.GetString(studentIdOrdinal) : "GUEST",
             Name = name,
             Purpose = reader.IsDBNull(purposeOrdinal) ? null : reader.GetString(purposeOrdinal),
-            Laboratory = reader.IsDBNull(laboratoryOrdinal) ? null : reader.GetString(laboratoryOrdinal),
             Date = reader.IsDBNull(logDateOrdinal) ? null : DateOnly.FromDateTime(reader.GetDateTime(logDateOrdinal)),
             TimeIn = reader.IsDBNull(timeInOrdinal) ? null : reader.GetDateTime(timeInOrdinal),
             TimeOut = reader.IsDBNull(timeOutOrdinal) ? null : reader.GetDateTime(timeOutOrdinal),
