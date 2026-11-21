@@ -8,16 +8,16 @@ using CLMS.Web.Services.AgentConnections;
 namespace CLMS.Web.Services;
 
 public sealed class ApplicationMonitoringService(IUnitMonitoringRepository units,
-    IApplicationRegistryRepository registry, ApplicationScanCoordinator scans)
+    IApplicationRegistryRepository registry, ApplicationScanCoordinator scans, CLMS.Application.Identity.Interfaces.ICurrentUser actor)
 {
     public async Task<ApplicationMonitoringResult> RequestAsync(ClaimsPrincipal viewer, Guid unit, CancellationToken ct = default)
     {
-        MonitoringAccess.RequireStaff(viewer);
+        await actor.RequirePrivilegeForAsync(viewer, CLMS.Application.Authorization.Privileges.UnitsMonitor);
         // Reuse the same non-deleted laboratory/unit membership source as screen monitoring.
         if (!(await units.GetAllAsync(ct)).Any(u => u.Id == unit))
             throw new UnauthorizedAccessException("This workstation is not available for monitoring.");
         var scan = await scans.RequestAsync(unit).WaitAsync(ct);
-        MonitoringAccess.RequireStaff(viewer);
+        await actor.RequirePrivilegeForAsync(viewer, CLMS.Application.Authorization.Privileges.UnitsMonitor);
         var ids = scan.Response.ApplicationIds.ToHashSet();
         var detected = scan.Response.Status == ApplicationScanStatus.Success
             ? (await registry.GetAllAsync(ct)).Where(a => a.IsEnabled && ids.Contains(a.Id)

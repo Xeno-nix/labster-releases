@@ -11,6 +11,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         return services
+            .AddScoped<CLMS.Application.Authorization.PrivilegeManagementService>()
             .AddScoped<CLMS.Application.Monitoring.ApplicationRegistryService>()
             .AddScoped<CLMS.Application.Monitoring.AbnormalActivityService>()
             .AddScoped<CLMS.Application.UnitRegistry.UnitRegistryService>()

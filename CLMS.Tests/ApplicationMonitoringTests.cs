@@ -87,7 +87,7 @@ public sealed class ApplicationMonitoringTests
         var app = new MonitoredApplication(Guid.NewGuid(), "Review app", "review", ApplicationPlatform.Windows, null, true,
             test.Clock.Now.UtcDateTime.AddMinutes(-1), test.Clock.Now.UtcDateTime.AddMinutes(-1)) { FlagForReview = true };
         test.Registry.Items.Add(app);
-        var monitoring = new ApplicationMonitoringService(new Units(test.Unit), test.Registry, test.Scans);
+        var monitoring = new ApplicationMonitoringService(new Units(test.Unit), test.Registry, test.Scans, new TestCurrentUser());
         using var cancellation = new CancellationTokenSource();
         var viewer = monitoring.RequestAsync(Viewer("Faculty"), test.Unit, cancellation.Token);
         var otherViewer = test.Scans.RequestAsync(test.Unit);
@@ -110,7 +110,7 @@ public sealed class ApplicationMonitoringTests
         var flagged = new MonitoredApplication(Guid.NewGuid(), "Z review app", "review", ApplicationPlatform.Windows, null, true, default, default) { FlagForReview = true };
         var normal = flagged with { Id = Guid.NewGuid(), Name = "A normal app", ProcessName = "normal", FlagForReview = false };
         test.Registry.Items.AddRange([normal, flagged]);
-        var service = new ApplicationMonitoringService(new Units(test.Unit), test.Registry, test.Scans);
+        var service = new ApplicationMonitoringService(new Units(test.Unit), test.Registry, test.Scans, new TestCurrentUser());
         var task = service.RequestAsync(Viewer("Faculty"), test.Unit);
         test.Scans.Publish(test.Unit, "agent", new(Assert.Single(test.Hub.Proxy.Requests).RequestId, test.Clock.Now, ApplicationScanStatus.Success, [normal.Id, flagged.Id]));
         var result = await task;
@@ -170,7 +170,7 @@ public sealed class ApplicationMonitoringTests
             new(disabled, "Disabled", "helper", ApplicationPlatform.Both, null, false, default, default),
             new(mac, "Mac app", "mac", ApplicationPlatform.MacOS, null, true, default, default),
             new(Guid.NewGuid(), "Not detected", "other", ApplicationPlatform.Both, null, true, default, default)]);
-        var service = new ApplicationMonitoringService(new Units(test.Unit), repository, test.Scans);
+        var service = new ApplicationMonitoringService(new Units(test.Unit), repository, test.Scans, new TestCurrentUser());
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RequestAsync(new ClaimsPrincipal(), test.Unit));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RequestAsync(Viewer("Student"), test.Unit));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.RequestAsync(Viewer("Faculty"), Guid.NewGuid()));
@@ -208,6 +208,7 @@ public sealed class ApplicationMonitoringTests
     private sealed class Actor : ICurrentUser
     {
         public bool Admin = true;
+        public Task<Guid> RequirePrivilegeAsync(string privilege) => RequireAdminAsync();
         public Task<Guid> RequireAdminAsync() => Admin ? Task.FromResult(Guid.NewGuid()) : throw new UnauthorizedAccessException();
     }
     private sealed class Notifications : IApplicationRegistryNotifications
@@ -239,6 +240,7 @@ public sealed class ApplicationMonitoringTests
             services.AddSingleton<IAbnormalActivityRepository>(Activities);
             services.AddSingleton<IUnitMonitoringRepository>(new Units(Unit));
             services.AddSingleton<IAbnormalActivityNotifications>(Changes);
+            services.AddSingleton<ICurrentUser>(new TestCurrentUser());
             services.AddScoped<AbnormalActivityService>();
             provider = services.BuildServiceProvider();
             Scans = new(Hub, Presence, Clock, NullLogger<ApplicationScanCoordinator>.Instance,

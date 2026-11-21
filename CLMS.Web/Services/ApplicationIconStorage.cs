@@ -11,7 +11,7 @@ public sealed class ApplicationIconStorage(IWebHostEnvironment environment, ICur
 
     public async Task<string> UploadAsync(Stream stream, string contentType, CancellationToken ct = default)
     {
-        await user.RequireAdminAsync();
+        await user.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.MonitoringConfigure);
         using var data = new MemoryStream();
         var buffer = new byte[8192];
         int read;
@@ -46,7 +46,7 @@ public sealed class ApplicationIconStorage(IWebHostEnvironment environment, ICur
 
     public async Task DeleteAsync(string? path)
     {
-        await user.RequireAdminAsync();
+        await user.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.MonitoringConfigure);
         if (path is not null && ApplicationProcessNames.IsSafeIconPath(path))
             File.Delete(Path.Combine(DirectoryPath, Path.GetFileName(path)));
     }

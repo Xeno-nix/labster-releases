@@ -207,13 +207,13 @@ public class UserRepository(MySqlConnectionFactory connectionFactory) : IUserRep
 
     internal static User ReadUser(MySqlDataReader r) =>
         new(r.GetGuid("user_id"), 
-        new Name(r.GetString("first_name")),
-        new Name(r.GetString("last_name")), 
+        new Name(r.IsDBNull(r.GetOrdinal("first_name")) ? "Unknown" : r.GetString("first_name")),
+        new Name(r.IsDBNull(r.GetOrdinal("last_name")) ? "Unknown" : r.GetString("last_name")),
         r.IsDBNull(r.GetOrdinal("middle_name")) ? null : new Name(r.GetString("middle_name")),
         r.IsDBNull(r.GetOrdinal("suffix")) ? null : new Name(r.GetString("suffix")),
-        r.GetString("email"),
-        Enum.Parse<Role>(r.GetString("role_type"), true),
-        r.GetString("password_hash"), 
+        r.IsDBNull(r.GetOrdinal("email")) ? "" : r.GetString("email"),
+        !r.IsDBNull(r.GetOrdinal("role_type")) && Enum.TryParse<Role>(r.GetString("role_type"), true, out var role) && Enum.IsDefined(role) ? role : Role.Unassigned,
+        r.IsDBNull(r.GetOrdinal("password_hash")) ? "" : r.GetString("password_hash"),
         r.GetDateTime("created_at"),
         r.GetDateTime("last_modified_at"), 
         r.IsDBNull(r.GetOrdinal("deleted_at")) ? null : r.GetDateTime("deleted_at"))

@@ -8,14 +8,14 @@ public sealed class ApplicationRegistryService(IApplicationRegistryRepository re
 {
     public async Task<IReadOnlyList<MonitoredApplication>> GetAllAsync(CancellationToken ct = default)
     {
-        await user.RequireAdminAsync();
+        await user.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.MonitoringConfigure);
         return await repository.GetAllAsync(ct);
     }
 
     public async Task SaveAsync(Guid? id, string name, string processName, ApplicationPlatform platform,
         string? iconPath, bool enabled, CancellationToken ct = default, bool flagForReview = false)
     {
-        await user.RequireAdminAsync();
+        await user.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.MonitoringConfigure);
         name = (name ?? "").Trim();
         processName = ApplicationProcessNames.Normalize(processName);
         if (name.Length is < 1 or > 120 || name.Any(char.IsControl))
@@ -37,7 +37,7 @@ public sealed class ApplicationRegistryService(IApplicationRegistryRepository re
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        await user.RequireAdminAsync();
+        await user.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.MonitoringConfigure);
         await repository.DeleteAsync(id, ct);
         await notifications.RegistryChangedAsync(ct);
     }

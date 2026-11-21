@@ -78,7 +78,7 @@ public sealed class AbnormalActivityTests
     {
         var registry = new ApplicationMonitoringTests.Registry(); registry.Items.Add(App());
         var repository = new ActivityTestRepository(registry); var notifications = new ActivityTestNotifications();
-        var service = new AbnormalActivityService(repository, new ActivityTestUnits(Unit), notifications);
+        var service = new AbnormalActivityService(repository, new ActivityTestUnits(Unit), notifications, new TestCurrentUser());
         await service.ObserveAsync(Observation(registry.Items, 0, true, registry.Items[0].Id), ApplicationScanStatus.Success);
         await service.ObserveAsync(Observation(registry.Items, 15), status);
         Assert.Null(Assert.Single(repository.Items).EndedAt); Assert.Equal(1, repository.Observations); Assert.Equal(1, notifications.Count);
@@ -88,7 +88,7 @@ public sealed class AbnormalActivityTests
     public async Task QueryRequiresStaffAndPassesOnlyPermittedLaboratoryUnitsToPersistence()
     {
         var unit2 = Guid.NewGuid(); var repository = new ActivityTestRepository(new ApplicationMonitoringTests.Registry());
-        var units = new ActivityTestUnits(Unit, unit2); var service = new AbnormalActivityService(repository, units, new ActivityTestNotifications());
+        var units = new ActivityTestUnits(Unit, unit2); var service = new AbnormalActivityService(repository, units, new ActivityTestNotifications(), new TestCurrentUser());
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetPageAsync(new ClaimsPrincipal(), new()));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetPageAsync(Viewer("Student"), new()));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.GetPageAsync(Viewer(), new(UnitId: Guid.NewGuid())));
@@ -105,7 +105,7 @@ public sealed class AbnormalActivityTests
     {
         var registry = new ApplicationMonitoringTests.Registry(); var app = App(); registry.Items.Add(app);
         var repository = new ActivityTestRepository(registry); var notifications = new ActivityTestNotifications();
-        var service = new AbnormalActivityService(repository, new ActivityTestUnits(Unit), notifications);
+        var service = new AbnormalActivityService(repository, new ActivityTestUnits(Unit), notifications, new TestCurrentUser());
         await service.ObserveAsync(Observation(registry.Items, 0, true, app.Id), ApplicationScanStatus.Success);
         await service.ObserveAsync(Observation(registry.Items, 15), ApplicationScanStatus.Success);
         await service.ObserveAsync(Observation(registry.Items, 30, true, app.Id), ApplicationScanStatus.Success);
@@ -145,6 +145,7 @@ public sealed class AbnormalActivityTests
     private sealed class Actor : ICurrentUser
     {
         public bool Admin = true;
+        public Task<Guid> RequirePrivilegeAsync(string privilege) => RequireAdminAsync();
         public Task<Guid> RequireAdminAsync() => Admin ? Task.FromResult(Guid.NewGuid()) : throw new UnauthorizedAccessException();
     }
     private sealed class RegistryNotifications : IApplicationRegistryNotifications

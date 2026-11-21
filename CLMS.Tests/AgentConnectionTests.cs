@@ -213,7 +213,7 @@ public sealed class AgentConnectionTests
     }
 
     private static ClaimsPrincipal Viewer(string id, string role = "Faculty") => new(new ClaimsIdentity(
-        [new Claim(ClaimTypes.NameIdentifier, id), new Claim(ClaimTypes.Role, role)], "TestViewer"));
+        [new Claim(ClaimTypes.NameIdentifier, Guid.TryParse(id, out var guid) ? guid.ToString() : new Guid(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(id)).AsSpan(0, 16)).ToString()), new Claim(ClaimTypes.Role, role)], "TestViewer"));
 
     private static ScreenCastFrame Frame(Guid session, bool large = false)
     {
@@ -364,6 +364,8 @@ public sealed class AgentConnectionTests
         builder.Services.AddSingleton<IUnitRegistryRepository>(new HubRegistry { Active = provisionDevice, Generation = duplicateKey ? 2 : 1 });
         if (clock is not null) builder.Services.AddSingleton(clock);
         builder.Services.AddAgentConnections(builder.Configuration);
+        builder.Services.AddSingleton<CLMS.Application.Identity.Interfaces.ICurrentUser>(new TestCurrentUser());
+        builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, TestPrivilegeHandler>();
         builder.Services.AddSingleton<CLMS.Application.Monitoring.IApplicationRegistryRepository, ApplicationMonitoringTests.Registry>();
         builder.Services.AddScoped<CLMS.Application.Monitoring.AbnormalActivityService>();
         builder.Services.AddSingleton<CLMS.Application.Interfaces.Repositories.IUnitMonitoringRepository>(new ActivityTestUnits(UnitId));

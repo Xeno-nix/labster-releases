@@ -1,5 +1,5 @@
 @inject CLMS.Web.Services.ToastService Toasts
-@attribute [Authorize]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.CoursesView)]
 @rendermode InteractiveServer
 @using CLMS.Application.Services
 @inject CourseService CourseService
@@ -45,7 +45,7 @@
                         {
                             <tr @key="course.Id" class="hover:bg-surface"><td class="px-6 py-4 font-medium text-primary">@course.CourseCode</td><td class="px-6 py-4 text-gray-800">@course.CourseName</td><td class="px-6 py-4 text-right whitespace-nowrap">
                                     <button type="button" aria-label="Edit course" class="rounded-lg px-3 py-2 text-primary hover:bg-primary/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Edit(course)">Edit</button>
-                                    <button type="button" aria-label="Delete course" class="rounded-lg px-3 py-2 text-error hover:bg-error/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Delete(course)">Delete</button>
+                                    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.CoursesManage)" Context="actionAccess15"><button type="button" aria-label="Delete course" class="rounded-lg px-3 py-2 text-error hover:bg-error/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Delete(course)">Delete</button></AuthorizeView>
                                 </td></tr>
                         }
                     }

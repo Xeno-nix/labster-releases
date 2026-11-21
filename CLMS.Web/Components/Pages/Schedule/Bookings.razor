@@ -1,5 +1,5 @@
 @inject CLMS.Web.Services.ToastService Toasts
-@attribute [Authorize]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.BookingsView)]
 @using CLMS.Application.Services
 @using CLMS.Web.Services
 @inject BookingService BookingService
@@ -105,18 +105,18 @@
                                 </td>
                                 <td class="px-5 py-4">
                                     <div class="flex justify-end gap-1">
-                                        <button type="button"
+                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BookingsManage)" Context="actionAccess9"><button type="button"
                                                 @onclick="() => OpenEditBooking(booking.Id)"
                                                 title="Edit booking"
                                                 class="rounded-lg p-2 text-muted hover:bg-gray-100 hover:text-primary">
                                             Edit
-                                        </button>
-                                        <button type="button"
+                                        </button></AuthorizeView>
+                                        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BookingsManage)" Context="actionAccess10"><button type="button"
                                                 @onclick="() => DeleteBooking(booking.Id)"
                                                 disabled="@(deletingBookingId == booking.Id)"
                                                 class="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-50">
                                             @(deletingBookingId == booking.Id ? "Deleting..." : "Delete")
-                                        </button>
+                                        </button></AuthorizeView>
                                     </div>
                                 </td>
                             </tr>
@@ -167,11 +167,11 @@
     public RenderFragment<RenderFragment> HeaderTemplate { get; set; } = default!;
 
     private RenderFragment HeaderActions => @<div class="flex flex-wrap items-center gap-2 sm:gap-3">
-        <button type="button"
+        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BookingsManage)" Context="actionAccess11"><button type="button"
                 @onclick="OpenCreateBooking"
                 class="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90">
             + New Booking
-        </button>
+        </button></AuthorizeView>
     </div>;
 
     private const int PageSize = 10;

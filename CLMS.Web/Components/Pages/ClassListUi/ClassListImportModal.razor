@@ -305,7 +305,7 @@
         try
         {
             await using var stream = new MemoryStream(FileBytes);
-            Preview = await ClassListService.PreviewImportAsync(UserId, Role, ScheduleId, stream);
+            Preview = await ClassListService.PreviewImportAsync(ScheduleId, stream);
             Step = 2;
         }
         catch (Exception ex)
@@ -329,7 +329,7 @@
         try
         {
             await using var stream = new MemoryStream(FileBytes);
-            Result = await ClassListService.CommitImportAsync(UserId, Role, ScheduleId, stream);
+            Result = await ClassListService.CommitImportAsync(ScheduleId, stream);
             BuildErrorRowsCsv(Preview);
             Step = 3;
             await OnCommitted.InvokeAsync(Result);

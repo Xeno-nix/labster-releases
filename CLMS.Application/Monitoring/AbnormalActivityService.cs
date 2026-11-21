@@ -40,13 +40,13 @@ public static class MonitoringAccess
     public static void RequireStaff(ClaimsPrincipal viewer)
     {
         if (viewer.Identity?.IsAuthenticated != true || !Guid.TryParse(viewer.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _)
-            || !(viewer.IsInRole("Admin") || viewer.IsInRole("Faculty")))
+            || !(viewer.IsInRole("Admin") || viewer.IsInRole("Faculty") || viewer.IsInRole("SuperAdmin")))
             throw new UnauthorizedAccessException("Only authorized instructors and administrators can view monitoring data.");
     }
 }
 
 public sealed class AbnormalActivityService(IAbnormalActivityRepository repository, IUnitMonitoringRepository units,
-    IAbnormalActivityNotifications notifications)
+    IAbnormalActivityNotifications notifications, CLMS.Application.Identity.Interfaces.ICurrentUser actor)
 {
     public const int PageSize = 50;
 
@@ -59,7 +59,7 @@ public sealed class AbnormalActivityService(IAbnormalActivityRepository reposito
 
     public async Task<AbnormalActivityPage> GetPageAsync(ClaimsPrincipal viewer, AbnormalActivityQuery query, CancellationToken ct = default)
     {
-        MonitoringAccess.RequireStaff(viewer);
+        await actor.RequirePrivilegeForAsync(viewer, CLMS.Application.Authorization.Privileges.MonitoringView);
         if (query.Offset < 0 || query.Offset > 100000 || (query.Type.HasValue && !Enum.IsDefined(query.Type.Value))
             || (query.FromUtc.HasValue && query.ToUtc.HasValue && query.FromUtc >= query.ToUtc))
             throw new ArgumentException("Select a valid activity filter and date range.");

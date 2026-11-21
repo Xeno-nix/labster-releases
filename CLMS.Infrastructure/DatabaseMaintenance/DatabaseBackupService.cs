@@ -64,7 +64,9 @@ public sealed class DatabaseBackupService
         finally { gate.Release(); }
     }
 
-    public async Task<DatabaseBackup> RestoreAsync(string fileName, CancellationToken cancellationToken = default)
+    public Task<DatabaseBackup> RestoreAsync(string fileName, CancellationToken cancellationToken = default) => RestoreAsync(fileName, null, cancellationToken);
+
+    public async Task<DatabaseBackup> RestoreAsync(string fileName, Func<Task>? authorize, CancellationToken cancellationToken = default)
     {
         var path = Resolve(fileName);
         if (!await gate.WaitAsync(0, cancellationToken))
@@ -78,11 +80,14 @@ public sealed class DatabaseBackupService
             if (source.Length != backup.Bytes || hash != backup.Sha256)
                 throw new InvalidOperationException("Backup integrity check failed. Restore was not started.");
             source.Position = 0;
+            await ValidateRestoreAsync(source, cancellationToken);
+            source.Position = 0;
             var safety = await CreateCoreAsync("pre-restore", cancellationToken);
             logger.LogWarning("Restoring database {Database} from {File}. Recovery backup: {Safety}",
                 connection.Database, fileName, safety.FileName);
             try
             {
+                if (authorize is not null) await authorize();
                 await RunAsync(options.ClientExecutable, ["--binary-mode", "--default-character-set=utf8mb4"],
                     source, null, cancellationToken);
             }
@@ -94,6 +99,48 @@ public sealed class DatabaseBackupService
             return safety;
         }
         finally { gate.Release(); }
+    }
+
+    private async Task ValidateRestoreAsync(Stream source, CancellationToken ct)
+    {
+        var database = "clms_restore_validation_" + Guid.NewGuid().ToString("N");
+        var server = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = "" };
+        await using var admin = new MySqlConnection(server.ConnectionString);
+        await admin.OpenAsync(ct);
+        await using var create = new MySqlCommand($"CREATE DATABASE `{database}`", admin);
+        await create.ExecuteNonQueryAsync(ct);
+        try
+        {
+            await RunAsync(options.ClientExecutable, ["--binary-mode", "--default-character-set=utf8mb4"], source, null, ct, database);
+            server.Database = database;
+            await using var validation = new MySqlConnection(server.ConnectionString); await validation.OpenAsync(ct);
+            await using var schema = new MySqlCommand("""
+                SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=@database
+                AND TABLE_NAME IN ('authorization_roles','role_privileges','user_privilege_overrides','authorization_audit')
+                """, validation);
+            schema.Parameters.AddWithValue("@database", database);
+            if (Convert.ToInt32(await schema.ExecuteScalarAsync(ct)) != 4)
+                throw new InvalidOperationException("This backup predates the authorization schema. Use an operator-led offline recovery instead.");
+            await using var protectedRole = new MySqlCommand("SELECT COUNT(*) FROM authorization_roles WHERE role_id=2 AND name='SuperAdmin' AND is_protected=TRUE", validation);
+            if (Convert.ToInt32(await protectedRole.ExecuteScalarAsync(ct)) != 1)
+                throw new InvalidOperationException("Restore rejected: the protected authorization role is missing.");
+            await using var roots = new MySqlCommand("""
+                SELECT COUNT(*) FROM users WHERE role_type='superadmin' AND deleted_at IS NULL
+                    AND password_changed=TRUE AND password_hash IS NOT NULL AND password_hash<>''
+                    AND (lockout_end IS NULL OR lockout_end<=UTC_TIMESTAMP())
+                """, validation);
+            if (Convert.ToInt32(await roots.ExecuteScalarAsync(ct)) == 0)
+                throw new InvalidOperationException("Restore rejected: the backup has no usable SuperAdmin account.");
+        }
+        finally
+        {
+            // The name is generated here, never supplied by a browser or backup filename.
+            if (database.StartsWith("clms_restore_validation_", StringComparison.Ordinal) && database.Length == 56)
+            {
+                await using var drop = new MySqlCommand($"DROP DATABASE `{database}`", admin);
+                await drop.ExecuteNonQueryAsync(CancellationToken.None);
+            }
+        }
     }
 
     private async Task<DatabaseBackup> CreateCoreAsync(string kind, CancellationToken cancellationToken)
@@ -159,7 +206,7 @@ public sealed class DatabaseBackupService
     }
 
     private async Task RunAsync(string executable, string[] arguments, Stream? input, Stream? output,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? targetDatabase = null)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromMinutes(options.TimeoutMinutes));
@@ -175,7 +222,7 @@ public sealed class DatabaseBackupService
         start.ArgumentList.Add($"--port={connection.Port}");
         start.ArgumentList.Add($"--user={connection.UserID}");
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
-        start.ArgumentList.Add(connection.Database);
+        start.ArgumentList.Add(targetDatabase ?? connection.Database);
         // Keep the password out of process arguments and logs.
         start.Environment["MYSQL_PWD"] = connection.Password;
         using var process = new Process { StartInfo = start };

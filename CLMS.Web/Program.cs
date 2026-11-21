@@ -32,9 +32,14 @@ var isDevelopment = builder.Environment.IsDevelopment();
 var cookieSecurePolicy = isDevelopment ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<CurrentUser>();
+builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PrivilegeAuthorizationHandler>();
+builder.Services.AddSingleton<AuthorizationChanges>();
+builder.Services.AddSingleton<CLMS.Application.Authorization.IAuthorizationChanges>(sp => sp.GetRequiredService<AuthorizationChanges>());
 builder.Services.AddScoped<ApplicationMonitoringService>();
 builder.Services.AddScoped<ApplicationIconStorage>();
+builder.Services.AddScoped<ManualDatabaseBackups>();
 builder.Services.AddOptions<CLMS.Application.Monitoring.AbnormalActivityOptions>()
     .Bind(builder.Configuration.GetSection("Monitoring:AbnormalActivity"))
     .Validate(options => options.RetentionDays is >= 1 and <= 3650, "Activity retention must be between 1 and 3650 days.")
@@ -212,13 +217,11 @@ builder.Services
     })
     ;
 
-// TODO Define access policies
+// Preserve existing authentication policies alongside operational privilege policies.
 builder.Services
     .AddAuthorization(options =>
     {
         AgentAuthentication.AddPolicies(options);
-        // TODO SuperAdmin: replace Admin with the future SuperAdmin role.
-        options.AddPolicy("RegisterUsers", policy => policy.RequireAuthenticatedUser().RequireRole("Admin"));
         options.AddPolicy("JwtPolicy", policy =>
         {
             policy.AuthenticationSchemes.Add(AuthenticationSchemes.Bearer);
@@ -266,6 +269,16 @@ builder.Services.AddAgentConnections(builder.Configuration);
 builder.Services.AddSingleton<WorkstationSessionGrants>();
 
 var app = builder.Build();
+if (args.Contains("--provision-superadmin", StringComparer.Ordinal))
+{
+    var index = Array.IndexOf(args, "--user-id");
+    if (index < 0 || index + 1 >= args.Length || !Guid.TryParse(args[index + 1], out var userId))
+        throw new ArgumentException("Use --provision-superadmin --user-id <existing-admin-guid>.");
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<CLMS.Application.Authorization.IAuthorizationRepository>().ProvisionSuperAdminAsync(userId);
+    app.Logger.LogInformation("Initial SuperAdmin provisioned. Sign in again through the normal authentication flow.");
+    return;
+}
 // Runtime uploads are not included in the build-time static asset manifest.
 var applicationIconDirectory = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "application-icons");
 Directory.CreateDirectory(applicationIconDirectory);

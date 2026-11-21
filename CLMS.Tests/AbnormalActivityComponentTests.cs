@@ -52,7 +52,7 @@ public sealed class AbnormalActivityComponentTests
 
     private static ServiceCollection Services(ActivityTestRepository repository, ActivityTestUnits units, string role)
     {
-        var services = new ServiceCollection(); services.AddLogging(); services.AddAuthorizationCore();
+        var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton<CLMS.Application.Identity.Interfaces.ICurrentUser>(new TestCurrentUser()); services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, TestPrivilegeHandler>(); services.AddAuthorizationCore(CLMS.Web.Authentication.PrivilegePolicies.Add);
         services.AddSingleton<AuthenticationStateProvider>(new State(role));
         services.AddSingleton<IJSRuntime, NoJs>();
         services.AddSingleton<IUnitMonitoringRepository>(units);

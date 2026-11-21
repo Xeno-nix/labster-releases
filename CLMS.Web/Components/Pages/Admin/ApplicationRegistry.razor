@@ -1,5 +1,6 @@
 @page "/admin/applications"
-@attribute [Authorize(Policy = "UnitRegistryAdmin")]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.MonitoringConfigure)]
+@using CLMS.Application.Authorization
 @using CLMS.Application.Monitoring
 @using CLMS.Domain.Entities.UnitManagement
 @using CLMS.Web.Services

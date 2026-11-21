@@ -1,0 +1,8 @@
+@page "/admin/users/register"
+@attribute [Authorize(Policy = "RegisterUsers")]
+@inject NavigationManager Navigation
+
+<PageTitle>Register User | CLMS</PageTitle>
+<CLMS.Web.Components.Modals.RegisterModal IsOpen="true" CloseUrl="/" IsOpenChanged="_ => Close()" />
+
+@code { private void Close() => Navigation.NavigateTo("/"); }

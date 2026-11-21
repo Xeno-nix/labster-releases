@@ -31,13 +31,14 @@ public static class AgentAuthentication
         if (context.Principal?.FindFirst("principal_type")?.Value == "agent") context.Fail("Human principal required.");
         return Task.CompletedTask;
     }
-    /// <summary>Registers separate agent-only and administrator-cookie authorization policies.</summary>
+    /// <summary>Registers operational privileges alongside separate agent and unit-management policies.</summary>
     public static void AddPolicies(AuthorizationOptions options)
     {
+        PrivilegePolicies.Add(options);
         options.AddPolicy("AgentOnly", p => p.AddAuthenticationSchemes(AuthenticationSchemes.AgentBearer)
             .RequireAuthenticatedUser().RequireClaim("principal_type", "agent"));
         options.AddPolicy("UnitRegistryAdmin", p => p.AddAuthenticationSchemes(AuthenticationSchemes.Cookie)
-            .RequireAuthenticatedUser().RequireRole("Admin"));
+            .RequireAuthenticatedUser().AddRequirements(new PrivilegeRequirement(CLMS.Application.Authorization.Privileges.UnitsManage)));
     }
     /// <summary>Validates agent identity claims and checks the current unit generation and live persistent credential before authorizing a request.</summary>
     public static async Task ValidateAsync(TokenValidatedContext context)

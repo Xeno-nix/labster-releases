@@ -1,5 +1,5 @@
 @page "/unit-monitoring/activities"
-@attribute [Authorize(Roles = "Admin,Faculty")]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.MonitoringView)]
 @implements IAsyncDisposable
 @using Microsoft.AspNetCore.Components.Authorization
 @using CLMS.Application.Monitoring
