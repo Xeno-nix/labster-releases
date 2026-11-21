@@ -1,0 +1,32 @@
+.authentication-loading {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    background: var(--color-surface, #f8fafc);
+    color: var(--color-primary, #8b1538);
+}
+
+.authentication-loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.authentication-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: authentication-spin 0.8s linear infinite;
+}
+
+@keyframes authentication-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .authentication-spinner { animation: none; }
+}

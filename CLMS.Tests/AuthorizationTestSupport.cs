@@ -43,8 +43,12 @@ internal sealed class TestAuthorizationStore(IUserRepository users) : IAuthoriza
     public Dictionary<Role, HashSet<string>> Roles = new() { [Role.Admin] = Privileges.Defaults(Role.Admin).ToHashSet(), [Role.Faculty] = Privileges.Defaults(Role.Faculty).ToHashSet() };
     public Dictionary<Guid, Dictionary<string, bool>> Overrides = [];
     public int Denials;
+    public int SnapshotReads;
+    public Func<Guid, CancellationToken, Task<AuthorizationSnapshot?>>? ReadSnapshot;
     public async Task<AuthorizationSnapshot?> GetAsync(Guid id, CancellationToken ct = default)
     {
+        Interlocked.Increment(ref SnapshotReads);
+        if (ReadSnapshot is not null) return await ReadSnapshot(id, ct);
         var user = await users.FindByIdAsync(id);
         return user is null ? null : new(id, user.UserRole, !user.DeletedAt.HasValue && !user.IsLockedOut && user.PasswordChanged,
             Roles.GetValueOrDefault(user.UserRole) ?? [], Overrides.GetValueOrDefault(id) ?? []);

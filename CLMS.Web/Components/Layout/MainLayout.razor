@@ -1,12 +1,24 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
 @inject CLMS.Application.Identity.Interfaces.ICurrentUser CurrentUser
+@inject AuthenticationStateProvider AuthenticationStateProvider;
+@inject CLMS.Web.Authentication.HumanAuthorizationCache AuthorizationCache
 @inject ILogger<MainLayout> Logger
 @using CLMS.Web.Components.Notification
 @using CLMS.Web.Components.Modals
 @using Microsoft.AspNetCore.Components.Authorization
 @implements IDisposable
 
+@if (!_authorizationReady)
+{
+    <AuthenticationLoading />
+}
+else if (_authorizationError is not null)
+{
+    <main class="min-h-screen flex items-center justify-center p-6" role="alert">@_authorizationError</main>
+}
+else
+{
 <ToastContainer/>
 <Dialog/>
 
@@ -227,6 +239,10 @@
 @* </div> *@
 
 @code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationState { get; set; }
+    private bool _authorizationReady;
+    private string? _authorizationError;
+    private int _authorizationVersion;
     private bool _sidebarCollapsed;
     private bool _mobileSidebarOpen;
     private string profileName = "Account";
@@ -301,6 +317,29 @@
         }
     }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        var version = ++_authorizationVersion;
+        _authorizationReady = false;
+        string? error = null;
+        try
+        {
+            var state = await (AuthenticationState ?? AuthenticationStateProvider.GetAuthenticationStateAsync());
+            if (state.User.Identity?.IsAuthenticated == true && await AuthorizationCache.GetAsync(state.User) is null)
+                error = "Access Denied";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Unable to prepare the navigation's authorization state.");
+            error = "Unable to verify access. Please reload the page.";
+        }
+        if (version == _authorizationVersion)
+        {
+            _authorizationError = error;
+            _authorizationReady = true;
+        }
+    }
+
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         _mobileSidebarOpen = false;
@@ -309,6 +348,7 @@
 
     public void Dispose()
     {
+        ++_authorizationVersion;
         Navigation.LocationChanged -= OnLocationChanged;
     }
 }
