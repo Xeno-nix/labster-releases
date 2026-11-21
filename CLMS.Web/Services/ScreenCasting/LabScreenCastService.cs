@@ -7,12 +7,9 @@ namespace CLMS.Web.Services.ScreenCasting;
 public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCastService screens,
     TimeProvider clock, ILogger<LabScreenCastService> logger) : BackgroundService
 {
-    // Background browser tabs can run timers less often than the foreground.
-    public static readonly TimeSpan BrowserLease = TimeSpan.FromSeconds(90);
     private readonly SemaphoreSlim gate = new(1);
     private readonly Dictionary<int, LabSession> sessions = [];
     private bool recovered;
-    public event Func<int, Task>? SessionEnding;
 
     private sealed class LabSession(int id, int labId, ClaimsPrincipal viewer, HashSet<Guid> units, DateTimeOffset until)
     {
@@ -23,7 +20,6 @@ public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCast
         public DateTimeOffset Until { get; set; } = until;
         public bool Closing { get; set; }
         public bool Failed { get; set; }
-        public CancellationTokenSource Lifetime { get; } = new();
         public Dictionary<Guid, Guid> Captures { get; } = [];
     }
 
@@ -71,7 +67,7 @@ public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCast
                 .Where(u => u.LaboratoryId == labId).Select(u => u.Id).ToHashSet();
             if (units.Count == 0) throw new InvalidOperationException("Select a laboratory with registered workstations.");
             var id = await history.CreateAsync(viewerId, units, clock.GetUtcNow().UtcDateTime);
-            sessions.Add(id, new(id, labId, viewer.Clone(), units, clock.GetUtcNow() + BrowserLease));
+            sessions.Add(id, new(id, labId, viewer.Clone(), units, clock.GetUtcNow() + ScreenCastService.ViewerLease));
             return id;
         }
         finally { gate.Release(); }
@@ -84,24 +80,10 @@ public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCast
         try
         {
             var session = Owned(viewer, id);
-            session.Until = clock.GetUtcNow() + BrowserLease;
+            session.Until = clock.GetUtcNow() + ScreenCastService.ViewerLease;
             return true;
         }
         catch (InvalidOperationException) { return false; }
-        finally { gate.Release(); }
-    }
-
-    public async Task<T> StartBroadcastAsync<T>(ClaimsPrincipal viewer, int id, int labId,
-        Func<CancellationToken, Task<T>> start)
-    {
-        await gate.WaitAsync();
-        try
-        {
-            var session = Owned(viewer, id);
-            if (session.LabId != labId)
-                throw new InvalidOperationException("Share to the laboratory of your active session.");
-            return await start(session.Lifetime.Token);
-        }
         finally { gate.Release(); }
     }
 
@@ -119,7 +101,7 @@ public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCast
             var units = await scope.ServiceProvider.GetRequiredService<IUnitMonitoringRepository>().GetAllAsync();
             if (!units.Any(u => u.Id == unitId && u.LaboratoryId == session.LabId))
                 throw new InvalidOperationException("This PC is no longer in the selected laboratory.");
-            var capture = await screens.StartAsync(viewer, unitId, BrowserLease);
+            var capture = await screens.StartAsync(viewer, unitId);
             try
             {
                 await scope.ServiceProvider.GetRequiredService<IScreenCastRepository>()
@@ -165,17 +147,12 @@ public sealed class LabScreenCastService(IServiceScopeFactory scopes, ScreenCast
 
     private async Task CloseAsync(LabSession session)
     {
-        session.Lifetime.Cancel();
-        if (SessionEnding is not null)
-            foreach (Func<int, Task> stop in SessionEnding.GetInvocationList())
-                await stop(session.Id);
         // Stop capture even if the database is unavailable; the next sweep retries history writes.
         foreach (var capture in session.Captures.Values) await screens.StopAsync(session.Viewer, capture);
         using var scope = scopes.CreateScope();
         await scope.ServiceProvider.GetRequiredService<IScreenCastRepository>()
             .EndAsync(session.Id, session.Failed, clock.GetUtcNow().UtcDateTime);
         sessions.Remove(session.Id);
-        session.Lifetime.Dispose();
     }
 
     public async Task SweepAsync()

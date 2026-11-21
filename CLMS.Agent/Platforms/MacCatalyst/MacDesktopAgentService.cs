@@ -16,7 +16,6 @@ public sealed class MacDesktopAgentService(ILogger<MacDesktopAgentService> logge
     private MenuActions? actions;
     private NSObject? backgroundActivity;
     private bool disposed;
-    private nint applicationWindow;
 
     public bool StartupEnabled => (long)SMAppService.MainApp.Status == 1;
     public string StartupStatus => (long)SMAppService.MainApp.Status switch
@@ -63,7 +62,6 @@ public sealed class MacDesktopAgentService(ILogger<MacDesktopAgentService> logge
         // Replacing Catalyst's NSWindow delegate would break its scene lifecycle.
         foreach (var nativeWindow in NativeWindows())
         {
-            if (applicationWindow == 0) applicationWindow = nativeWindow;
             var close = SendIndex(nativeWindow, Sel("standardWindowButton:"), 0);
             if (close != 0) SendBool(close, Sel("setEnabled:"), false);
         }
@@ -103,19 +101,6 @@ public sealed class MacDesktopAgentService(ILogger<MacDesktopAgentService> logge
     public void Hide()
     {
         if (!disposed && statusItem != 0) SendArg(NativeApp, Sel("hide:"), 0);
-    }
-
-    public bool IsFullScreen => !disposed && applicationWindow != 0
-        && ((ulong)Send(applicationWindow, Sel("styleMask")) & (1UL << 14)) != 0;
-
-    public async Task SetFullScreenAsync(bool enabled)
-    {
-        if (disposed || applicationWindow == 0 || IsFullScreen == enabled) return;
-        SendArg(applicationWindow, Sel("toggleFullScreen:"), 0);
-        // AppKit transitions asynchronously. Wait before allowing a close/restore transition.
-        for (var attempt = 0; attempt < 30 && IsFullScreen != enabled; attempt++)
-            await Task.Delay(100);
-        if (IsFullScreen != enabled) throw new InvalidOperationException("The Mac window could not change full-screen mode.");
     }
 
     public void SetStatus(string status)

@@ -1,6 +1,6 @@
 using CLMS.Application.Authorization;
 using CLMS.Web.Services.ScreenCasting;
-using CLMS.Web.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,7 +8,7 @@ namespace CLMS.Web.Controllers;
 
 [ApiController]
 [Route("api/screen-cast/labs")]
-[Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie, Policy = Privileges.Prefix + Privileges.MonitoringLabScreens)]
+[Authorize(AuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme, Policy = Privileges.Prefix + Privileges.MonitoringLabScreens)]
 public sealed class LabScreenCastController(LabScreenCastService sessions) : ControllerBase
 {
     [HttpGet("{id:int}/lease")]

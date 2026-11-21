@@ -31,8 +31,6 @@
             </array>
         </dict>
     </dict>
-    <key>NSAppleEventsUsageDescription</key>
-    <string>CLMS uses System Events to carry out administrator lock, restart, and shutdown requests.</string>
     <key>XSAppIconAssets</key>
     <string>Assets.xcassets/appicon.appiconset</string>
 </dict>

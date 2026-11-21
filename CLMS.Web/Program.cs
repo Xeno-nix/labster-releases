@@ -81,9 +81,7 @@ builder.Services
     .AddApplication()
     .AddInfrastructure()
     .AddRazorComponents()
-        .AddInteractiveServerComponents()
-        // Bounded WebRTC connection descriptions for faculty screen broadcasting.
-        .AddHubOptions(options => options.MaximumReceiveMessageSize = 128 * 1024);
+        .AddInteractiveServerComponents();
 
 // Api stuff, and JSON string <-> enum converters
 // from http requests

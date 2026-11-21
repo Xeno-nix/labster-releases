@@ -19,29 +19,19 @@
             <p class="text-xs text-gray-400" role="status">
                 @if (LastUpdatedUtc.HasValue)
                 {
-                    <span>@VisibleUnits.Count workstations<span class="subtitle-divider">·</span>@VisibleUnits.Count(u => u.IsAvailableOnline(ObservedAtUtc)) online</span>
+                    <span>@VisibleUnits.Count workstations · Updated @UnitMonitoringDisplay.FormatUtc(LastUpdatedUtc)</span>
                 }
                 else if (Loading)
                 {
                     <span>Loading workstations…</span>
                 }
             </p>
-            </div>
         </div>
-        <div class="monitor-utilities">
-            <span class="session-badge @(LabSessionId.HasValue ? "session-active" : "")"><span></span>@(LabSessionId.HasValue ? "Monitoring live" : "Not monitoring")</span>
-            <CLMS.Web.Components.Notification.DesktopNotificationCenter Compact="true" />
-            <button type="button" @onclick="LoadAsync" disabled="@Loading" class="monitor-icon-button" aria-label="Refresh workstations" title="Refresh workstations">
-                <svg class="@(Loading ? "refresh-spinning" : "")" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 6a8 8 0 0 1 13.7 5M4.2 13A8 8 0 0 0 18 18"/></svg>
-            </button>
-        </div>
-        </div>
-        <div class="screen-toolbar">
-          <div class="screen-monitor-controls" role="group" aria-label="Workstation monitoring">
-            <label for="screen-wall-laboratory">Laboratory</label>
+        <div class="flex flex-wrap items-center gap-2">
+            <label for="screen-wall-laboratory" class="sr-only">Laboratory</label>
             <select id="screen-wall-laboratory" @bind="Laboratory" @bind:after="ChangeLaboratory"
-                    disabled="@(LabSessionId.HasValue || SessionBusy || SharingActive)"
-                    class="monitor-lab-select">
+                    disabled="@(LabSessionId.HasValue || SessionBusy)"
+                    class="max-w-full rounded-lg border border-white/20 bg-gray-900 px-3 py-2 text-sm text-white focus-visible:outline-2 focus-visible:outline-accent">
                 <option value="">Select a laboratory</option>
                 @foreach (var laboratory in Units.GroupBy(u => u.LaboratoryId).Select(g => g.First()))
                 {
@@ -50,69 +40,30 @@
             </select>
             @if (LabSessionId.HasValue)
             {
-                <button type="button" @onclick="EndLabSessionAsync" disabled="@SessionBusy" class="monitor-session-button session-end"><span class="stop-square" aria-hidden="true"></span>End session</button>
+                <button type="button" @onclick="EndLabSessionAsync" disabled="@SessionBusy" class="rounded-lg bg-red-700 px-3 py-2 text-sm text-white disabled:opacity-50">End session</button>
             }
             else
             {
-                <button type="button" @onclick="StartLabSessionAsync" disabled="@(SessionBusy || Loading || Laboratory.Length == 0)" class="monitor-session-button"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 4 12 8-12 8z"/></svg>Start session</button>
+                <button type="button" @onclick="StartLabSessionAsync" disabled="@(SessionBusy || Loading || Laboratory.Length == 0)" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-900 disabled:opacity-50">Start session</button>
             }
-          </div>
-          <div class="screen-toolbar-actions">
-            <AuthorizeView Roles="Admin">
-                <Authorized Context="commandUser">
-                    <button type="button" @onclick="ToggleSelectionMode" disabled="@(!LabSessionId.HasValue || CommandsBusy)"
-                            aria-pressed="@SelectionMode" class="screen-select-button @(SelectionMode ? "is-selecting" : "")">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m7 12 3 3 7-7"/></svg>
-                        Select units
-                    </button>
-                    <QuickControls @key="LabSessionId" Units="SelectedOnlineUnits" ObservedAtUtc="ObservedAtUtc"
-                                   Enabled="@(LabSessionId.HasValue && !SessionBusy)" BusyChanged="SetCommandsBusy" />
-                </Authorized>
-            </AuthorizeView>
-            <span class="toolbar-divider" aria-hidden="true"></span>
-            <FacultyLiveStream Light="true" LaboratoryName="@(Units.FirstOrDefault(u => u.LaboratoryId.ToString() == Laboratory)?.Laboratory)"
-                               MonitoringSessionId="@LabSessionId"
-                               SharingChanged="@((bool active) => SharingActive = active)" />
-          </div>
+            <button type="button" @onclick="LoadAsync" disabled="@Loading" class="rounded-lg border border-white/20 px-3 py-2 text-sm hover:bg-gray-800 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent">@(Loading ? "Refreshing…" : "Refresh")</button>
+            <a href="@BackUrl" class="rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-900 focus-visible:outline-2 focus-visible:outline-accent">Back to units</a>
         </div>
     </header>
 
-    <AuthorizeView Roles="Admin">
-        <Authorized Context="selectionUser">
-            @if (SelectionMode)
-            {
-                <div class="screen-selection-bar">
-                    <div class="selection-summary"><span class="selection-count">@SelectedUnits.Count</span><span>workstation@(SelectedUnits.Count == 1 ? "" : "s") selected</span><span class="selection-hint">Choose a command above</span></div>
-                    <div class="selection-actions">
-                        <button type="button" @onclick="SelectOnlineUnits" disabled="@CommandsBusy">Select all online</button>
-                        <button type="button" @onclick="() => SelectedUnits.Clear()" disabled="@(CommandsBusy || SelectedUnits.Count == 0)">Clear</button>
-                        <button type="button" @onclick="ToggleSelectionMode" disabled="@CommandsBusy" class="selection-done">Done</button>
-                    </div>
-                </div>
-            }
-        </Authorized>
-    </AuthorizeView>
-
     @if (Error is not null)
     {
-        <p role="alert" class="monitor-error">@Error</p>
+        <p role="alert" class="shrink-0 px-4 py-2 text-sm text-red-300">@Error</p>
     }
-    @if (!LabSessionId.HasValue && SessionMessage != "No screen-cast session is active.")
-    {
-        <p role="status" class="monitor-session-message">@SessionMessage</p>
-    }
+    <p role="status" class="shrink-0 px-4 py-2 text-sm text-gray-300">@SessionMessage</p>
     <div class="screen-wall-area" @ref="WallArea">
     @if (!LabSessionId.HasValue)
     {
-        <div class="screen-empty">
-            <span class="screen-empty-icon" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5"/></svg></span>
-            <h2>Start monitoring your laboratory</h2>
-            <p>Choose a laboratory and start a session to see workstation screens.</p>
-        </div>
+        <p class="m-auto p-6 text-center text-sm text-gray-400">Start a session to view the selected laboratory's workstations.</p>
     }
     else if (LastUpdatedUtc.HasValue && VisibleUnits.Count == 0)
     {
-        <div class="screen-empty"><h2>No workstations yet</h2><p>Registered workstations in this laboratory will appear here.</p></div>
+        <p class="m-auto p-6 text-center text-sm text-gray-400">No registered workstations in this view.</p>
     }
     else if (VisibleUnits.Count > 0)
     {
@@ -120,24 +71,10 @@
             @foreach (var unit in PageUnits)
             {
                 <div @key="(unit.Id, LabSessionId)"
-                     class="screen-tile min-h-0 min-w-0 overflow-hidden @(SelectedUnits.Contains(unit.Id) ? "screen-tile-selected" : "")">
-                    <UnitScreenView UnitId="unit.Id" UnitName="@unit.Name" Compact="true" LightChrome="true" AutoStart="true"
+                     class="screen-tile min-h-0 min-w-0 overflow-hidden bg-black">
+                    <UnitScreenView UnitId="unit.Id" UnitName="unit.Name" Compact="true" AutoStart="true"
                                     LabSessionId="LabSessionId"
                                     Online="@(unit.GetStatus(ObservedAtUtc) != UnitMonitoringStatus.Offline)" />
-                    <AuthorizeView Roles="Admin">
-                        <Authorized Context="tileUser">
-                            @if (SelectionMode)
-                            {
-                                <label class="screen-unit-select">
-                                    <input type="checkbox" checked="@SelectedUnits.Contains(unit.Id)"
-                                           disabled="@(CommandsBusy || !unit.IsAvailableOnline(ObservedAtUtc))"
-                                           @onchange="e => SelectUnit(unit.Id, e.Value is true)" />
-                                    <span aria-hidden="true">@(SelectedUnits.Contains(unit.Id) ? "Selected" : "Select")</span>
-                                    <span class="sr-only">Select @unit.Name for commands</span>
-                                </label>
-                            }
-                        </Authorized>
-                    </AuthorizeView>
                 </div>
             }
         </div>
@@ -145,7 +82,7 @@
     </div>
     <nav class="screen-pagination" aria-label="Screen pages">
         <button type="button" @onclick="() => CurrentPage--" disabled="@(CurrentPage <= 1)">Previous</button>
-        <span role="status"><strong>@CurrentPage</strong> / @PageCount</span>
+        <span role="status">Page @CurrentPage of @PageCount · @VisibleUnits.Count workstations</span>
         <button type="button" @onclick="() => CurrentPage++" disabled="@(CurrentPage >= PageCount)">Next</button>
     </nav>
 </div>
@@ -153,17 +90,12 @@
 @code {
     [SupplyParameterFromQuery(Name = "lab")] public int? LabId { get; set; }
     private string Laboratory = "";
-    private bool SharingActive;
     private int? LabSessionId;
     private bool SessionBusy;
     private bool SessionDisposed;
     private bool StartLease;
     private string SessionMessage = "No screen-cast session is active.";
     private System.Security.Claims.ClaimsPrincipal Viewer = new();
-    private bool SelectionMode, CommandsBusy;
-    private readonly HashSet<Guid> SelectedUnits = [];
-    private List<UnitMonitoringDTO> SelectedOnlineUnits => VisibleUnits
-        .Where(u => SelectedUnits.Contains(u.Id) && u.IsAvailableOnline(ObservedAtUtc)).ToList();
     private List<UnitMonitoringDTO> VisibleUnits => Units
         .Where(u => u.LaboratoryId.ToString() == Laboratory).ToList();
     private string BackUrl => Laboratory.Length == 0 ? "/unit-monitoring" : $"/unit-monitoring?lab={Laboratory}";
@@ -178,7 +110,6 @@
         if (!LabSessionId.HasValue && LastUpdatedUtc.HasValue && Laboratory.Length > 0 && !Units.Any(u => u.LaboratoryId.ToString() == Laboratory))
             Laboratory = "";
         CurrentPage = Math.Min(CurrentPage, PageCount);
-        SelectedUnits.IntersectWith(VisibleUnits.Where(u => u.IsAvailableOnline(ObservedAtUtc)).Select(u => u.Id));
     }
 
     private ElementReference WallArea;
@@ -192,28 +123,7 @@
     private void ChangeLaboratory()
     {
         CurrentPage = 1;
-        SelectedUnits.Clear();
-        SelectionMode = false;
     }
-
-    private void ToggleSelectionMode()
-    {
-        if (CommandsBusy || !LabSessionId.HasValue) return;
-        SelectionMode = !SelectionMode;
-        if (!SelectionMode) SelectedUnits.Clear();
-    }
-    private void SelectUnit(Guid id, bool selected)
-    {
-        if (CommandsBusy || !SelectionMode || !LabSessionId.HasValue) return;
-        if (selected && VisibleUnits.Any(u => u.Id == id && u.IsAvailableOnline(ObservedAtUtc))) SelectedUnits.Add(id);
-        else SelectedUnits.Remove(id);
-    }
-    private void SelectOnlineUnits()
-    {
-        if (!CommandsBusy && LabSessionId.HasValue)
-            SelectedUnits.UnionWith(VisibleUnits.Where(u => u.IsAvailableOnline(ObservedAtUtc)).Select(u => u.Id));
-    }
-    private void SetCommandsBusy(bool busy) => CommandsBusy = busy;
 
     private async Task StartLabSessionAsync()
     {
@@ -242,8 +152,6 @@
         if (SessionBusy || LabSessionId is not { } id) return;
         SessionBusy = true;
         LabSessionId = null;
-        SelectedUnits.Clear();
-        SelectionMode = CommandsBusy = false;
         StartLease = false;
         try
         {
