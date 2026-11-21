@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
+using System.Text;
 using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.Interfaces;
 using CLMS.Infrastructure.Persistence.MySql;
@@ -20,7 +21,7 @@ public sealed class StudentKioskController(MySqlConnectionFactory connections, I
         [Required, MaxLength(128)] string Password, Guid SessionId);
     public sealed record ResetRequest([Required, EmailAddress, MaxLength(254)] string Email);
     public sealed record Change([Required, EmailAddress, MaxLength(254)] string Email,
-        [Required, RegularExpression("[0-9a-fA-F]{32}")] string Code,
+        [Required, RegularExpression("[A-Za-z0-9]{6}")] string Code,
         [Required, StringLength(128, MinimumLength = 15)] string Password);
     public sealed record SessionRequest(Guid SessionId);
 
@@ -88,7 +89,7 @@ public sealed class StudentKioskController(MySqlConnectionFactory connections, I
     public async Task<IActionResult> ChangePassword(Change request)
     {
         var address = Normalize(request.Email);
-        var code = SHA256.HashData(Convert.FromHexString(request.Code));
+        var code = SHA256.HashData(Encoding.ASCII.GetBytes(request.Code));
         await using var db = connections.CreateConnection();
         var studentId = await db.ExecuteScalarAsync<string>(
             "SELECT student_id FROM student_kiosk_accounts a WHERE email=@address AND code_hash=@code AND code_unit=@Unit AND code_expires>UTC_TIMESTAMP(6) AND " + Enrolled,
@@ -133,8 +134,14 @@ public sealed class StudentKioskController(MySqlConnectionFactory connections, I
 
     private async Task SendCode(string address)
     {
-        var secret = RandomNumberGenerator.GetBytes(16);
-        var hash = SHA256.HashData(secret);
+        string secret;
+        do
+        {
+            secret = RandomNumberGenerator.GetString("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", 6);
+        }
+        while (!secret.Any(char.IsAsciiLetterUpper) || !secret.Any(char.IsAsciiLetterLower)
+               || !secret.Any(char.IsAsciiDigit));
+        var hash = SHA256.HashData(Encoding.ASCII.GetBytes(secret));
         await using var db = connections.CreateConnection();
         var changed = await db.ExecuteAsync("""
             UPDATE student_kiosk_accounts a SET code_hash=@hash,code_unit=@Unit,code_expires=UTC_TIMESTAMP(6)+INTERVAL 10 MINUTE
@@ -144,7 +151,7 @@ public sealed class StudentKioskController(MySqlConnectionFactory connections, I
         try
         {
             await email.SendEmailAsync(address, "CLMS verification code",
-                $"Your CLMS verification code is {Convert.ToHexString(secret)}. It expires in 10 minutes.");
+                $"Your CLMS verification code is {secret}. The code is case-sensitive and expires in 10 minutes.");
         }
         catch
         {

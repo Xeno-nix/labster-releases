@@ -13,13 +13,26 @@ public partial class App : Microsoft.Maui.Controls.Application
     private readonly ScreenCastSender screenCast;
     private readonly IDesktopAgentService desktop;
     private readonly ILogger<App> logger;
+<<<<<<< HEAD
+=======
+    private readonly AccessMonitoringService monitoring;
+    private readonly IDesktopNotifications notifications;
+    private readonly Core.AgentCoordinator identity;
+    private readonly Core.AgentApi api;
+>>>>>>> c350177 (Fix kiosk startup and use six-character verification codes)
     private bool quitting;
     private FileStream? processLock;
     public bool OwnsLifetime { get; private set; }
     public string? StartupError { get; private set; }
 
+<<<<<<< HEAD
     public App(IServiceProvider services, AgentRuntimeService runtime, AgentConnectionService connection,
         ScreenCastSender screenCast, IDesktopAgentService desktop, ILogger<App> logger)
+=======
+    public App(MainPage settings, AgentRuntimeService runtime, AgentConnectionService connection,
+        ScreenCastSender screenCast, IDesktopAgentService desktop, ILogger<App> logger, AccessMonitoringService monitoring,
+        IDesktopNotifications notifications, Core.AgentCoordinator identity, Core.AgentApi api)
+>>>>>>> c350177 (Fix kiosk startup and use six-character verification codes)
     {
         InitializeComponent();
         this.services = services;

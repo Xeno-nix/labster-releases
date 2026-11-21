@@ -11,7 +11,7 @@ internal sealed class StudentKioskPage(AgentCoordinator identity, AgentApi api) 
 {
     private readonly Entry email = new() { Placeholder = "School email", Keyboard = Keyboard.Email, MaxLength = 254 };
     private readonly Entry password = new() { Placeholder = "Password", IsPassword = true, MaxLength = 128 };
-    private readonly Entry code = new() { Placeholder = "Verification code from school email", MaxLength = 32 };
+    private readonly Entry code = new() { Placeholder = "6-character code (case-sensitive)", MaxLength = 6 };
     private readonly Entry replacement = new() { Placeholder = "New password (15 or more characters)", IsPassword = true, MaxLength = 128 };
     private readonly Label status = new() { Text = "Use your student ID as the password on your first sign-in." };
     private readonly VerticalStackLayout form = new() { Spacing = 12 };
