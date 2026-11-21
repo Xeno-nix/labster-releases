@@ -48,7 +48,7 @@
                             <option value="0">Select a course</option>
                             @foreach (var course in courses)
                             {
-                                <option value="@course.Id">@course.CourseCode â€” @course.CourseName</option>
+                                <option value="@course.Id">@course.CourseCode - @course.CourseName</option>
                             }
                         </InputSelect>
                         <ValidationMessage For="@(() => formModel.CourseId)" class="text-red-600 text-xs mt-1" />

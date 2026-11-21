@@ -2,6 +2,7 @@
 (
     utilization_log_id int auto_increment
         primary key,
+    laboratory_id      int          null,
     student_id         varchar(12)  null,
     guest_id           int          null,
     purpose_subject    varchar(255) null,

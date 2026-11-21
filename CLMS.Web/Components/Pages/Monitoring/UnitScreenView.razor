@@ -8,10 +8,10 @@
 
 @if (Allowed)
 {
-    <div class="@(Compact ? "flex h-full w-full min-h-0 flex-col" : "space-y-3")">
+    <div class="@(Compact ? $"screen-compact flex h-full w-full min-h-0 flex-col{(LightChrome ? " screen-light" : "")}" : "space-y-3")">
         @if (Compact)
         {
-            <div class="flex items-center justify-between gap-2 bg-gray-900 px-2 py-1 text-xs">
+            <div class="screen-compact-header flex items-center justify-between gap-2 px-2 py-1 text-xs">
                 <span>@UnitName</span><span>@(SessionId.HasValue ? "Viewing" : Online ? "Waiting" : "Offline")</span>
             </div>
         }
@@ -27,10 +27,10 @@
                         aria-label="Enlarge screen of @UnitName" aria-haspopup="dialog" title="Enlarge screen of @UnitName"></button>
             }
         </div>
-        <p role="status" class="@(Compact ? SessionId.HasValue ? "sr-only" : "px-2 py-1 text-xs text-gray-400" : "text-xs text-muted")">@Message</p>
+        <p role="status" class="@(Compact ? SessionId.HasValue ? "sr-only" : "screen-compact-status px-2 py-1 text-xs" : "text-xs text-muted")">@Message</p>
         @if (Compact && Online && AutoAttempted && !SessionId.HasValue)
         {
-            <button type="button" @onclick="StartViewingAsync" disabled="@Busy" class="bg-gray-800 px-2 py-1 text-xs text-white disabled:opacity-50">Retry preview</button>
+            <button type="button" @onclick="StartViewingAsync" disabled="@Busy" class="screen-retry px-2 py-1 text-xs disabled:opacity-50">Retry preview</button>
         }
         @if (!Compact && SessionId.HasValue)
         {
@@ -42,7 +42,7 @@
         }
         @if (Compact)
         {
-            <dialog @ref="EnlargedDialog" class="screen-enlarged" aria-label="Enlarged screen of @UnitName">
+            <dialog @ref="EnlargedDialog" class="screen-enlarged @(LightChrome ? "screen-enlarged-light" : "")" aria-label="Enlarged screen of @UnitName">
                 <header class="screen-enlarged-header">
                     <h2>@UnitName</h2>
                     <button type="button" @onclick="CloseEnlargedAsync" autofocus aria-label="Close enlarged screen">Close</button>
@@ -70,6 +70,7 @@ else
     [Parameter] public bool Online { get; set; }
     [Parameter] public bool AutoStart { get; set; }
     [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool LightChrome { get; set; }
     [Parameter] public int? LabSessionId { get; set; }
     private bool AutoAttempted;
     private bool Allowed;
@@ -154,7 +155,7 @@ else
             Module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Monitoring/UnitScreenView.razor.js");
             Reference ??= DotNetObjectReference.Create(this);
             if (!Disposed && SessionId.HasValue)
-                await Module.InvokeVoidAsync("start", Image, SessionId.Value.ToString(), Reference);
+                await Module.InvokeVoidAsync("start", Image, SessionId.Value.ToString(), Reference, LabSessionId.HasValue);
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
         {

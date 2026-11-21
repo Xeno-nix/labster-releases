@@ -7,7 +7,6 @@ export function stopLease(element) {
     leases.delete(element);
     clearTimeout(lease.timer);
     lease.controller.abort();
-    document.removeEventListener('visibilitychange', lease.visibility);
     window.removeEventListener('pagehide', lease.pagehide);
 }
 
@@ -19,14 +18,12 @@ export function startLease(element, id, reference) {
         stopLease(element);
         reference.invokeMethodAsync('LabSessionEnded', id).catch(() => {});
     };
-    lease.visibility = () => { if (document.hidden || !element.isConnected) end(); };
     lease.pagehide = end;
     leases.set(element, lease);
-    document.addEventListener('visibilitychange', lease.visibility);
     window.addEventListener('pagehide', lease.pagehide);
     const poll = async () => {
         if (leases.get(element) !== lease) return;
-        if (document.hidden || !element.isConnected) { end(); return; }
+        if (!element.isConnected) { end(); return; }
         try {
             const response = await fetch(`/api/screen-cast/labs/${id}/lease`, {
                 credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: lease.controller.signal

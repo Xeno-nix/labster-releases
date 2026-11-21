@@ -1,6 +1,6 @@
 using CLMS.Application.Authorization;
 using CLMS.Web.Services.ScreenCasting;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using CLMS.Web.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,7 +8,7 @@ namespace CLMS.Web.Controllers;
 
 [ApiController]
 [Route("api/screen-cast")]
-[Authorize(AuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme, Policy = Privileges.Prefix + Privileges.UnitsMonitor)]
+[Authorize(AuthenticationSchemes = AuthenticationSchemes.Cookie, Policy = Privileges.Prefix + Privileges.UnitsMonitor]
 public sealed class ScreenCastFramesController(ScreenCastService screenCasts) : ControllerBase
 {
     [HttpGet("{sessionId:guid}/frame")]

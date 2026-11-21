@@ -9,10 +9,16 @@ namespace CLMS.Web.Hubs;
 
 [Authorize(Policy = "AgentOnly")]
 public sealed class AgentConnectionHub(ILogger<AgentConnectionHub> logger, ScreenCastService screenCasts,
-    AgentPresenceStore presence, TimeProvider clock, ApplicationScanCoordinator applications,
+    AgentPresenceStore presence, TimeProvider clock, ApplicationScanCoordinator applications, FacultyStreamService facultyStreams
     CLMS.Application.Monitoring.IApplicationRegistryRepository registry) : Hub
 {
     private Guid UnitId => Guid.Parse(Context.User!.FindFirstValue("computer_unit_id")!);
+
+    public Task AnswerFacultyStream(FacultyStreamAnswer answer) =>
+        facultyStreams.AnswerAsync(UnitId, Context.ConnectionId, answer);
+
+    public Task CloseFacultyStream(Guid streamId, Guid peerId) =>
+        facultyStreams.ClosedAsync(UnitId, Context.ConnectionId, streamId, peerId);
 
     public async Task<AgentApplicationRegistry> GetApplicationRegistry(CLMS.Domain.Entities.UnitManagement.ApplicationPlatform platform)
     {
@@ -32,6 +38,12 @@ public sealed class AgentConnectionHub(ILogger<AgentConnectionHub> logger, Scree
     public bool PublishScreenFrame(ScreenCastFrame frame) => screenCasts.Publish(UnitId, Context.ConnectionId, frame);
 
     public void ScreenCaptureStopped(Guid sessionId) => screenCasts.CaptureStopped(UnitId, Context.ConnectionId, sessionId);
+
+    public void ReportNetworkResources(NetworkResourceReading? reading)
+    {
+        if (reading is { IsValid: false }) throw new HubException("Invalid network resource reading.");
+        presence.ReportNetworkResources(UnitId, Context.ConnectionId, reading);
+    }
     // The unit identity comes from the validated key, never from a client-supplied unit ID.
     public AgentConnectionInfo Heartbeat()
     {

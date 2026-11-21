@@ -1,0 +1,20 @@
+﻿.quick-commands { position: relative; display: flex; align-items: center; gap: .5rem; }
+.commands-trigger { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; height: 2.375rem; padding: 0 .875rem; border: 1px solid var(--color-primary, #8b1538); border-radius: .625rem; font-size: .8125rem; font-weight: 550; color: white; background: var(--color-primary, #8b1538); white-space: nowrap; }
+.commands-trigger:disabled { border-color: #e4e4ea; color: #a0a1ac; background: #f5f5f8; cursor: default; }
+.commands-trigger:not(:disabled):hover, .commands-trigger[aria-expanded=true] { background: var(--color-primary-dark, #6d1028); }
+.commands-trigger:focus-visible, .commands-menu button:focus-visible, .commands-feedback:focus-visible { outline: 2px solid var(--color-primary, #8b1538); outline-offset: 3px; }
+.commands-dismiss { position: fixed; inset: 0; z-index: 40; cursor: default; }
+.commands-menu { position: absolute; right: 0; top: calc(100% + .625rem); z-index: 50; width: 15.5rem; max-width: calc(100vw - 2rem); padding: .375rem; border: 1px solid #e6e6ed; border-radius: .875rem; background: white; color: #373842; box-shadow: 0 12px 40px #22223b18, 0 2px 8px #22223b08; }
+.commands-targets { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .625rem .625rem .75rem; font-size: .6875rem; color: #747581; font-weight: 550; }
+.commands-count { padding: .2rem .4rem; background: #f8edf1; color: var(--color-primary, #8b1538); border-radius: .375rem; font-size: .625rem; }
+.commands-menu button { display: flex; align-items: center; gap: .75rem; width: 100%; padding: .75rem .625rem; border-radius: .5rem; text-align: left; font-size: .8125rem; color: #454650; }
+.commands-menu button > svg { width: 1.0625rem; height: 1.0625rem; flex-shrink: 0; color: #8a8b96; }
+.commands-menu button:hover { background: #f7f3f5; color: var(--color-primary, #8b1538); }
+.commands-menu button:hover > svg { color: inherit; }
+.commands-rule { height: 1px; background: #ededf2; margin: .375rem .625rem; }
+.commands-menu .power-command, .commands-menu .power-command > svg { color: #b34555; }
+.commands-menu .power-command:hover { background: #fff1f2; color: #9f2437; }
+.commands-feedback, .commands-progress { font-size: .6875rem; color: #747581; }
+.commands-feedback { padding: .25rem .375rem; border-radius: .375rem; text-decoration: underline; text-underline-offset: 3px; }
+.commands-feedback:hover { color: var(--color-primary, #8b1538); background: #faf0f3; }
+@media (max-width: 640px) { .commands-menu { right: auto; left: 0; } .commands-progress { max-width: 7rem; } }

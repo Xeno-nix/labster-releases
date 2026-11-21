@@ -1,0 +1,198 @@
+@using System.Security.Claims
+@using CLMS.Shared.Dtos
+@using CLMS.Web.Services.Notifications
+@using Microsoft.AspNetCore.Components.Authorization
+@implements IAsyncDisposable
+@inject AuthenticationStateProvider Authentication
+@inject BrowserNotificationBus Notifications
+@inject IJSRuntime JS
+
+@if (UserId != Guid.Empty)
+{
+    <details open="@PanelOpen" class="notification-center @(Dark ? "notification-dark" : "") @(Compact ? "notification-compact" : "")">
+        <summary @onclick="TogglePanelAsync" @onclick:preventDefault="true" title="Notifications" aria-label="@($"Notifications, {UnreadCount} unread")">
+            @if (Compact)
+            {
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                @if (UnreadCount > 0) { <span class="notification-count">@UnreadCount</span> }
+            }
+            else { <span>Notifications @(UnreadCount > 0 ? $"({UnreadCount})" : "")</span> }
+        </summary>
+        <div class="notification-panel">
+            <div class="notification-panel-heading"><p class="font-semibold">Notifications</p><span>@(UnreadCount == 0 ? "All caught up" : $"{UnreadCount} unread")</span></div>
+            <p class="text-xs" role="status">@PermissionLabel</p>
+            <div class="my-3 flex flex-wrap gap-2">
+                <button type="button" @ref="PermissionButton" disabled="@(!Ready || Permission == "unsupported")">@PermissionAction</button>
+            </div>
+            <p class="mb-3 text-xs">Keep CLMS open to receive alerts. System notification settings apply.</p>
+            @if (Recent.Count == 0) { <p class="text-sm">No notifications received in this window.</p> }
+            @foreach (var notification in Recent)
+            {
+                <article class="notification-item @(ReadIds.Contains(notification.Id) ? "is-read" : "is-unread")">
+                    <p class="text-xs">@notification.Severity</p>
+                    <p class="notification-title">@notification.Title</p>
+                    <p class="whitespace-pre-wrap break-words text-sm">@notification.Body</p>
+                </article>
+            }
+        </div>
+    </details>
+}
+
+@code {
+    [Parameter] public bool Dark { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    private Guid UserId;
+    private readonly List<SystemNotification> Recent = [];
+    private readonly HashSet<Guid> ReadIds = [];
+    private int UnreadCount => Recent.Count(n => !ReadIds.Contains(n.Id));
+    private bool PanelOpen;
+    private BrowserNotificationBus.Subscription? Subscription;
+    private readonly CancellationTokenSource Lifetime = new();
+    private IJSObjectReference? Module;
+    private DotNetObjectReference<DesktopNotificationCenter>? Reference;
+    private ElementReference PermissionButton;
+    private bool Ready;
+    private bool Disposed;
+    private bool NeedsInitialization;
+    private string Permission = "loading";
+    private string PermissionAction => Permission == "enabled" ? "Disable desktop alerts" : "Enable desktop alerts";
+    private string PermissionLabel => Permission switch
+    {
+        "enabled" => "Desktop alerts are enabled.",
+        "denied" => "Notifications are blocked. Allow them in your browser or system settings.",
+        "unsupported" => "Desktop notifications require a supported browser and HTTPS.",
+        "loading" => "Checking notification support...",
+        "unavailable" => "Desktop notifications are unavailable. Alerts still appear here.",
+        _ => "Desktop alerts are off. Alerts still appear here."
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        Authentication.AuthenticationStateChanged += AuthenticationChanged;
+        await ApplyAuthenticationAsync(Authentication.GetAuthenticationStateAsync());
+    }
+
+    private void AuthenticationChanged(Task<AuthenticationState> state)
+        => _ = InvokeAsync(async () => { await ApplyAuthenticationAsync(state); if (!Disposed) StateHasChanged(); });
+
+    private async Task ApplyAuthenticationAsync(Task<AuthenticationState> state)
+    {
+        var user = (await state).User;
+        if (Disposed) return;
+        Subscription?.Dispose();
+        Subscription = null;
+        if (Module is not null)
+        {
+            try { await Module.InvokeVoidAsync("dispose", PermissionButton); }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException) { }
+        }
+        Recent.Clear();
+        ReadIds.Clear();
+        PanelOpen = false;
+        UserId = Guid.Empty;
+        Ready = false;
+        if (user.Identity?.IsAuthenticated == true && (user.IsInRole("Admin") || user.IsInRole("Faculty"))
+            && Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out UserId))
+        {
+            Subscription = Notifications.Subscribe(UserId);
+            NeedsInitialization = true;
+            _ = ReceiveAsync(Subscription);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!NeedsInitialization || UserId == Guid.Empty || Disposed) return;
+        NeedsInitialization = false;
+        try
+        {
+            Module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Notification/DesktopNotificationCenter.razor.js");
+            Reference ??= DotNetObjectReference.Create(this);
+            Permission = await Module.InvokeAsync<string>("initialize", PermissionButton, Reference, UserId.ToString());
+            foreach (var id in await Module.InvokeAsync<string[]>("readIds", UserId.ToString()))
+                if (Guid.TryParse(id, out var parsed)) ReadIds.Add(parsed);
+            if (PanelOpen) await MarkAllSeenAsync();
+            Ready = true;
+            if (!Disposed) StateHasChanged();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException)
+        { Permission = "unavailable"; if (!Disposed) StateHasChanged(); }
+    }
+
+    [JSInvokable]
+    public Task PermissionChanged(string status)
+    {
+        Permission = status;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task TogglePanelAsync()
+    {
+        PanelOpen = !PanelOpen;
+        if (PanelOpen) await MarkAllSeenAsync();
+    }
+
+    private async Task MarkAllSeenAsync()
+    {
+        foreach (var notification in Recent) ReadIds.Add(notification.Id);
+        if (Module is null || Recent.Count == 0) return;
+        var userId = UserId;
+        try
+        {
+            var ids = await Module.InvokeAsync<string[]>("markRead", userId.ToString(), Recent.Select(n => n.Id.ToString()).ToArray());
+            if (!Disposed && userId == UserId) ApplyReadIds(ids);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException) { }
+    }
+
+    private void ApplyReadIds(IEnumerable<string> ids)
+    {
+        ReadIds.Clear();
+        foreach (var id in ids.Take(200)) if (Guid.TryParse(id, out var parsed)) ReadIds.Add(parsed);
+    }
+
+    [JSInvokable]
+    public Task ReadStateChanged(string userId, string[] ids) => InvokeAsync(() =>
+    {
+        if (Disposed || !Guid.TryParse(userId, out var id) || id != UserId) return;
+        ApplyReadIds(ids);
+        StateHasChanged();
+    });
+
+    private async Task ReceiveAsync(BrowserNotificationBus.Subscription subscription)
+    {
+        try
+        {
+            await foreach (var notification in subscription.Reader.ReadAllAsync(Lifetime.Token))
+                await InvokeAsync(async () =>
+                {
+                    if (Disposed || subscription != Subscription || notification.ExpiresAt <= DateTimeOffset.UtcNow || Recent.Any(n => n.Id == notification.Id)) return;
+                    Recent.Insert(0, notification);
+                    if (Recent.Count > 20) Recent.RemoveAt(20);
+                    if (PanelOpen) await MarkAllSeenAsync();
+                    else if (Module is not null && !ReadIds.Contains(notification.Id))
+                    {
+                        try { await Module.InvokeAsync<bool>("show", notification, UserId.ToString()); }
+                        catch (Exception ex) when (ex is JSException or JSDisconnectedException or TaskCanceledException) { Permission = "unavailable"; }
+                    }
+                    StateHasChanged();
+                });
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        Authentication.AuthenticationStateChanged -= AuthenticationChanged;
+        Subscription?.Dispose();
+        Lifetime.Cancel();
+        if (Module is not null)
+        {
+            try { await Module.InvokeVoidAsync("dispose", PermissionButton); await Module.DisposeAsync(); }
+            catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException) { }
+        }
+        Reference?.Dispose();
+        Lifetime.Dispose();
+    }
+}

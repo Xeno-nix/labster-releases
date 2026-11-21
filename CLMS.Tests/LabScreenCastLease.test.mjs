@@ -52,14 +52,22 @@ test('A visible lab wall renews its lease and stopping releases browser resource
     assert.equal(requests[0].options.signal.aborted, true);
 });
 
-test('A hidden tab does not renew the lab session', async t => {
+test('Switching to a different tab keeps the monitoring session running', async t => {
     let requests = 0;
-    const env = browser(t, async () => { requests++; }, true);
+    const env = browser(t, async () => {
+        requests++;
+        return new Response(null, { status: 204 });
+    });
     startLease(env.element, 12, env.reference);
     await flush();
-    assert.equal(requests, 0);
+    document.hidden = true;
+    env.listeners.get('visibilitychange')?.();
+    env.timers.get(1)();
+    await flush();
+    assert.equal(requests, 2);
+    assert.deepEqual(env.ended, []);
+    env.listeners.get('pagehide')();
     assert.deepEqual(env.ended, [['LabSessionEnded', 12]]);
-    assert.equal(env.listeners.size, 0);
 });
 
 test('Leaving the page ends the lab session even before document.hidden changes', async t => {

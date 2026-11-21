@@ -12,6 +12,8 @@ public partial class MainPage : ContentPage
     private readonly AgentConnectionService connection;
     private readonly ScreenCastSender sender;
     private readonly IDesktopAgentService desktop;
+    private readonly AccessMonitoringService monitoring;
+    private readonly IDesktopNotifications notifications;
     private IDispatcherTimer? timer;
     private bool busy, updating;
     private bool serverLoaded;
@@ -19,10 +21,11 @@ public partial class MainPage : ContentPage
     public ObservableCollection<RegistrationLaboratory> Laboratories { get; } = [];
 
     public MainPage(AgentCoordinator identity, AgentRuntimeService runtime, AgentConnectionService connection,
-        ScreenCastSender sender, IDesktopAgentService desktop)
+        ScreenCastSender sender, IDesktopAgentService desktop, AccessMonitoringService monitoring, IDesktopNotifications notifications)
     {
         this.identity = identity; this.runtime = runtime; this.connection = connection;
-        this.sender = sender; this.desktop = desktop;
+        this.sender = sender; this.desktop = desktop; this.monitoring = monitoring;
+        this.notifications = notifications;
         InitializeComponent();
     }
 
@@ -52,10 +55,13 @@ public partial class MainPage : ContentPage
         RuntimeLabel.Text = runtime.Status;
         ConnectionLabel.Text = connection.Snapshot.Status;
         SharingLabel.Text = this.sender.Status;
+        MonitoringLabel.Text = monitoring.Status;
+        NotificationsLabel.Text = notifications.Status;
+        NotificationsButton.Text = notifications.Enabled ? "Disable desktop notifications" : "Enable desktop notifications";
         ServerPanel.IsVisible = status.CanConfigure;
         if (!serverLoaded || displayedServer != status.ServerAddress)
         {
-            ServerEntry.Text = status.ServerAddress ?? "https://localhost:7190";
+            ServerEntry.Text = status.ServerAddress ?? "https://localhost:4312";
             displayedServer = status.ServerAddress;
             serverLoaded = true;
         }
@@ -121,6 +127,8 @@ public partial class MainPage : ContentPage
         LaboratoriesMessageLabel.IsVisible = labs.Count == 0;
     }
     private void LaboratoryChanged(object? sender, EventArgs e) => UpdateControls();
+    private async void NotificationsClicked(object? sender, EventArgs e) => await Execute(async () =>
+        await notifications.SetEnabledAsync(!notifications.Enabled));
     private async void ConfigureClicked(object? sender, EventArgs e) => await Execute(async () =>
     {
         await identity.ConfigureAsync(ServerEntry.Text ?? "", default);
