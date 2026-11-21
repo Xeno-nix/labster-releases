@@ -1,4 +1,7 @@
 .sidebar {
+    --sidebar-background: var(--color-primary, #8b1538);
+    background-color: var(--sidebar-background);
+    color: #fff;
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 50;
@@ -18,10 +21,36 @@
     position: relative;
     padding: 1.5rem 1rem;
     gap: 0.5rem;
+    border-bottom: 1px solid rgb(255 255 255 / 20%);
 }
 
 .sidebar-logo {
     flex-shrink: 0;
+}
+
+.sidebar-logo,
+.sidebar-avatar,
+.sidebar-link-active {
+    background-color: #fff;
+    color: var(--sidebar-background);
+}
+
+.sidebar-secondary {
+    color: rgb(255 255 255 / 80%);
+}
+
+.sidebar-footer {
+    border-top: 1px solid rgb(255 255 255 / 20%);
+}
+
+.sidebar-control:hover,
+.sidebar-link:not(.sidebar-link-active):hover {
+    background-color: rgb(255 255 255 / 14%);
+}
+
+.sidebar :is(a, button):focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
 }
 
 .sidebar-desktop-toggle {
@@ -88,11 +117,6 @@
 
     .sidebar-collapsed .sidebar-desktop-toggle svg {
         display: none;
-    }
-
-    .sidebar-desktop-toggle:focus-visible {
-        outline: 2px solid var(--color-primary, #8b1538);
-        outline-offset: 3px;
     }
 
     .sidebar-collapsed .sidebar-nav,
