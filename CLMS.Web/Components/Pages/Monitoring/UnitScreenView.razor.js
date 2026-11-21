@@ -38,7 +38,7 @@ export function stop(image) {
     image.removeAttribute('src');
 }
 
-export function start(image, sessionId, reference, isScreenWall = false) {
+export function start(image, sessionId, reference) {
     stop(image);
     const viewer = { controller: new AbortController(), sequence: 0, url: null, pendingUrl: null, timer: null };
     const end = reason => {
@@ -47,12 +47,7 @@ export function start(image, sessionId, reference, isScreenWall = false) {
         reference.invokeMethodAsync('ViewingEnded', sessionId, reason).catch(() => {});
     };
     viewer.visibility = () => {
-        if (document.hidden && !isScreenWall) {
-            end('Viewing stopped because this browser tab is hidden. Start viewing again to resume.');
-        } else if (!document.hidden && isScreenWall && viewer.timer !== null) {
-            clearTimeout(viewer.timer);
-            void poll();
-        }
+        if (document.hidden) end('Viewing stopped because this browser tab is hidden. Start viewing again to resume.');
     };
     viewer.pagehide = () => end('Viewing stopped because the page was closed.');
     viewers.set(image, viewer);
@@ -60,10 +55,9 @@ export function start(image, sessionId, reference, isScreenWall = false) {
     window.addEventListener('pagehide', viewer.pagehide);
 
     const poll = async () => {
-        viewer.timer = null;
         if (viewers.get(image) !== viewer) return;
         if (!image.isConnected) { end('Viewing stopped because the unit details were closed.'); return; }
-        if (document.hidden && !isScreenWall) { viewer.visibility(); return; }
+        if (document.hidden) { viewer.visibility(); return; }
         try {
             const response = await fetch(`/api/screen-cast/${encodeURIComponent(sessionId)}/frame?after=${viewer.sequence}`, {
                 credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: viewer.controller.signal
@@ -113,7 +107,7 @@ export function start(image, sessionId, reference, isScreenWall = false) {
             end('Screen connection lost. Check the server and start viewing again.');
             return;
         }
-        if (viewers.get(image) === viewer) viewer.timer = setTimeout(poll, document.hidden ? 5000 : 500);
+        if (viewers.get(image) === viewer) viewer.timer = setTimeout(poll, 500);
     };
     void poll();
 }

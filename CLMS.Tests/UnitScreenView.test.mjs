@@ -31,10 +31,7 @@ function browser(t, fetcher, hidden = false) {
             response.blob = async () => new Blob(['jpeg']);
         return response;
     };
-    globalThis.setTimeout = callback => {
-        timers.set(1, () => { timers.delete(1); callback(); });
-        return 1;
-    };
+    globalThis.setTimeout = callback => { timers.set(1, callback); return 1; };
     globalThis.clearTimeout = id => timers.delete(id);
     URL.createObjectURL = () => `blob:frame-${++urls}`;
     URL.revokeObjectURL = url => revoked.push(url);
@@ -147,30 +144,6 @@ test('A hidden tab does not request frames or keep the viewing lease alive', asy
     assert.equal(requests, 0);
     assert.equal(env.ended[0][1], 'hidden-session');
     assert.equal(env.listeners.size, 0);
-});
-
-test('A screen wall preview keeps polling in another tab and refreshes immediately on return', async t => {
-    let requests = 0;
-    const env = browser(t, async () => {
-        requests++;
-        return new Response(null, { status: 204 });
-    });
-    start(env.image, 'wall-preview', env.reference, true);
-    await flush();
-    document.hidden = true;
-    env.listeners.get('visibilitychange')();
-    env.timers.get(1)();
-    await flush();
-    assert.equal(requests, 2);
-    assert.deepEqual(env.ended, []);
-
-    document.hidden = false;
-    env.listeners.get('visibilitychange')();
-    await flush();
-    assert.equal(requests, 3);
-    env.listeners.get('pagehide')();
-    assert.deepEqual(env.ended[0].slice(0, 2), ['ViewingEnded', 'wall-preview']);
-    assert.equal(env.timers.size, 0);
 });
 
 test('An in-flight response cannot restore a frame after stop', async t => {

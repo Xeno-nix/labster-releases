@@ -2,24 +2,6 @@
     visibility: hidden;
 }
 
-.screen-compact { color: white; background: #111827; }
-.screen-compact-header { background: #111827; }
-.screen-compact-status { color: #9ca3af; }
-.screen-retry { color: white; background: #1f2937; }
-.screen-light { color: #34353e; background: #fff; }
-.screen-light .screen-compact-header { background: #fff; border-bottom: 1px solid #e8e8ec; }
-.screen-light .screen-compact-header > span:first-child { font-weight: 600; }
-.screen-light .screen-compact-header > span:last-child { color: #6c757d; }
-.screen-light .screen-compact-status { color: #6c757d; }
-.screen-light .screen-retry { color: var(--color-primary, #8b1538); background: #faf0f3; }
-.screen-light .screen-retry:hover:not(:disabled) { background: #f5e1e8; }
-.screen-enlarged.screen-enlarged-light { background: white; color: #34353e; border-color: #dedfe5; }
-.screen-enlarged-light .screen-enlarged-header { border-color: #e8e8ec; }
-.screen-enlarged-light .screen-enlarged-header button { color: #555663; border-color: #dedfe5; }
-.screen-enlarged-light .screen-enlarged-header button:hover { background: #f6f6f8; }
-.screen-enlarged-light .screen-enlarged-header button:focus-visible { outline-color: var(--color-primary, #8b1538); }
-.screen-enlarged-light .screen-enlarged-status { color: #6c757d; }
-
 .screen-enlarge-trigger {
     position: absolute;
     inset: 0;

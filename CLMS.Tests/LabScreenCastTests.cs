@@ -48,11 +48,6 @@ public sealed class LabScreenCastTests
         var id = await test.Labs.StartAsync(test.Viewer, 1);
         var capture = await test.Labs.StartViewingAsync(test.Viewer, id, test.Unit);
         Assert.True(test.History.Connections[test.Unit]);
-        test.Clock.Now += TimeSpan.FromSeconds(65);
-        Assert.True(await test.Labs.RenewAsync(test.Viewer, id));
-        Assert.True(test.Screens.TryGetFrame(test.Viewer, capture, 0, out _));
-        test.Clock.Now += TimeSpan.FromSeconds(65);
-        Assert.True(test.Screens.IsActive(test.Viewer, capture));
         await test.Labs.StopViewingAsync(test.Viewer, id, capture);
         Assert.False(test.Screens.IsActive(test.Viewer, capture));
         Assert.False(test.History.Connections[test.Unit]);
@@ -69,7 +64,7 @@ public sealed class LabScreenCastTests
     {
         using var test = new Fixture();
         var id = await test.Labs.StartAsync(test.Viewer, 1);
-        test.Clock.Now += LabScreenCastService.BrowserLease + TimeSpan.FromSeconds(1);
+        test.Clock.Now += ScreenCastService.ViewerLease + TimeSpan.FromSeconds(1);
         Assert.False(await test.Labs.RenewAsync(test.Viewer, id));
         await test.Labs.SweepAsync();
         Assert.Equal((id, true), Assert.Single(test.History.Ended));
