@@ -1,16 +1,16 @@
 @page "/admin/database-backups"
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.BackupsView)]
 @using CLMS.Infrastructure.DatabaseMaintenance
 @using Microsoft.Extensions.Options
 @using Microsoft.AspNetCore.Components.Authorization
-@inject DatabaseBackupService Backups
+@inject CLMS.Web.Services.ManualDatabaseBackups Backups
 @inject AuthenticationStateProvider AuthenticationState
 @inject IOptions<DatabaseBackupOptions> Settings
 @inject ILogger<DatabaseBackups> Logger
 
 <PageTitle>Database Backups | CLMS</PageTitle>
 
-<AuthorizeView Roles="Admin">
+<AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsView)">
 <Authorized>
 <div class="space-y-5">
     <header class="flex flex-wrap items-center justify-between gap-3">
@@ -19,7 +19,7 @@
             <p class="mt-1 text-sm text-muted">@(Settings.Value.Enabled ? $"Daily backup at {Settings.Value.HourPhilippineTime:D2}:00 Philippine time (UTC+8) while the server is running." : "Scheduled backups are disabled.")</p>
             <p class="text-sm text-muted">Keeps the latest @Settings.Value.KeepLast regular backups and @Settings.Value.KeepLast recovery backups.</p>
         </div>
-        <button type="button" @onclick="CreateBackup" disabled="@Busy" class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Back up now</button>
+        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsCreate)" Context="backupCreate"><button type="button" @onclick="CreateBackup" disabled="@Busy" class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Back up now</button></AuthorizeView>
     </header>
 
     @if (Message is not null)
@@ -48,7 +48,7 @@
                         <td class="p-3" title="@backup.FileName">@backup.CreatedUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td class="p-3">@backup.Kind</td>
                         <td class="p-3">@((backup.Bytes / 1024d).ToString("N1")) KB</td>
-                        <td class="p-3"><button type="button" disabled="@Busy" @onclick="() => SelectRestore(backup)" class="rounded-lg border border-black/10 px-3 py-2 disabled:opacity-50">Restore</button></td>
+                        <td class="p-3"><AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsRestore)" Context="actionAccess22"><button type="button" disabled="@Busy" @onclick="() => SelectRestore(backup)" class="rounded-lg border border-black/10 px-3 py-2 disabled:opacity-50">Restore</button></AuthorizeView></td>
                     </tr>
                 }
                 @if (Items.Count == 0)
@@ -64,7 +64,7 @@
     <p class="text-sm">Restore the backup from @Selected?.CreatedUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd HH:mm:ss") PH time? Current records in its tables will be replaced. Confirm that other users and agents have stopped writing to the database.</p>
     <label for="restore-confirmation" class="mt-4 block text-sm">Type RESTORE to confirm</label>
     <input id="restore-confirmation" @bind="Confirmation" @bind:event="oninput" autocomplete="off" class="mt-2 w-full rounded-lg border border-black/10 p-2" />
-    <button type="button" @onclick="Restore" disabled="@(Busy || Confirmation != "RESTORE")" class="mt-4 rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Restore database</button>
+    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsRestore)" Context="actionAccess23"><button type="button" @onclick="Restore" disabled="@(Busy || Confirmation != "RESTORE")" class="mt-4 rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Restore database</button></AuthorizeView>
 </Modal>
 </Authorized>
 <NotAuthorized><p role="alert">Administrator access is required to manage database backups.</p></NotAuthorized>
@@ -81,14 +81,12 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (await IsAdmin()) RefreshList();
+        await RefreshList();
     }
 
-    private async Task<bool> IsAdmin() => (await AuthenticationState.GetAuthenticationStateAsync()).User.IsInRole("Admin");
-
-    private void RefreshList()
+    private async Task RefreshList()
     {
-        try { Items = Backups.List(); }
+        try { Items = await Backups.ListAsync(); }
         catch (Exception ex) { Logger.LogError(ex, "Could not list database backups."); Error = "Could not read backups. Check the server's backup folder permissions."; }
     }
 
@@ -116,7 +114,6 @@
     private async Task Run(string operation, Func<Task<string>> action)
     {
         if (Busy) return;
-        if (!await IsAdmin()) { Error = "Administrator access is required."; return; }
         Busy = true;
         Operation = operation;
         Message = Error = null;
@@ -126,6 +123,6 @@
             Logger.LogError(ex, "Database maintenance operation failed.");
             Error = ex is InvalidOperationException ? ex.Message : "Database operation failed. Check server logs and backup folder permissions.";
         }
-        finally { Busy = false; RefreshList(); }
+        finally { Busy = false; await RefreshList(); }
     }
 }

@@ -8,6 +8,7 @@ public abstract class MonitoringPageBase : ComponentBase, IDisposable
 {
     [Inject] protected IUnitMonitoringRepository MonitoringRepository { get; set; } = default!;
     [Inject] protected ILogger<MonitoringPageBase> Logger { get; set; } = default!;
+    [Inject] protected CLMS.Application.Identity.Interfaces.ICurrentUser MonitoringActor { get; set; } = default!;
     [Inject] protected CLMS.Web.Services.AgentConnections.AgentPresenceStore AgentPresence { get; set; } = default!;
 
     private IReadOnlyList<UnitMonitoringDTO> LiveUnits = [];
@@ -37,6 +38,7 @@ public abstract class MonitoringPageBase : ComponentBase, IDisposable
         Loading = true;
         try
         {
+            await MonitoringActor.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.UnitsView);
             await RefreshDetailsAsync(Lifetime.Token);
             var units = await MonitoringRepository.GetAllAsync(Lifetime.Token);
             if (Disposed)

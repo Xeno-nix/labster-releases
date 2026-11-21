@@ -1,5 +1,5 @@
 @page "/unit-monitoring"
-@attribute [Authorize]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.UnitsView)]
 @using CLMS.Web.Models
 @using CLMS.Application.DTOs.Monitoring
 @using CLMS.Application.Identity.Interfaces
@@ -33,15 +33,17 @@
         <button type="button" @onclick="() => ShowSummary = true" disabled="@(!LastUpdatedUtc.HasValue)"
                 aria-label="View workstation summary" aria-haspopup="dialog" title="Workstation summary"
                 class="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-sm font-semibold text-primary hover:bg-surface disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-primary">?</button>
-        <a href="@ScreensUrl" target="_blank" rel="noopener noreferrer" title="Open all screens in a new tab"
+        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.MonitoringLabScreens)"><a href="@ScreensUrl" target="_blank" rel="noopener noreferrer" title="Open all screens in a new tab"
            aria-label="View all screens (opens in a new tab)"
-           class="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">View all screens</a>
+           class="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">View all screens</a></AuthorizeView>
         <button type="button" @onclick="LoadAsync" disabled="@Loading"
                 class="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm text-primary disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-primary">
             @(Loading ? "Refreshing…" : "Refresh")
         </button>
         </div>
     </header>
+
+    <MonitoringTabs />
 
     @if (Error is not null)
     {
@@ -138,7 +140,7 @@
         ActiveSessions = new Dictionary<Guid, WorkstationSession>();
         try
         {
-            await CurrentUser.RequireAdminAsync();
+            await CurrentUser.RequirePrivilegeAsync(CLMS.Application.Authorization.Privileges.MonitoringSessionsView);
             CanViewSessions = true;
             ActiveSessions = await WorkstationSessions.GetActiveAsync(cancellationToken);
             SessionsAvailable = true;

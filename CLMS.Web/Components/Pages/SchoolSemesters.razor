@@ -1,5 +1,5 @@
 @inject CLMS.Web.Services.ToastService Toasts
-@attribute [Authorize]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.TermsView)]
 @rendermode InteractiveServer
 @using CLMS.Application.Services
 @using CLMS.Domain.Enums
@@ -47,7 +47,7 @@
                                 <td class="px-6 py-4 text-muted">@(term.EndDate?.ToString("MMM dd, yyyy") ?? "Not set")</td>
                                 <td class="px-6 py-4 text-right whitespace-nowrap">
                                     <button type="button" aria-label="Edit school semester" class="rounded-lg px-3 py-2 text-primary hover:bg-primary/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Edit(term)">Edit</button>
-                                    <button type="button" aria-label="Delete school semester" class="rounded-lg px-3 py-2 text-error hover:bg-error/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Delete(term)">Delete</button>
+                                    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.TermsManage)" Context="actionAccess16"><button type="button" aria-label="Delete school semester" class="rounded-lg px-3 py-2 text-error hover:bg-error/10 disabled:opacity-60" disabled="@deleting" @onclick="() => Delete(term)">Delete</button></AuthorizeView>
                                 </td>
                             </tr>
                         }

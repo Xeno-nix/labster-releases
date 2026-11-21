@@ -1,5 +1,5 @@
 @page "/admin/unit-registry"
-@attribute [Authorize(Policy = "UnitRegistryAdmin")]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.UnitsManage)]
 @implements IAsyncDisposable
 @using CLMS.Application.UnitRegistry
 @using CLMS.Shared.Dtos

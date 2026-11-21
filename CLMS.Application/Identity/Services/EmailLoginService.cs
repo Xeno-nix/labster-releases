@@ -33,7 +33,7 @@ public sealed class EmailLoginService(IEmailLoginChallenges challenges, IUserRep
     public async Task ValidateAsync(UserClaimsDto claims)
     {
         var current = await users.FindByIdAsync(claims.UserId);
-        if (current is null || current.DeletedAt.HasValue || current.IsLockedOut || !crypto.StampMatches(current, claims.SecurityStamp))
+        if (current is null || !CLMS.Application.Authorization.Privileges.IsStaff(current.UserRole) || current.DeletedAt.HasValue || current.IsLockedOut || !crypto.StampMatches(current, claims.SecurityStamp))
             throw new UnauthorizedAccessException("The account changed or is unavailable. Sign in again.");
     }
     private async Task SendAsync(LoginCodeDelivery delivery, CancellationToken ct)

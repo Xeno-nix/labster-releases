@@ -1,4 +1,5 @@
-﻿@using System.ComponentModel.DataAnnotations
+@inject CLMS.Application.Identity.Interfaces.ICurrentUser CurrentActor
+@using System.ComponentModel.DataAnnotations
 @using CLMS.Application.Identity.Services
 @using CLMS.Domain.Entities.Identity
 @using CLMS.Domain.Enums
@@ -6,21 +7,12 @@
 
 @inject NavigationManager Navigation;
 @inject UserManagementService UserMgmtService;
+@inject CLMS.Application.Identity.Interfaces.ICurrentUser Actor
+@inject CLMS.Web.Services.DialogService Dialogs
 
 
 @if (IsOpen)
 {
-    <ConfirmDialog
-        IsOpen="@_showConfirmDialog"
-        Title="Delete User"
-        Message="Are you sure you want to delete this user?"
-        OnResult="HandleConfirmResult" />
-
-    <MessageDialog
-        IsOpen="@_showMessageDialog"
-        Title="@_messageTitle"
-        Message="@_messageText"
-        OnClose="CloseMessage" />
     
     <div class="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-4">
         <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl">
@@ -118,9 +110,9 @@
                                 <!-- Role -->
                                 <div>
                                     <label class="mb-1 block text-sm font-medium text-gray-700">Role</label>
-                                    <InputSelect @bind-Value="EditModel.UserRole"
+                                    <InputSelect @bind-Value="EditModel.UserRole" disabled="@(!CanAssignRoles)"
                                         class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-                                        @foreach (var role in Enum.GetValues<Role>())
+                                        @foreach (var role in Enum.GetValues<Role>().Where(role => Privileges.IsStaff(role) && (role != Role.SuperAdmin || IsSuperAdmin)))
                                         {
                                             <option value="@role">@role</option>
                                         }
@@ -133,23 +125,23 @@
                 </EditForm>
             }
             <div class="flex justify-end gap-2 px-6 pb-4">
-                @if (_isViewing)
+                @if (_isViewing && (IsSuperAdmin || ViewModel.Role != "SuperAdmin"))
                 {
-                    <button
+                    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UsersEdit)" Context="editUserAccess"><button
                         type="button"
                         @onclick="HandleEdit"
                         class="rounded-lg border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-black hover:bg-gray-50">
                         Edit
-                    </button>
+                    </button></AuthorizeView>
 
-                    <button
+                    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.UsersDelete)" Context="deleteUserAccess"><button
                         type="button"
                         @onclick="HandleDelete"
                         class="rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-dark">
                         Delete
-                    </button>
+                    </button></AuthorizeView>
                 }
-                else
+                else if (!_isViewing)
                 {
                     <button
                         type="submit"
@@ -167,6 +159,10 @@
 
                 }
             </div>
+            @if (UserId.HasValue && _isViewing)
+            {
+                <div class="max-h-96 overflow-y-auto px-6 pb-5"><CLMS.Web.Components.Pages.Admin.UserPrivileges @key="UserId" UserId="UserId.Value" /></div>
+            }
         </div>
         </div>
         
@@ -174,6 +170,14 @@
 }
 
 @code {
+    private bool IsSuperAdmin;
+    private bool CanAssignRoles;
+    protected override async Task OnInitializedAsync()
+    {
+        IsSuperAdmin = (await CurrentActor.GetActorAsync()).UserRole == Role.SuperAdmin;
+        try { await CurrentActor.RequirePrivilegeAsync(Privileges.UsersAssignRoles); CanAssignRoles = true; } catch (UnauthorizedAccessException) { }
+    }
+
 
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
@@ -185,7 +189,7 @@
     
     public ViewUserModel ViewModel{ get; set; } = new();
     public EditUserModel EditModel{ get; set; } = new();
-    public string ErrorMessage { get; set; }
+    public string? ErrorMessage { get; set; }
 
     private bool _showConfirmDialog;
     private bool _showMessageDialog;
@@ -273,7 +277,6 @@
 
     private async Task HandleSubmit()
     {
-        ShowMessage("Test","Hello World!");
         
         if (ViewModel is null)
             return;
@@ -314,10 +317,9 @@
         }
     }
 
-    private void HandleDelete()
+    private async Task HandleDelete()
     {
-        _pendingAction = DialogAction.Delete;
-        _showConfirmDialog = true;
+        if (await Dialogs.ShowConfirmDialogAsync("Delete this user account?", "Delete User")) await DeleteUser();
     }
 
     private async Task HandleConfirmResult(bool confirmed)
@@ -361,9 +363,7 @@
 
     private void ShowMessage(string title, string message)
     {
-        _messageTitle = title;
-        _messageText = message;
-        _showMessageDialog = true;
+        _ = Dialogs.ShowMessageDialogAsync(message, title);
     }
 
     private Task CloseMessage()

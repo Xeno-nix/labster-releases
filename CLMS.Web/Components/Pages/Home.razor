@@ -2,7 +2,7 @@
 
 @using CLMS.Application.Services
 @rendermode InteractiveServer
-@attribute [Authorize]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.DashboardView)]
 @using System.Security.Claims
 @using CLMS.Application.DTOs.Dashboard
 
@@ -133,19 +133,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // Admin sees everything; Faculty is scoped to their own classes/sessions.
-        // Claims are set in AuthController.CookieLogin (NameIdentifier + Role).
-        Guid? facultyId = null;
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity?.IsAuthenticated == true && !user.IsInRole("Admin"))
-        {
-            var idClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (Guid.TryParse(idClaim, out var id))
-                facultyId = id;
-        }
-
-        snapshot = await DashboardService.GetSnapshotAsync(facultyId);
+        // The service derives visibility from the authenticated account.
+        snapshot = await DashboardService.GetSnapshotAsync();
     }
 }

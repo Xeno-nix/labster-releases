@@ -1,3 +1,5 @@
+using CLMS.Application.Authorization;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.DTOs.Inventory;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
@@ -8,10 +10,12 @@ namespace CLMS.Application.Services;
 
 public class EquipmentService
 {
+    private readonly ICurrentUser actor;
     private readonly IEquipmentRepository _repository;
 
-    public EquipmentService(IEquipmentRepository repository)
+    public EquipmentService(IEquipmentRepository repository, ICurrentUser actor)
     {
+        this.actor = actor;
         _repository = repository;
     }
 
@@ -21,6 +25,7 @@ public class EquipmentService
 
     public async Task<Guid> CreateAsync(UpsertEquipmentDTO dto)
     {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
         const int maxAttempts = 3;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -53,14 +58,21 @@ public class EquipmentService
 
         throw new InvalidOperationException("Could not generate a unique equipment number. Please try again.");
     }
-    public Task<IEnumerable<EquipmentDTO>> GetAllAsync()
-        => _repository.GetAllAsync();
+    public async Task<IEnumerable<EquipmentDTO>> GetAllAsync()
+    {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryView);
+        return await _repository.GetAllAsync();
+    }
 
-    public Task<EquipmentDTO?> GetByIdAsync(Guid id)
-        => _repository.GetByIdAsync(id);
+    public async Task<EquipmentDTO?> GetByIdAsync(Guid id)
+    {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryView);
+        return await _repository.GetByIdAsync(id);
+    }
 
     public async Task UpdateAsync(Guid id, UpsertEquipmentDTO dto)
     {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
         var existing = await _repository.GetByIdAsync(id)
             ?? throw new InvalidOperationException("Equipment not found.");
 
@@ -80,8 +92,11 @@ public class EquipmentService
         await _repository.UpdateAsync(equipment);
     }
 
-    public Task DeleteAsync(Guid id)
-        => _repository.DeleteAsync(id);
+    public async Task DeleteAsync(Guid id)
+    {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
+        await _repository.DeleteAsync(id);
+    }
 
     // ---------------------------------------------------------------
     // Assignment orchestration
@@ -89,6 +104,7 @@ public class EquipmentService
 
     public async Task<Guid> AssignAsync(AssignEquipmentDTO dto)
     {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
         if (dto.ComputerUnitId is null == dto.LaboratoryId is null)
         {
             throw new ArgumentException(
@@ -116,6 +132,7 @@ public class EquipmentService
 
     public async Task EndAssignmentAsync(Guid assignmentId, EndEquipmentAssignmentDTO dto)
     {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
         var assignment = await _repository.GetAssignmentByIdAsync(assignmentId)
             ?? throw new InvalidOperationException("Assignment not found.");
 
@@ -131,6 +148,7 @@ public class EquipmentService
 
     public async Task EndCurrentAssignmentAsync(Guid equipmentId, EndEquipmentAssignmentDTO dto)
     {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
         var assignment = await _repository.GetActiveAssignmentAsync(equipmentId)
             ?? throw new InvalidOperationException("This equipment has no active assignment to end.");
 
@@ -139,11 +157,17 @@ public class EquipmentService
         await _repository.EndAssignmentAsync(assignment);
     }
 
-    public Task<IEnumerable<EquipmentAssignmentDTO>> GetAssignmentHistoryAsync(Guid equipmentId)
-        => _repository.GetAssignmentHistoryAsync(equipmentId);
+    public async Task<IEnumerable<EquipmentAssignmentDTO>> GetAssignmentHistoryAsync(Guid equipmentId)
+    {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryView);
+        return await _repository.GetAssignmentHistoryAsync(equipmentId);
+    }
 
-    public Task<IEnumerable<EquipmentAssignmentDTO>> GetAssignmentsForComputerUnitAsync(Guid computerUnitId)
-        => _repository.GetAssignmentsForComputerUnitAsync(computerUnitId);
+    public async Task<IEnumerable<EquipmentAssignmentDTO>> GetAssignmentsForComputerUnitAsync(Guid computerUnitId)
+    {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryView);
+        return await _repository.GetAssignmentsForComputerUnitAsync(computerUnitId);
+    }
 
     // ---------------------------------------------------------------
     // String <-> enum parsing (DTOs carry plain strings; the domain uses enums)

@@ -1,3 +1,5 @@
+using CLMS.Application.Authorization;
+using CLMS.Application.Identity.Interfaces;
 using CLMS.Application.DTOs.Inventory;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
@@ -8,36 +10,52 @@ namespace CLMS.Application.Services;
 
 public class SupplyService 
 {
+    private readonly ICurrentUser actor;
     private readonly ISupplyRepository _repository;
 
-    public SupplyService(ISupplyRepository repository)
+    public SupplyService(ISupplyRepository repository, ICurrentUser actor)
     {
+        this.actor = actor;
         _repository = repository;
     }
 
-    public Task<int> CreateAsync(UpsertSupplyDTO dto)
+    public async Task<int> CreateAsync(UpsertSupplyDTO dto)
     {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
         var supply = new Supply(0, dto.Name, dto.Category, dto.Unit, ParseStatus(dto.Status), dto.Remarks);
-        return _repository.CreateAsync(supply);
+        return await _repository.CreateAsync(supply);
     }
 
-    public Task<IEnumerable<SupplyDTO>> GetAllAsync()
-        => _repository.GetAllAsync();
-
-    public Task<SupplyDTO?> GetByIdAsync(int id)
-        => _repository.GetByIdAsync(id);
-
-    public Task UpdateAsync(int id, UpsertSupplyDTO dto)
+    public async Task<IEnumerable<SupplyDTO>> GetAllAsync()
     {
-        var supply = new Supply(id, dto.Name, dto.Category, dto.Unit, ParseStatus(dto.Status), dto.Remarks);
-        return _repository.UpdateAsync(supply);
+        await actor.RequirePrivilegeAsync(Privileges.InventoryView);
+        return await _repository.GetAllAsync();
     }
 
-    public Task UpdateStatusAsync(int id, string status)
-        => _repository.UpdateStatusAsync(id, ParseStatus(status));
+    public async Task<SupplyDTO?> GetByIdAsync(int id)
+    {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryView);
+        return await _repository.GetByIdAsync(id);
+    }
 
-    public Task DeleteAsync(int id)
-        => _repository.DeleteAsync(id);
+    public async Task UpdateAsync(int id, UpsertSupplyDTO dto)
+    {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
+        var supply = new Supply(id, dto.Name, dto.Category, dto.Unit, ParseStatus(dto.Status), dto.Remarks);
+        await _repository.UpdateAsync(supply);
+    }
+
+    public async Task UpdateStatusAsync(int id, string status)
+    {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
+        await _repository.UpdateStatusAsync(id, ParseStatus(status));
+    }
+
+    public async Task DeleteAsync(int id)
+    {
+        await actor.RequirePrivilegeAsync(Privileges.InventoryManage);
+        await _repository.DeleteAsync(id);
+    }
 
     private static SupplyStatus ParseStatus(string value)
     {

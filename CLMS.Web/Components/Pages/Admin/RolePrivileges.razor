@@ -1,0 +1,48 @@
+@page "/admin/users/roles"
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.SecurityManage)]
+@using CLMS.Domain.Enums
+@inject PrivilegeManagementService Access
+
+<PageTitle>Role Privileges | CLMS</PageTitle>
+<div class="space-y-5">
+    <header class="flex items-center justify-between gap-3"><div><h1 class="text-2xl text-primary">Role Privileges</h1><p class="text-sm text-muted">Changes apply to users inheriting these privileges. Explicit user revocations still take precedence.</p></div><a href="/admin/users" class="text-sm text-primary">Back to users</a></header>
+    @if (Error is not null) { <p role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">@Error</p> }
+    <label class="block text-sm">Role<select @bind="SelectedRole" @bind:after="SelectRole" class="ml-3 rounded-lg border border-black/10 p-2" disabled="@Busy"><option value="Admin">Admin</option><option value="Faculty">Faculty</option><option value="SuperAdmin">SuperAdmin (protected)</option></select></label>
+    @if (SelectedRole == Role.SuperAdmin) { <p class="rounded-lg bg-surface p-3 text-sm">SuperAdmin automatically has every defined privilege. Its privileges cannot be edited.</p> }
+    @foreach (var module in Privileges.All.GroupBy(p => p.Module))
+    {
+        <fieldset class="rounded-lg border border-black/10 bg-white p-4"><legend class="px-2 text-sm font-semibold text-primary">@module.Key</legend><div class="grid gap-3 md:grid-cols-2">
+            @foreach (var privilege in module)
+            {
+                <label class="flex gap-2 text-sm"><input type="checkbox" checked="@(SelectedRole == Role.SuperAdmin || Selected.Contains(privilege.Id))" disabled="@(Busy || SelectedRole == Role.SuperAdmin || privilege.SuperAdminOnly)" @onchange="args => Toggle(privilege.Id, args)" /><span>@privilege.Description <span class="block text-xs text-muted">@privilege.Id @(privilege.SuperAdminOnly ? " · SuperAdmin only" : "")</span></span></label>
+            }
+        </div></fieldset>
+    }
+    <button type="button" disabled="@(Busy || Roles.Count == 0 || SelectedRole == Role.SuperAdmin)" @onclick="SaveAsync" class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Save role privileges</button>
+    @if (Saved) { <p role="status" class="text-sm text-success">Role privileges saved.</p> }
+</div>
+
+@code {
+    private CLMS.Domain.Enums.Role SelectedRole = CLMS.Domain.Enums.Role.Admin;
+    private IReadOnlyList<RoleAccess> Roles = [];
+    private HashSet<string> Selected = [];
+    private bool Busy, Saved;
+    private string? Error;
+    protected override async Task OnInitializedAsync()
+    {
+        try { Roles = await Access.RolesAsync(); SelectRole(); }
+        catch (UnauthorizedAccessException) { Error = "Only an active SuperAdmin can view role privileges."; }
+        catch { Error = "Could not load role privileges. Reopen this page to try again."; }
+    }
+    private void SelectRole() { Selected = Roles.FirstOrDefault(r => r.Role == SelectedRole)?.Privileges.ToHashSet() ?? []; Saved = false; }
+    private void Toggle(string id, ChangeEventArgs args) { if (args.Value is true) Selected.Add(id); else Selected.Remove(id); Saved = false; }
+    private async Task SaveAsync()
+    {
+        Busy = true; Error = null; Saved = false;
+        try { await Access.SetRoleAsync(SelectedRole, Selected); Roles = await Access.RolesAsync(); Saved = true; }
+        catch (UnauthorizedAccessException) { Error = "Only an active SuperAdmin can change role privileges."; }
+        catch (ArgumentException ex) { Error = ex.Message; }
+        catch { Error = "Could not save role privileges. Try again."; }
+        finally { Busy = false; }
+    }
+}

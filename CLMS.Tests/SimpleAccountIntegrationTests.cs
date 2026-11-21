@@ -78,7 +78,7 @@ public sealed class SimpleAccountIntegrationTests : IAsyncLifetime
         recovery = new(users, resets, crypto, passwords, queue, email, options, TimeProvider.System);
         authentication = new(users, passwords, new JwtAuthenticationService(Options.Create(new JwtOptions
             { Issuer = "tests", Audience = "human", Key = new string('K', 64), SigningAlgorithm = "HS256", AccessTokenExpirationMinutes = 15, RefreshTokenExpirationHours = 24 })),
-            new RefreshTokenHasher(), refresh, new ExternalIdentityRepository(connections), new AdminActor(), email, options, crypto, login);
+            new RefreshTokenHasher(), refresh, new ExternalIdentityRepository(connections), new AdminActor(), email, options, crypto, login, new TestAuthorizationStore(users), new TestAuthorizationChanges());
         user = new(Guid.NewGuid(), new Name("Test"), new Name("Person"), "person@example.com", Role.Admin, passwords.Hash("original-password")) { PasswordChanged = true };
         await users.AddAsync(user);
     }
@@ -460,7 +460,7 @@ public sealed class SimpleAccountIntegrationTests : IAsyncLifetime
             await admin.ExecuteAsync($"DROP DATABASE `{database}`");
         await admin.DisposeAsync();
     }
-    private sealed class AdminActor : ICurrentUser { public Task<Guid> RequireAdminAsync() => Task.FromResult(Guid.Empty); }
+    private sealed class AdminActor : ICurrentUser { public Task<Guid> RequirePrivilegeAsync(string privilege) => RequireAdminAsync(); public Task<Guid> RequireAdminAsync() => Task.FromResult(Guid.Empty); }
     private sealed class TestHttpAuthenticationState(IHttpContextAccessor accessor) : AuthenticationStateProvider
     {
         public override Task<AuthenticationState> GetAuthenticationStateAsync() => Task.FromResult(new AuthenticationState(accessor.HttpContext?.User ?? new ClaimsPrincipal(new ClaimsIdentity())));

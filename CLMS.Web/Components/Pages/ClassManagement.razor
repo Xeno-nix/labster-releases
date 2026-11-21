@@ -1,7 +1,7 @@
 @page "/class-lists"
 @page "/courses"
 @page "/school-semesters"
-@attribute [Authorize(Roles = "Admin,Faculty")]
+@attribute [Authorize]
 @rendermode InteractiveServer
 @inject NavigationManager Navigation
 @implements IDisposable
@@ -10,6 +10,8 @@
 <PageTitle>CLMS — Class Management</PageTitle>
 
 <div class="space-y-6">
+    <AuthorizeView Policy="@(Privileges.Prefix + (ActivePath == "/courses" ? Privileges.CoursesView : ActivePath == "/school-semesters" ? Privileges.TermsView : Privileges.ClassListsView))">
+    <Authorized>
     @switch (ActivePath)
     {
         case "/courses":
@@ -22,6 +24,7 @@
             <ClassList HeaderTemplate="ManagementHeader" />
             break;
     }
+    </Authorized><NotAuthorized><p role="alert">You do not have access to this class management view.</p></NotAuthorized></AuthorizeView>
 </div>
 
 @code {

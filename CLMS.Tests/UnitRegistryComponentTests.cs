@@ -72,7 +72,7 @@ public sealed class UnitRegistryComponentTests
             new AgentTokenService(Options.Create(new JwtOptions()), Options.Create(new AgentAuthOptions())), new Actor(), new DeviceProofVerifier()));
         return services;
     }
-    private sealed class Actor : ICurrentUser { public Task<Guid> RequireAdminAsync() => Task.FromResult(Guid.NewGuid()); }
+    private sealed class Actor : ICurrentUser { public Task<Guid> RequirePrivilegeAsync(string privilege) => RequireAdminAsync(); public Task<Guid> RequireAdminAsync() => Task.FromResult(Guid.NewGuid()); }
     private sealed class Labs : ILaboratoryRepository
     {
         public Task<IEnumerable<Laboratory>> GetAllAsync() => Task.FromResult<IEnumerable<Laboratory>>([new() { Id = 1, Name = "Test lab" }]);

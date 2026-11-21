@@ -33,6 +33,7 @@ public static class MauiProgram
 #endif
 		builder.Services.AddTransient<CLMS.Agent.Views.MainPage>();
 		builder.Services.AddSingleton<CLMS.Agent.Services.AgentConnectionService>();
+		builder.Services.AddSingleton<CLMS.Agent.Services.ApplicationProcessMonitor>();
 		builder.Services.AddSingleton<CLMS.Agent.Services.ScreenCastSender>();
 		builder.Services.AddSingleton<CLMS.Agent.Services.IAgentConnectionTransport>(services => services.GetRequiredService<CLMS.Agent.Services.AgentConnectionService>());
 		builder.Services.AddSingleton<CLMS.Agent.Services.AgentRuntimeService>();

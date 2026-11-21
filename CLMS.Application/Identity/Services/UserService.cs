@@ -1,14 +1,17 @@
-﻿using CLMS.Application.DTOs;
+using CLMS.Application.Authorization;
+using CLMS.Application.Identity.Interfaces;
+using CLMS.Application.DTOs;
 using CLMS.Application.Persistence.Interfaces;
 using CLMS.Domain.Entities.Identity;
 using CLMS.Domain.Enums;
 
 namespace CLMS.Application.Identity.Services;
 
-public class UserService(IUserRepository userRepository)
+public class UserService(IUserRepository userRepository, ICurrentUser actor)
 {
     public async Task<IEnumerable<UserDto>> GetFacultyAsync()
     {
+        await actor.RequirePrivilegeAsync(Privileges.SchedulesView);
         return (await userRepository.FindAllByRoleAsync(Role.Faculty))
             .Select(MapToDto);
     }

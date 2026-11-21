@@ -9,6 +9,7 @@
 <PageTitle>CLMS — Laboratory Management</PageTitle>
 
 <div class="space-y-6">
+    <AuthorizeView Policy="@(Privileges.Prefix + (ActivePath == "/schedules" ? Privileges.SchedulesView : Privileges.BookingsView))"><Authorized>
     @switch (ActivePath)
     {
         case "/schedules":
@@ -18,6 +19,7 @@
             <Bookings HeaderTemplate="ManagementHeader" />
             break;
     }
+    </Authorized><NotAuthorized><p role="alert">You do not have access to this scheduling view.</p></NotAuthorized></AuthorizeView>
 </div>
 
 @code {

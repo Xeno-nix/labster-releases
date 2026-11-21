@@ -1,3 +1,5 @@
+using CLMS.Application.Authorization;
+using CLMS.Application.Identity.Interfaces;
 using System.Data.Common;
 using System.Text.RegularExpressions;
 using CLMS.Application.DTOs.Booking;
@@ -20,6 +22,7 @@ namespace CLMS.Application.Services;
 /// </summary>
 public class ClassListService
 {
+    private readonly ICurrentUser actor;
     private readonly IClassScheduleRepository _scheduleRepository;
     private readonly IAcademicTermRepository _termRepository;
     private readonly IEnrollmentRepository _enrollmentRepository;
@@ -33,8 +36,9 @@ public class ClassListService
         IEnrollmentRepository enrollmentRepository,
         IStudentRepository studentRepository,
         IDbConnectionFactory dbFactory,
-        ClassListCsvParser csvParser)
+        ClassListCsvParser csvParser, ICurrentUser actor)
     {
+        this.actor = actor;
         _scheduleRepository = scheduleRepository;
         _termRepository = termRepository;
         _enrollmentRepository = enrollmentRepository;
@@ -44,15 +48,16 @@ public class ClassListService
     }
 
     /// <summary>
-    /// The classes visible to <paramref name="userId"/> in a term. Admins see every class,
+    /// The classes visible to the current user in a term. Administrators see every class,
     /// faculty see only what they teach. Returns one entry per class, not per meeting.
     /// </summary>
     /// <param name="termId">Null resolves the current term, falling back to the latest.</param>
-    public async Task<IReadOnlyList<ClassListClassDTO>> GetClassesAsync(
-        Guid userId,
-        Role role,
-        int? termId = null)
+    public async Task<IReadOnlyList<ClassListClassDTO>> GetClassesAsync(int? termId = null)
     {
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsView);
+        var current = await actor.GetActorAsync();
+        var userId = current.Id;
+        var role = current.UserRole;
         var term = termId.HasValue
             ? (await _termRepository.GetAllAsync()).FirstOrDefault(t => t.Id == termId.Value)
             : await _termRepository.GetCurrentAsync(DateOnly.FromDateTime(DateTime.Now));
@@ -60,7 +65,7 @@ public class ClassListService
         if (term is null)
             return [];
 
-        var schedules = role == Role.Admin
+        var schedules = Privileges.HasAdministrativeScope(role)
             ? await _scheduleRepository.GetAllForTermAsync(term.Id)
             : await _scheduleRepository.GetByInstructorAsync(userId, term.Id);
 
@@ -140,17 +145,17 @@ public class ClassListService
     /// Confirms the caller may act on this class: admins may act on any class, faculty only
     /// on classes they teach. Throws otherwise.
     /// </summary>
-    private async Task<ClassScheduleDTO> EnsureCanManageAsync(
-        Guid userId,
-        Role role,
-        int scheduleId)
+    private async Task<ClassScheduleDTO> EnsureCanManageAsync(int scheduleId)
     {
+        var current = await actor.GetActorAsync();
+        var userId = current.Id;
+        var role = current.UserRole;
         var schedule = await _scheduleRepository.GetByIdAsync(scheduleId);
 
         if (schedule is null)
             throw new DomainException("Class schedule not found.");
 
-        if (role != Role.Admin && schedule.InstructorId != userId)
+        if (!Privileges.HasAdministrativeScope(role) && schedule.InstructorId != userId)
             throw new DomainException("Not allowed.");
 
         return schedule;
@@ -161,12 +166,10 @@ public class ClassListService
     /// Reads only the representative slot — every slot in the group carries the same roster
     /// once a sync has run.
     /// </summary>
-    public async Task<IReadOnlyList<EnrolledStudentDTO>> GetRosterAsync(
-        Guid userId,
-        Role role,
-        int scheduleId)
+    public async Task<IReadOnlyList<EnrolledStudentDTO>> GetRosterAsync(int scheduleId)
     {
-        await EnsureCanManageAsync(userId, role, scheduleId);
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsView);
+        await EnsureCanManageAsync(scheduleId);
 
         return await _enrollmentRepository.GetRosterAsync(scheduleId);
     }
@@ -177,6 +180,7 @@ public class ClassListService
     /// </summary>
     public async Task<EnrolledStudentDTO?> FindStudentAsync(string studentId)
     {
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsView);
         var normalized = studentId.Trim();
 
         if (!Regex.IsMatch(normalized, ClassListCsvParser.StudentIdPattern))
@@ -191,13 +195,11 @@ public class ClassListService
     /// Returns a human-readable result message; already-enrolled ids are skipped, so enrolling
     /// twice reports "already enrolled" instead of failing.
     /// </summary>
-    public async Task<string> AddStudentAsync(
-        Guid userId,
-        Role role,
-        int scheduleId,
+    public async Task<string> AddStudentAsync(int scheduleId,
         AddStudentDTO input)
     {
-        await EnsureCanManageAsync(userId, role, scheduleId);
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsManage);
+        await EnsureCanManageAsync(scheduleId);
 
         var normalizedId = input.StudentId.Trim();
 
@@ -265,13 +267,11 @@ public class ClassListService
     /// Removes a student from every meeting of the class in one transaction. Returns the
     /// number of roster rows deleted (0 when the student wasn't enrolled).
     /// </summary>
-    public async Task<int> RemoveStudentAsync(
-        Guid userId,
-        Role role,
-        int scheduleId,
+    public async Task<int> RemoveStudentAsync(int scheduleId,
         string studentId)
     {
-        await EnsureCanManageAsync(userId, role, scheduleId);
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsManage);
+        await EnsureCanManageAsync(scheduleId);
 
         var groupIds = await _scheduleRepository.GetGroupScheduleIdsAsync(scheduleId);
 
@@ -299,12 +299,10 @@ public class ClassListService
     /// the same roster as the group union (the sync target), and per-slot missing counts.
     /// Never stored — recomputed on every call.
     /// </summary>
-    public async Task<SyncStatusDTO> GetSyncStatusAsync(
-        Guid userId,
-        Role role,
-        int scheduleId)
+    public async Task<SyncStatusDTO> GetSyncStatusAsync(int scheduleId)
     {
-        await EnsureCanManageAsync(userId, role, scheduleId);
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsView);
+        await EnsureCanManageAsync(scheduleId);
 
         return await GetSyncStatusCoreAsync(scheduleId);
     }
@@ -352,7 +350,7 @@ public class ClassListService
     /// UI "Sync now" path goes through <see cref="SyncNowAsync"/> so authorization still runs.
     /// </para>
     /// </summary>
-    public async Task<SyncResultDTO> SyncGroupEnrollmentAsync(int scheduleId)
+    internal async Task<SyncResultDTO> SyncGroupEnrollmentAsync(int scheduleId)
     {
         var groupIds = await _scheduleRepository.GetGroupScheduleIdsAsync(scheduleId);
 
@@ -380,12 +378,10 @@ public class ClassListService
     /// Authorized "Sync now" from the roster panel: re-checks the caller may manage the
     /// class, then runs the union copy.
     /// </summary>
-    public async Task<SyncResultDTO> SyncNowAsync(
-        Guid userId,
-        Role role,
-        int scheduleId)
+    public async Task<SyncResultDTO> SyncNowAsync(int scheduleId)
     {
-        await EnsureCanManageAsync(userId, role, scheduleId);
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsManage);
+        await EnsureCanManageAsync(scheduleId);
 
         return await SyncGroupEnrollmentAsync(scheduleId);
     }
@@ -396,12 +392,10 @@ public class ClassListService
     /// class list and the schedule page. Student records themselves are kept (they may be
     /// enrolled elsewhere and have lab logs). Returns the number of enrollments removed.
     /// </summary>
-    public async Task<int> DeleteClassListAsync(
-        Guid userId,
-        Role role,
-        int scheduleId)
+    public async Task<int> DeleteClassListAsync(int scheduleId)
     {
-        await EnsureCanManageAsync(userId, role, scheduleId);
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsManage);
+        await EnsureCanManageAsync(scheduleId);
 
         var groupIds = await _scheduleRepository.GetGroupScheduleIdsAsync(scheduleId);
 
@@ -430,13 +424,11 @@ public class ClassListService
     /// Parses and classifies an import file for display. Nothing is written — the commit
     /// re-reads the file and re-computes the classification inside its transaction.
     /// </summary>
-    public async Task<ClassListImportPreview> PreviewImportAsync(
-        Guid userId,
-        Role role,
-        int scheduleId,
+    public async Task<ClassListImportPreview> PreviewImportAsync(int scheduleId,
         Stream csv)
     {
-        await EnsureCanManageAsync(userId, role, scheduleId);
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsManage);
+        await EnsureCanManageAsync(scheduleId);
 
         var groupIds = await _scheduleRepository.GetGroupScheduleIdsAsync(scheduleId);
         var rows = _csvParser.Parse(csv);
@@ -450,13 +442,11 @@ public class ClassListService
     /// The classification is recomputed from the file here, never trusted from the preview.
     /// Failure rolls back student creation and enrollment together.
     /// </summary>
-    public async Task<ClassListImportResult> CommitImportAsync(
-        Guid userId,
-        Role role,
-        int scheduleId,
+    public async Task<ClassListImportResult> CommitImportAsync(int scheduleId,
         Stream csv)
     {
-        await EnsureCanManageAsync(userId, role, scheduleId);
+        await actor.RequirePrivilegeAsync(Privileges.ClassListsManage);
+        await EnsureCanManageAsync(scheduleId);
 
         var groupIds = await _scheduleRepository.GetGroupScheduleIdsAsync(scheduleId);
         var rows = _csvParser.Parse(csv);

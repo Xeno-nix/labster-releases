@@ -9,9 +9,25 @@ namespace CLMS.Web.Hubs;
 
 [Authorize(Policy = "AgentOnly")]
 public sealed class AgentConnectionHub(ILogger<AgentConnectionHub> logger, ScreenCastService screenCasts,
-    AgentPresenceStore presence, TimeProvider clock) : Hub
+    AgentPresenceStore presence, TimeProvider clock, ApplicationScanCoordinator applications,
+    CLMS.Application.Monitoring.IApplicationRegistryRepository registry) : Hub
 {
     private Guid UnitId => Guid.Parse(Context.User!.FindFirstValue("computer_unit_id")!);
+
+    public async Task<AgentApplicationRegistry> GetApplicationRegistry(CLMS.Domain.Entities.UnitManagement.ApplicationPlatform platform)
+    {
+        if (presence.Snapshot().GetValueOrDefault(UnitId)?.ConnectionId != Context.ConnectionId)
+            throw new HubException("This agent connection has been replaced.");
+        applications.Register(UnitId, Context.ConnectionId, platform);
+        var all = await registry.GetAllAsync(Context.ConnectionAborted);
+        var entries = all
+            .Where(a => a.IsEnabled && CLMS.Domain.Entities.UnitManagement.ApplicationProcessNames.AppliesTo(a.Platform, platform))
+            .Select(a => new AgentApplication(a.Id, a.ProcessName, a.Platform)).ToArray();
+        return new(CLMS.Application.Monitoring.ApplicationRegistryRevision.Compute(all), entries);
+    }
+
+    public bool PublishApplicationScan(ApplicationScanResponse response) =>
+        applications.Publish(UnitId, Context.ConnectionId, response);
 
     public bool PublishScreenFrame(ScreenCastFrame frame) => screenCasts.Publish(UnitId, Context.ConnectionId, frame);
 
@@ -34,6 +50,7 @@ public sealed class AgentConnectionHub(ILogger<AgentConnectionHub> logger, Scree
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        applications.Disconnected(UnitId, Context.ConnectionId);
         await screenCasts.AgentDisconnectedAsync(UnitId, Context.ConnectionId);
         presence.Disconnected(UnitId, Context.ConnectionId);
         logger.LogInformation("Agent disconnected for unit {ComputerUnitId}.",
