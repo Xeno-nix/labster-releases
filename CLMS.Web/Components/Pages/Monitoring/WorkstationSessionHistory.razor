@@ -1,6 +1,7 @@
 @page "/unit-monitoring/sessions"
 @attribute [Authorize(Policy = Privileges.Prefix + Privileges.MonitoringSessionsView)]
 @implements IDisposable
+@using CLMS.Application.Authorization
 @using CLMS.Application.DTOs.Monitoring
 @using CLMS.Application.Identity.Interfaces
 @using CLMS.Infrastructure.Repositories

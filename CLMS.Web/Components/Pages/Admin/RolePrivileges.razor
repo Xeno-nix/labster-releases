@@ -1,5 +1,6 @@
 @page "/admin/users/roles"
 @attribute [Authorize(Policy = Privileges.Prefix + Privileges.SecurityManage)]
+@using CLMS.Application.Authorization
 @using CLMS.Domain.Enums
 @inject PrivilegeManagementService Access
 

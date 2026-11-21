@@ -1,15 +1,15 @@
 ﻿@using Microsoft.AspNetCore.Components.Authorization
+@using CLMS.Web.Components.Pages
 <CascadingAuthenticationState>
     <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="routeData" DefaultLayout="@typeof(MainLayout)">
-                @* TODO Improve message *@
+            <AuthorizeRouteView RouteData="routeData">
                 <Authorizing>
-                    <p>Checking authentication status... Please wait...</p>
+                    <AuthenticationLoading />
                 </Authorizing>
                 
                 <NotAuthorized>
-                    <p>Access Denied</p>
+                    <AccessDenied />
                 </NotAuthorized>
                 
             </AuthorizeRouteView>

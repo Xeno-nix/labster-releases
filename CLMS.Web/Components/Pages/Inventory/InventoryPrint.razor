@@ -1,5 +1,6 @@
 @page "/inventory/print"
 @attribute [Authorize(Policy = Privileges.Prefix + Privileges.InventoryView)]
+@using CLMS.Application.Authorization
 @using CLMS.Web.Components.Pages.Inventory
 @layout Layout.PrintLayout
 

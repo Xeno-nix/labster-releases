@@ -35,6 +35,7 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<CurrentUser>();
 builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, PrivilegeAuthorizationHandler>();
+builder.Services.AddSingleton<HumanAuthorizationCache>();
 builder.Services.AddSingleton<AuthorizationChanges>();
 builder.Services.AddSingleton<CLMS.Application.Authorization.IAuthorizationChanges>(sp => sp.GetRequiredService<AuthorizationChanges>());
 builder.Services.AddScoped<ApplicationMonitoringService>();

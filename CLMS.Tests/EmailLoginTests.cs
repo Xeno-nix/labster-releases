@@ -245,7 +245,12 @@ public sealed class EmailLoginTests
     { public override Task<AuthenticationState> GetAuthenticationStateAsync() => Task.FromResult(new AuthenticationState(principal)); }
     internal sealed class TestUsers(User user) : IUserRepository
     {
-        public Task<User?> FindByIdAsync(Guid id) => Task.FromResult<User?>(id == user.Id ? user : null);
+        public int FindByIdCalls;
+        public Task<User?> FindByIdAsync(Guid id)
+        {
+            Interlocked.Increment(ref FindByIdCalls);
+            return Task.FromResult<User?>(id == user.Id ? user : null);
+        }
         public Task<User?> FindByEmailAsync(string email) => Task.FromResult<User?>(email == user.Email ? user : null);
         public Task<IReadOnlyList<User>> FindAllAsync() => throw new NotSupportedException();
         public Task<IReadOnlyList<User>> FindAllByRoleAsync(Role role) => throw new NotSupportedException();
