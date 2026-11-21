@@ -1,40 +1,30 @@
 @using CLMS.Web.Models
 @using CLMS.Application.DTOs.Monitoring
 
-<button type="button" @onclick="() => OnSelect.InvokeAsync(Unit)"
-        aria-haspopup="dialog" aria-label="@($"View {Unit.Name}, {Unit.Laboratory}, {Unit.GetStatus(ObservedAtUtc).Label()}")"
-        class="w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary @(Selected ? "border-primary bg-primary/5" : "border-black/10 bg-white hover:border-primary/50")">
-    <div class="mb-5 flex items-center justify-between gap-3">
-        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-surface text-primary" aria-hidden="true">
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <rect x="3" y="3" width="18" height="13" rx="2" />
-                <path d="M8 21h8m-4-5v5" />
-            </svg>
-        </span>
-        <UnitAvailabilityBadge Status="@Unit.GetStatus(ObservedAtUtc)" />
-    </div>
-    <p class="font-heading font-semibold text-gray-800">@Unit.Name</p>
-    <p class="mt-1 text-xs text-muted">@Unit.Laboratory</p>
-    <p class="mt-2 text-xs text-muted">Last seen: @UnitMonitoringDisplay.FormatUtc(Unit.LastHeartbeatUtc)</p>
-    @if (ShowSession)
+<button type="button" class="unit-tile @(ListView ? "unit-row" : null) @(Offline ? "offline" : "online")" aria-haspopup="dialog"
+        aria-label="@($"View details for Unit {Unit.Number:D2}, {Unit.Laboratory}, {Unit.GetStatus(ObservedAtUtc).Label()}")"
+        title="View unit details" @onclick="() => OnSelect.InvokeAsync(Unit)">
+    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="13" rx="2" />
+        <path d="M8 21h8m-4-5v5" />
+        @if (Offline)
+        {
+            <path d="M2 2l20 20" />
+        }
+    </svg>
+    <span>Unit @Unit.Number.ToString("D2")</span>
+    @if (ListView)
     {
-        <p class="mt-1 break-words text-xs text-gray-700">
-            @(Session is not null && !Unit.IsAvailableOnline(ObservedAtUtc) ? "Last reported CLMS user" : "Current CLMS user"):
-            @(SessionsAvailable ? Session?.UserName ?? "No active session" : "Unavailable")
-        </p>
+        <span class="pc-name">@Unit.Name</span>
+        <span class="presence">@Unit.GetStatus(ObservedAtUtc).Label()</span>
     }
-    <div class="mt-4 flex items-center justify-between border-t border-black/5 pt-3 text-xs">
-        <span class="text-muted">Unit @Unit.Number.ToString("D2")</span>
-        <span class="font-medium text-primary">View details <span aria-hidden="true">→</span></span>
-    </div>
 </button>
 
 @code {
     [Parameter, EditorRequired] public UnitMonitoringDTO Unit { get; set; } = default!;
+    [Parameter] public bool ListView { get; set; }
     [Parameter] public DateTime ObservedAtUtc { get; set; }
-    [Parameter] public bool Selected { get; set; }
-    [Parameter] public WorkstationSession? Session { get; set; }
-    [Parameter] public bool ShowSession { get; set; }
-    [Parameter] public bool SessionsAvailable { get; set; }
     [Parameter] public EventCallback<UnitMonitoringDTO> OnSelect { get; set; }
+    private bool Offline => Unit.GetStatus(ObservedAtUtc) == UnitMonitoringStatus.Offline;
 }

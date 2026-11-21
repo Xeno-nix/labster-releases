@@ -7,9 +7,10 @@ namespace CLMS.Agent.Services;
 
 /// <summary>Shared Windows/Mac transport. This service keeps credentials in memory only.</summary>
 public sealed class AgentConnectionService(ILogger<AgentConnectionService> logger, ScreenCastSender screenCast,
-    IAgentAccessTokenProvider tokens, IFacultyStreamViewer? facultyViewer = null,
+    IAgentAccessTokenProvider tokens, IFacultyStreamViewer? facultyViewer = null, ApplicationProcessMonitor? applicationMonitor = null,
     WorkstationCommandHandler? commands = null, NotificationReceiver? notifications = null) : IAgentConnectionTransport, IAsyncDisposable
 {
+    private readonly ApplicationProcessMonitor applications = applicationMonitor ?? new();
     private readonly SemaphoreSlim gate = new(1, 1);
     private HubConnection? connection;
     private CancellationTokenSource? lifetime;
@@ -21,7 +22,8 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
 
     internal AgentConnectionService(ILogger<AgentConnectionService> logger, ScreenCastSender screenCast,
         IAgentAccessTokenProvider tokens, Func<Uri, Func<Task<string?>>, HubConnection> buildConnection,
-        TimeSpan heartbeatInterval, TimeSpan heartbeatTimeout) : this(logger, screenCast, tokens)
+        TimeSpan heartbeatInterval, TimeSpan heartbeatTimeout, ApplicationProcessMonitor? applicationMonitor = null)
+        : this(logger, screenCast, tokens, applicationMonitor)
     {
         this.buildConnection = buildConnection;
         this.heartbeatInterval = heartbeatInterval;
@@ -46,6 +48,7 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
         try
         {
             await DisconnectCoreAsync();
+            applications.Reset();
             Publish(new("Connecting"));
             var connectionSource = new CancellationTokenSource();
             lifetime = connectionSource;
@@ -61,6 +64,12 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
                 commands is not null && connection == hub
                     ? commands.ExecuteAsync(command, connectionLifetime)
                     : Task.FromResult(new WorkstationCommandResult(command.Id, WorkstationCommandStatus.Unsupported)));
+            hub.On(ApplicationMonitoringProtocol.RegistryChanged, () => SynchronizeApplicationsAsync(hub, connectionLifetime));
+            hub.On<ApplicationScanRequest>(ApplicationMonitoringProtocol.Scan, async request =>
+            {
+                var result = await Task.Run(() => applications.Scan(request.RequestId), connectionLifetime);
+                await hub.InvokeAsync<bool>(ApplicationMonitoringProtocol.Publish, result, connectionLifetime);
+            });
             hub.On<ScreenCastCommand>(ScreenCastProtocol.StartCapture,
                 command => screenCast.StartAsync(hub, command.SessionId, connectionLifetime));
             hub.On<ScreenCastCommand>(ScreenCastProtocol.StopCapture,
@@ -101,7 +110,10 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
                 try
                 {
                     if (connection == hub)
+                    {
                         await AcknowledgeAsync(hub, connectionLifetime);
+                        await SynchronizeApplicationsAsync(hub, connectionLifetime);
+                    }
                 }
                 catch (OperationCanceledException) { }
                 catch (Exception ex)
@@ -125,6 +137,7 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
                 {
                     await hub.StartAsync(connectionLifetime);
                     await AcknowledgeAsync(hub, connectionLifetime);
+                    await SynchronizeApplicationsAsync(hub, connectionLifetime);
                 }
                 connectionLifetime.ThrowIfCancellationRequested();
                 heartbeatTask = HeartbeatLoopAsync(hub, connectionLifetime);
@@ -177,6 +190,22 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex) { logger.LogWarning(ex, "Network resource reporting failed."); }
+    }
+
+    private async Task SynchronizeApplicationsAsync(HubConnection hub, CancellationToken ct)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        deadline.CancelAfter(TimeSpan.FromSeconds(5));
+        try
+        {
+            var loaded = await applications.SynchronizeRegistryAsync(token => hub.InvokeAsync<AgentApplicationRegistry>(
+                ApplicationMonitoringProtocol.GetRegistry, applications.Platform, token), deadline.Token);
+            if (!loaded) logger.LogWarning("Application registry synchronization failed; retaining the previous cache.");
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning("Application registry synchronization timed out; retaining the previous cache.");
+        }
     }
 
     private async Task HeartbeatLoopAsync(HubConnection hub, CancellationToken cancellationToken)

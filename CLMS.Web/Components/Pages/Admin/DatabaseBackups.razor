@@ -1,16 +1,16 @@
 @page "/admin/database-backups"
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.BackupsView)]
 @using CLMS.Infrastructure.DatabaseMaintenance
 @using Microsoft.Extensions.Options
 @using Microsoft.AspNetCore.Components.Authorization
-@inject DatabaseBackupService Backups
+@inject CLMS.Web.Services.ManualDatabaseBackups Backups
 @inject AuthenticationStateProvider AuthenticationState
 @inject IOptions<DatabaseBackupOptions> Settings
 @inject ILogger<DatabaseBackups> Logger
 
 <PageTitle>Database Backups | CLMS</PageTitle>
 
-<AuthorizeView Roles="Admin">
+<AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsView)">
 <Authorized>
 <div class="space-y-5">
     <header class="flex flex-wrap items-center justify-between gap-3">
@@ -19,7 +19,7 @@
             <p class="mt-1 text-sm text-muted">@(Settings.Value.Enabled ? $"Daily backup at {Settings.Value.HourPhilippineTime:D2}:00 Philippine time (UTC+8) while the server is running." : "Scheduled backups are disabled.")</p>
             <p class="text-sm text-muted">Keeps the latest @Settings.Value.KeepLast regular backups and @Settings.Value.KeepLast recovery backups.</p>
         </div>
-        <button type="button" @onclick="CreateBackup" disabled="@Busy" class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Back up now</button>
+        <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsCreate)" Context="backupCreate"><button type="button" @onclick="CreateBackup" disabled="@Busy" class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Back up now</button></AuthorizeView>
     </header>
 
     @if (Message is not null)
@@ -37,23 +37,36 @@
 
     <p class="text-sm text-muted">Restore during maintenance, with agents and other users disconnected. It replaces tables contained in the backup; tables added afterward remain. A recovery backup is created first. Restore is not transactional.</p>
 
-    <div class="overflow-x-auto rounded-lg border border-black/10">
-        <table class="w-full text-left text-sm">
+    <div class="table-scroll overflow-x-auto rounded-lg border border-black/10">
+        <table role="table" class="responsive-records data-table w-full text-left text-sm">
             <caption class="sr-only">Available database backups</caption>
-            <thead class="bg-surface"><tr><th class="p-3">Created (PH time)</th><th class="p-3">Type</th><th class="p-3">Size</th><th class="p-3">Action</th></tr></thead>
+            <thead class="bg-surface"><tr><th class="p-3">Created (PH time)</th><th class="p-3">Type</th><th class="p-3">Size <span class="row-actions-caption">Action</span></th></tr></thead>
             <tbody>
                 @foreach (var backup in Items)
                 {
-                    <tr class="border-t border-black/10" @key="backup.FileName">
-                        <td class="p-3" title="@backup.FileName">@backup.CreatedUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td class="p-3">@backup.Kind</td>
-                        <td class="p-3">@((backup.Bytes / 1024d).ToString("N1")) KB</td>
-                        <td class="p-3"><button type="button" disabled="@Busy" @onclick="() => SelectRestore(backup)" class="rounded-lg border border-black/10 px-3 py-2 disabled:opacity-50">Restore</button></td>
+                    RenderFragment rowActions = @<text>
+                        <button type="button" disabled="@Busy" @onclick="() => SelectRestore(backup)" class="rounded-lg border border-black/10 px-3 py-2 disabled:opacity-50"><i aria-hidden="true" class="fa-solid fa-clock-rotate-left"></i> Restore</button>
+                    </text>;
+                    <tr role="row" class="border-t border-black/10" @key="backup.FileName">
+                        <td role="cell" class="p-3" title="@backup.FileName">
+                            <div class="row-identity">
+                                <span class="record-identity">@backup.CreatedUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd HH:mm:ss")</span>
+                            </div>
+                        </td>
+                        <td role="cell" class="p-3" data-label="Type">@backup.Kind</td>
+                        <td role="cell" class="p-3 row-end-cell" data-label="Size">
+                          <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsRestore)" Context="actionAccess22">
+                            <div class="row-end-content">
+                              <div class="row-end-value">@((backup.Bytes / 1024d).ToString("N1")) KB</div>
+                              <div class="row-end-actions"><span class="compact-row-menu"><ActionMenu Label="Backup actions">@rowActions</ActionMenu></span><span class="desktop-row-actions">@rowActions</span></div>
+                            </div>
+                          </AuthorizeView>
+                        </td>
                     </tr>
                 }
                 @if (Items.Count == 0)
                 {
-                    <tr><td colspan="4" class="p-5 text-center text-muted">No backups available yet.</td></tr>
+                    <tr><td colspan="3" class="p-5 text-center text-muted">No backups available yet.</td></tr>
                 }
             </tbody>
         </table>
@@ -64,7 +77,7 @@
     <p class="text-sm">Restore the backup from @Selected?.CreatedUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd HH:mm:ss") PH time? Current records in its tables will be replaced. Confirm that other users and agents have stopped writing to the database.</p>
     <label for="restore-confirmation" class="mt-4 block text-sm">Type RESTORE to confirm</label>
     <input id="restore-confirmation" @bind="Confirmation" @bind:event="oninput" autocomplete="off" class="mt-2 w-full rounded-lg border border-black/10 p-2" />
-    <button type="button" @onclick="Restore" disabled="@(Busy || Confirmation != "RESTORE")" class="mt-4 rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Restore database</button>
+    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsRestore)" Context="actionAccess23"><button type="button" @onclick="Restore" disabled="@(Busy || Confirmation != "RESTORE")" class="mt-4 rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Restore database</button></AuthorizeView>
 </Modal>
 </Authorized>
 <NotAuthorized><p role="alert">Administrator access is required to manage database backups.</p></NotAuthorized>
@@ -81,14 +94,12 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (await IsAdmin()) RefreshList();
+        await RefreshList();
     }
 
-    private async Task<bool> IsAdmin() => (await AuthenticationState.GetAuthenticationStateAsync()).User.IsInRole("Admin");
-
-    private void RefreshList()
+    private async Task RefreshList()
     {
-        try { Items = Backups.List(); }
+        try { Items = await Backups.ListAsync(); }
         catch (Exception ex) { Logger.LogError(ex, "Could not list database backups."); Error = "Could not read backups. Check the server's backup folder permissions."; }
     }
 
@@ -116,7 +127,6 @@
     private async Task Run(string operation, Func<Task<string>> action)
     {
         if (Busy) return;
-        if (!await IsAdmin()) { Error = "Administrator access is required."; return; }
         Busy = true;
         Operation = operation;
         Message = Error = null;
@@ -126,6 +136,6 @@
             Logger.LogError(ex, "Database maintenance operation failed.");
             Error = ex is InvalidOperationException ? ex.Message : "Database operation failed. Check server logs and backup folder permissions.";
         }
-        finally { Busy = false; RefreshList(); }
+        finally { Busy = false; await RefreshList(); }
     }
 }

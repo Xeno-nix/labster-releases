@@ -7,7 +7,7 @@
 
 <PageTitle>CLMS — Logging Terminal</PageTitle>
 
-<div class="bg-surface antialiased min-h-screen flex flex-col">
+<div class="bg-surface antialiased min-h-dvh flex flex-col">
 
     <header class="bg-white border-b border-black/10">
         <div class="max-w-4xl mx-auto px-6 py-4 flex items-center gap-3">
@@ -25,12 +25,12 @@
         </div>
     </header>
 
-    <main class="flex-1 py-10 px-6">
+    <main class="page-body flex-1 py-6 px-3 sm:py-10 sm:px-6">
         <div class="max-w-2xl mx-auto">
 
             @* Header *@
             <div class="text-center mb-8">
-                <h1 class="text-primary text-3xl mb-2">Laboratory Logging Terminal</h1>
+                <h1 class="text-primary text-2xl sm:text-3xl mb-2">Laboratory Logging Terminal</h1>
                 <p class="text-muted text-sm">
                     Record your laboratory visit. Select visitor if you do not have a student number.
                 </p>
@@ -60,76 +60,129 @@
                 </div>
             }
 
-            <section class="bg-white rounded-xl border border-black/10 p-6 sm:p-8" aria-labelledby="terminal-form-title">
-                <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
-                    <h2 id="terminal-form-title" class="text-xl text-fg-primary">@(IsTimeOut ? "Sign out" : "Sign in")</h2>
-                    <button type="button" @onclick="ToggleTimeOut" disabled="@IsBusy"
-                            class="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary disabled:opacity-60">
-                        @(IsTimeOut ? "Back to sign in" : "Sign out instead")
+            @* Action tabs *@
+            <div class="bg-white rounded-lg border border-black/10 shadow-sm overflow-hidden">
+
+                <div class="tab-strip segmented-tabs">
+                    <button type="button" @onclick='() => SetMode("student_in")' aria-pressed='@(Mode == "student_in")' class="@TabClass("student_in")">
+                        Student in
+                    </button>
+                    <button type="button" @onclick='() => SetMode("guest_in")' aria-pressed='@(Mode == "guest_in")' class="@TabClass("guest_in") border-l border-black/10">
+                        Visitor in
+                    </button>
+                    <button type="button" @onclick='() => SetMode("time_out")' aria-pressed='@(Mode == "time_out")' class="@TabClass("time_out") border-l border-black/10">
+                        Check out
                     </button>
                 </div>
 
-                <EditForm @key="CurrentModel" Model="@CurrentModel" OnValidSubmit="HandleSubmit">
-                    <DataAnnotationsValidator />
-                    <fieldset disabled="@IsBusy" class="space-y-5" aria-busy="@IsBusy">
-                        @if (!IsTimeOut)
-                        {
-                            <label class="flex min-h-11 items-center gap-3 text-sm font-medium text-fg-primary cursor-pointer">
-                                <input type="checkbox" @bind="IsVisitor" @bind:after="ClearMessages"
-                                       class="h-5 w-5 accent-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary" />
-                                I'm a visitor
-                            </label>
-                        }
+                @* ─── STUDENT TIME IN ─── *@
+                @if (Mode == "student_in")
+                {
+                    <div class="p-6">
+                        <EditForm Model="StudentModel" OnValidSubmit="HandleStudentTimeIn" class="space-y-4">
+                            <DataAnnotationsValidator />
 
-                        @if (IsTimeOut)
-                        {
                             <div>
-                                <label for="to_identifier" class="block text-sm font-medium text-fg-primary mb-2">Student number or full name</label>
-                                <InputText id="to_identifier" @bind-Value="TimeOutModel.Identifier"
-                                           placeholder="Enter your student number or visitor name" aria-required="true"
-                                           class="w-full px-4 py-4 border border-black/20 rounded-lg bg-surface text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                                <ValidationMessage For="@(() => TimeOutModel.Identifier)" class="text-sm text-red-700 mt-1" />
+                                <label for="si_student_id" class="block text-sm font-medium text-[#2c2c2c] mb-2">
+                                    Student Number <span class="text-primary">*</span>
+                                </label>
+                                <InputText id="si_student_id"
+                                           @bind-Value="StudentModel.StudentId"
+                                           placeholder="e.g. 2024-00123"
+                                           class="w-full px-4 py-4 border border-black/10 rounded-lg bg-surface text-base
+                                                  focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                                <ValidationMessage For="@(() => StudentModel.StudentId)" class="text-xs text-red-500 mt-1" />
                             </div>
-                            <p class="text-sm text-muted">End your current laboratory session.</p>
-                        }
-                        else if (IsVisitor)
-                        {
-                            <div>
-                                <label for="g_booked_under" class="block text-sm font-medium text-fg-primary mb-2">Reservation booked under</label>
-                                <InputText id="g_booked_under" @bind-Value="GuestModel.BookedUnder"
-                                           placeholder="Name on the reservation" autocomplete="off" aria-required="true"
-                                           class="w-full px-4 py-4 border border-black/20 rounded-lg bg-surface text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                                <ValidationMessage For="@(() => GuestModel.BookedUnder)" class="text-sm text-red-700 mt-1" />
-                            </div>
-                            <div>
-                                <label for="g_name" class="block text-sm font-medium text-fg-primary mb-2">Your full name</label>
-                                <InputText id="g_name" @bind-Value="GuestModel.GuestName"
-                                           placeholder="Enter your full name" autocomplete="off" aria-required="true"
-                                           class="w-full px-4 py-4 border border-black/20 rounded-lg bg-surface text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                                <ValidationMessage For="@(() => GuestModel.GuestName)" class="text-sm text-red-700 mt-1" />
-                            </div>
-                        }
-                        else
-                        {
-                            <div>
-                                <label for="si_student_id" class="block text-sm font-medium text-fg-primary mb-2">Student number</label>
-                                <InputText id="si_student_id" @bind-Value="StudentModel.StudentId"
-                                           placeholder="e.g. 2024-00123" autocomplete="off" aria-required="true" spellcheck="false"
-                                           class="w-full px-4 py-4 border border-black/20 rounded-lg bg-surface text-base focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                                <ValidationMessage For="@(() => StudentModel.StudentId)" class="text-sm text-red-700 mt-1" />
-                            </div>
-                            <p class="text-sm text-muted">Your laboratory and class details are filled in from your active schedule.</p>
-                        }
 
-                        <button type="submit" disabled="@IsBusy"
-                                class="w-full px-6 py-4 bg-primary text-white rounded-lg hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary text-base font-medium disabled:opacity-60">
-                            @(IsBusy ? (IsTimeOut ? "Signing out…" : "Signing in…") : (IsTimeOut ? "Sign out" : "Sign in"))
-                        </button>
-                    </fieldset>
-                </EditForm>
-            </section>
+                            <p class="text-xs text-muted">
+                                The laboratory, course, and instructor will be detected from your active class schedule.
+                            </p>
 
-        </div>
+                            <button type="submit" disabled="@IsBusy"
+                                    class="w-full px-6 py-4 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium disabled:opacity-60">
+                                @(IsBusy ? "Signing In..." : "Sign In")
+                            </button>
+                        </EditForm>
+                    </div>
+                }
+
+                @* ─── GUEST TIME IN ─── *@
+                @if (Mode == "guest_in")
+                {
+                    <div class="p-6">
+                        <EditForm Model="GuestModel" OnValidSubmit="HandleGuestTimeIn" class="space-y-4">
+                            <DataAnnotationsValidator />
+
+                            <div>
+                                <label for="g_booked_under" class="block text-sm font-medium text-[#2c2c2c] mb-2">
+                                    Reservation Booked Under <span class="text-primary">*</span>
+                                </label>
+                                <InputText id="g_booked_under"
+                                           @bind-Value="GuestModel.BookedUnder"
+                                           placeholder="Name on the reservation (e.g. your group leader)"
+                                           class="w-full px-4 py-4 border border-black/10 rounded-lg bg-surface text-base
+                                                  focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                                <ValidationMessage For="@(() => GuestModel.BookedUnder)" class="text-xs text-red-500 mt-1" />
+                            </div>
+
+                            <div>
+                                <label for="g_name" class="block text-sm font-medium text-[#2c2c2c] mb-2">
+                                    Your Full Name <span class="text-primary">*</span>
+                                </label>
+                                <InputText id="g_name"
+                                           @bind-Value="GuestModel.GuestName"
+                                           placeholder="Your own name — for individual attendance"
+                                           class="w-full px-4 py-4 border border-black/10 rounded-lg bg-surface text-base
+                                                  focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                                <ValidationMessage For="@(() => GuestModel.GuestName)" class="text-xs text-red-500 mt-1" />
+                            </div>
+
+                            <p class="text-xs text-muted">
+                                Each attendee signs in with the same reservation name but their own full name.
+                                Don't have a reservation?
+                                <a href="/reserve" class="text-primary underline">Book one here</a>.
+                            </p>
+
+                            <button type="submit" disabled="@IsBusy"
+                                    class="w-full px-6 py-4 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium disabled:opacity-60">
+                                @(IsBusy ? "Signing In..." : "Sign In as Visitor")
+                            </button>
+                        </EditForm>
+                    </div>
+                }
+
+                @* ─── TIME OUT (unified) ─── *@
+                @if (Mode == "time_out")
+                {
+                    <div class="p-6">
+                        <EditForm Model="TimeOutModel" OnValidSubmit="HandleTimeOut" class="space-y-4">
+                            <DataAnnotationsValidator />
+
+                            <div>
+                                <label for="to_identifier" class="block text-sm font-medium text-[#2c2c2c] mb-2">
+                                    Student Number or Full Name <span class="text-primary">*</span>
+                                </label>
+                                <InputText id="to_identifier"
+                                           @bind-Value="TimeOutModel.Identifier"
+                                           placeholder="Students: e.g. 2024-00123    Visitors: your full name"
+                                           class="w-full px-4 py-4 border border-black/10 rounded-lg bg-surface text-base
+                                                  focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                                <ValidationMessage For="@(() => TimeOutModel.Identifier)" class="text-xs text-red-500 mt-1" />
+                            </div>
+
+                            <p class="text-xs text-muted">
+                                This will end your current laboratory session.
+                            </p>
+
+                            <button type="submit" disabled="@IsBusy"
+                                    class="w-full px-6 py-4 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-base font-medium disabled:opacity-60">
+                                @(IsBusy ? "Signing Out..." : "Sign Out")
+                            </button>
+                        </EditForm>
+                    </div>
+                }
+
+            </div>
     </main>
 
     <footer class="border-t border-black/10 py-4">

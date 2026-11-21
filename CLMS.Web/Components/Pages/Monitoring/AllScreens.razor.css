@@ -83,3 +83,44 @@
     .screen-wall-area { padding: .75rem; }
     .toolbar-divider { margin: 0; }
 }
+
+.screen-wall {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(var(--wall-columns, 1), var(--wall-tile-width, 100%));
+    align-content: start;
+    justify-content: center;
+}
+
+.screen-tile {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+}
+
+.screen-pagination {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-top: 1px solid #ffffff1a;
+    font-size: 12px;
+}
+
+.screen-pagination button {
+    padding: 6px 12px;
+    border: 1px solid #ffffff33;
+    border-radius: 8px;
+}
+
+.screen-pagination button:disabled { opacity: .4; }
+.screen-pagination button:not(:disabled):hover { background: #1f2937; }
+
+@media (max-width: 639px), (max-height: 480px) {
+    .screen-wall-page { overflow-y: auto; }
+    .screen-wall-area { min-height: min(62vw, 18rem); }
+    .screen-pagination { flex-wrap: wrap; }
+    .screen-pagination button { min-height: 44px; }
+}
+.screen-pagination button:focus-visible { outline: 2px solid white; outline-offset: 2px; }

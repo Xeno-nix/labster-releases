@@ -22,8 +22,8 @@ public class DatabaseBackupTests
     public async Task OnlyAdminsSeeDatabaseOperations(string role, bool allowed)
     {
         var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddAuthorizationCore();
+        services.AddLogging(); services.AddSingleton<CLMS.Application.Identity.Interfaces.ICurrentUser>(new TestCurrentUser()); services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, TestPrivilegeHandler>();
+        services.AddAuthorizationCore(CLMS.Web.Authentication.PrivilegePolicies.Add);
         services.AddCascadingAuthenticationState();
         services.AddSingleton<AuthenticationStateProvider>(new TestAuthentication(role));
         services.AddSingleton<IJSRuntime, NoJavaScript>();
@@ -31,6 +31,8 @@ public class DatabaseBackupTests
             new Dictionary<string, string?> { ["ConnectionStrings:DefaultConnection"] = "Server=localhost;Database=unused;" }).Build());
         services.Configure<DatabaseBackupOptions>(options => options.Directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
         services.AddSingleton<DatabaseBackupService>();
+        services.AddSingleton<CLMS.Application.Authorization.IAuthorizationChanges, TestAuthorizationChanges>();
+        services.AddScoped<CLMS.Web.Services.ManualDatabaseBackups>();
         await using var provider = services.BuildServiceProvider();
         await using var renderer = new HtmlRenderer(provider, provider.GetRequiredService<ILoggerFactory>());
         var html = await renderer.Dispatcher.InvokeAsync(async () =>
@@ -52,6 +54,7 @@ public class DatabaseBackupTests
     public async Task NativeToolsRoundTripWithSafetySnapshotRetentionAndIntegrityChecks()
     {
         var connection = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("CLMS_BACKUP_TEST_SERVER")!);
+        connection.AllowUserVariables = true;
         connection.Database = "";
         var database = "clms_backup_test_" + Guid.NewGuid().ToString("N");
         var directory = Path.Combine(Path.GetTempPath(), database);
@@ -73,6 +76,16 @@ public class DatabaseBackupTests
             await using var db = new MySqlConnection(connection.ConnectionString);
             await db.OpenAsync();
             await Execute(db, "CREATE TABLE sample (id INT PRIMARY KEY, note TEXT, payload BLOB) ENGINE=InnoDB; INSERT INTO sample VALUES (1,'Original café 漢字',X'00FF01')");
+            var legacy = await backups.CreateAsync();
+            await Assert.ThrowsAsync<InvalidOperationException>(() => backups.RestoreAsync(legacy.FileName));
+            var root = new DirectoryInfo(AppContext.BaseDirectory);
+            while (!File.Exists(Path.Combine(root.FullName, "CLMS.slnx"))) root = root.Parent!;
+            foreach (var file in new[] { "Database/clms/users.sql", "Database/clms/refresh_tokens.sql", "Database/migrations/2026-11-23-hybrid-authorization.sql" })
+                await Execute(db, await File.ReadAllTextAsync(Path.Combine(root.FullName, file)));
+            var withoutRoot = await backups.CreateAsync();
+            await Execute(db, $"INSERT INTO users(user_id,first_name,last_name,email,password_hash,role_type,password_changed) VALUES ('{Guid.NewGuid()}','Root','Test','root@example.test','test-hash','superadmin',TRUE)");
+            await Assert.ThrowsAsync<InvalidOperationException>(() => backups.RestoreAsync(withoutRoot.FileName));
+            Assert.DoesNotContain(backups.List(), b => b.Kind == "pre-restore");
             var original = await backups.CreateAsync();
             await Execute(db, "UPDATE sample SET note='Changed'; INSERT INTO sample VALUES (2,'Extra',NULL)");
             var recovery = await backups.RestoreAsync(original.FileName);

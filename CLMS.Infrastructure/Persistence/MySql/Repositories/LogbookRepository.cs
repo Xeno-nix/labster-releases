@@ -7,9 +7,14 @@ namespace CLMS.Infrastructure.Repositories;
 
 public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogbookRepository
 {
-    public async Task<(List<LogbookEntryDTO> Entries, int TotalCount)> GetPagedAsync(LogbookQueryDTO query)
+    public async Task<(List<LogbookEntryDTO> Entries, int TotalCount, bool SupportsLaboratory)> GetPagedAsync(LogbookQueryDTO query)
     {
-        var (whereClause, parameters) = BuildWhereClause(query);
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+        var supportsLaboratory = await HasLaboratoryAsync(connection);
+        var (whereClause, parameters) = BuildWhereClause(query, supportsLaboratory);
+        var laboratoryColumn = supportsLaboratory ? "l.lab_name" : "NULL";
+        var laboratoryJoin = supportsLaboratory ? "LEFT JOIN laboratories l ON al.laboratory_id = l.lab_id" : "";
         var offset = Math.Max(0, (query.Page - 1) * query.PageSize);
 
         var dataSql = $"""
@@ -22,10 +27,12 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
                 al.purpose_subject,
                 al.log_date,
                 al.time_in,
-                al.time_out
+                al.time_out,
+                {laboratoryColumn} AS lab_name
             FROM attendance_logs al
             LEFT JOIN students s ON al.student_id = s.student_id
             LEFT JOIN guests g ON al.guest_id = g.guest_id
+            {laboratoryJoin}
             {whereClause}
             ORDER BY al.time_in DESC
             LIMIT @PageSize OFFSET @Offset;
@@ -38,9 +45,6 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
             LEFT JOIN guests g ON al.guest_id = g.guest_id
             {whereClause};
             """;
-
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync();
 
         int totalCount;
         await using (var countCommand = new MySqlCommand(countSql, connection))
@@ -63,12 +67,15 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
             }
         }
 
-        return (entries, totalCount);
+        return (entries, totalCount, supportsLaboratory);
     }
 
     public async Task<List<LogbookEntryDTO>> GetAllFilteredAsync(LogbookQueryDTO query)
     {
-        var (whereClause, parameters) = BuildWhereClause(query);
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+        var supportsLaboratory = query.LaboratoryId is > 0 && await HasLaboratoryAsync(connection);
+        var (whereClause, parameters) = BuildWhereClause(query, supportsLaboratory);
 
         var sql = $"""
             SELECT
@@ -80,16 +87,14 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
                 al.purpose_subject,
                 al.log_date,
                 al.time_in,
-                al.time_out
+                al.time_out,
+                NULL AS lab_name
             FROM attendance_logs al
             LEFT JOIN students s ON al.student_id = s.student_id
             LEFT JOIN guests g ON al.guest_id = g.guest_id
             {whereClause}
             ORDER BY al.time_in DESC;
             """;
-
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync();
 
         await using var command = new MySqlCommand(sql, connection);
         ApplyParameters(command, parameters);
@@ -106,10 +111,26 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
 
     // Builds the shared WHERE clause + parameter list used by both the count and data
     // queries (and the CSV export query) — mirrors buildLogQuery()'s conditional filters.
-    private static (string WhereClause, List<(string Name, object Value)> Parameters) BuildWhereClause(LogbookQueryDTO query)
+    private static async Task<bool> HasLaboratoryAsync(MySqlConnection connection)
+    {
+        // Earlier attendance schemas did not record a laboratory.
+        await using var command = new MySqlCommand("""
+            SELECT 1 FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_logs' AND COLUMN_NAME = 'laboratory_id'
+            """, connection);
+        return await command.ExecuteScalarAsync() is not null;
+    }
+
+    private static (string WhereClause, List<(string Name, object Value)> Parameters) BuildWhereClause(LogbookQueryDTO query, bool supportsLaboratory)
     {
         var conditions = new List<string>();
         var parameters = new List<(string Name, object Value)>();
+
+        if (supportsLaboratory && query.LaboratoryId is > 0)
+        {
+            conditions.Add("al.laboratory_id = @LaboratoryId");
+            parameters.Add(("@LaboratoryId", query.LaboratoryId.Value));
+        }
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -159,6 +180,7 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
         var logDateOrdinal = reader.GetOrdinal("log_date");
         var timeInOrdinal = reader.GetOrdinal("time_in");
         var timeOutOrdinal = reader.GetOrdinal("time_out");
+        var laboratoryOrdinal = reader.GetOrdinal("lab_name");
 
         var isStudent = !reader.IsDBNull(studentIdOrdinal);
 
@@ -180,6 +202,7 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
             StudentId = isStudent ? reader.GetString(studentIdOrdinal) : "GUEST",
             Name = name,
             Purpose = reader.IsDBNull(purposeOrdinal) ? null : reader.GetString(purposeOrdinal),
+            Laboratory = reader.IsDBNull(laboratoryOrdinal) ? null : reader.GetString(laboratoryOrdinal),
             Date = reader.IsDBNull(logDateOrdinal) ? null : DateOnly.FromDateTime(reader.GetDateTime(logDateOrdinal)),
             TimeIn = reader.IsDBNull(timeInOrdinal) ? null : reader.GetDateTime(timeInOrdinal),
             TimeOut = reader.IsDBNull(timeOutOrdinal) ? null : reader.GetDateTime(timeOutOrdinal),

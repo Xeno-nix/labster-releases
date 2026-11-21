@@ -14,7 +14,7 @@ public sealed class HumanSessionValidator(IUserRepository users, IAccountSecurit
         if (principal.Identity?.IsAuthenticated != true || principal.FindFirstValue("principal_type") != "human" ||
             !Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id)) return false;
         var user = await users.FindByIdAsync(id);
-        return user is not null && !user.DeletedAt.HasValue && !user.IsLockedOut &&
+        return user is not null && CLMS.Application.Authorization.Privileges.IsStaff(user.UserRole) && !string.IsNullOrWhiteSpace(user.PasswordHash) && !user.DeletedAt.HasValue && !user.IsLockedOut &&
             crypto.StampMatches(user, principal.FindFirstValue("security_stamp") ?? "") &&
             (principal.Identity.AuthenticationType == AuthenticationSchemes.PasswordChange || user.PasswordChanged);
     }

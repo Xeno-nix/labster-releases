@@ -231,7 +231,7 @@ public sealed class AgentConnectionTests
     }
 
     private static ClaimsPrincipal Viewer(string id, string role = "Faculty") => new(new ClaimsIdentity(
-        [new Claim(ClaimTypes.NameIdentifier, id), new Claim(ClaimTypes.Role, role)], "TestViewer"));
+        [new Claim(ClaimTypes.NameIdentifier, Guid.TryParse(id, out var guid) ? guid.ToString() : new Guid(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(id)).AsSpan(0, 16)).ToString()), new Claim(ClaimTypes.Role, role)], "TestViewer"));
 
     private static ScreenCastFrame Frame(Guid session, bool large = false)
     {
@@ -373,6 +373,52 @@ public sealed class AgentConnectionTests
         }
     }
 
+    [Fact]
+    public async Task ApplicationRegistrySynchronizesAtStartupAfterChangesAndAfterReconnectWithoutPollingProcesses()
+    {
+        await using var app = await StartServerAsync();
+        var registry = (ApplicationMonitoringTests.Registry)app.Services.GetRequiredService<CLMS.Application.Monitoring.IApplicationRegistryRepository>();
+        var id = Guid.NewGuid();
+        registry.Items.Add(new(id, "Browser", "Chrome.EXE", CLMS.Domain.Entities.UnitManagement.ApplicationPlatform.Windows,
+            null, true, DateTime.UtcNow, DateTime.UtcNow));
+        registry.Items.Add(new(Guid.NewGuid(), "Other platform", "chrome", CLMS.Domain.Entities.UnitManagement.ApplicationPlatform.MacOS,
+            null, true, DateTime.UtcNow, DateTime.UtcNow));
+        var enumerations = 0;
+        var monitor = new ApplicationProcessMonitor(CLMS.Domain.Entities.UnitManagement.ApplicationPlatform.Windows,
+            () => { Interlocked.Increment(ref enumerations); return ["CHROME", "chrome", "unregistered"]; });
+        var sender = new ScreenCastSender(new TestCapture(), NullLogger<ScreenCastSender>.Instance);
+        await using var transport = new AgentConnectionService(NullLogger<AgentConnectionService>.Instance, sender,
+            new FixedTokens(), (uri, token) => new HubConnectionBuilder().WithUrl(uri, options =>
+            {
+                options.Transports = HttpTransportType.LongPolling;
+                options.HttpMessageHandlerFactory = _ => app.GetTestServer().CreateHandler();
+                options.AccessTokenProvider = token;
+            }).Build(), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(5), monitor);
+        await transport.ConnectAsync("https://localhost", DeviceKey);
+        Assert.True(monitor.IsInitialized);
+        Assert.Equal(0, enumerations);
+        var scans = app.Services.GetRequiredService<ApplicationScanCoordinator>();
+        var scan = await scans.RequestAsync(UnitId);
+        Assert.Equal(ApplicationScanStatus.Success, scan.Response.Status);
+        Assert.Equal(id, Assert.Single(scan.Response.ApplicationIds));
+        Assert.Equal(1, enumerations);
+
+        registry.Items[0] = registry.Items[0] with { IsEnabled = false };
+        await scans.RegistryChangedAsync();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (monitor.Scan(Guid.NewGuid()).ApplicationIds.Count != 0) await Task.Delay(10, deadline.Token);
+
+        registry.Items[0] = registry.Items[0] with { IsEnabled = true };
+        // No notification: the next authenticated connection must recover this missed change.
+        await transport.ConnectAsync("https://localhost", DeviceKey);
+        Assert.Equal(id, Assert.Single(monitor.Scan(Guid.NewGuid()).ApplicationIds));
+    }
+
+    private sealed class FixedTokens : IAgentAccessTokenProvider
+    {
+        public Task<string?> GetAccessTokenAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(DeviceKey);
+    }
+
     private sealed class TestClock : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
@@ -412,6 +458,11 @@ public sealed class AgentConnectionTests
         builder.Services.AddSingleton<CLMS.Application.Interfaces.Repositories.ILaboratoryRepository>(streamLabs);
         builder.Services.AddSingleton<CLMS.Application.Interfaces.Repositories.IUnitMonitoringRepository>(streamLabs);
         builder.Services.AddAuthentication().AddCookie(AuthenticationSchemes.Cookie);
+        builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, TestPrivilegeHandler>();
+        builder.Services.AddSingleton<CLMS.Application.Monitoring.IApplicationRegistryRepository, ApplicationMonitoringTests.Registry>();
+        builder.Services.AddScoped<CLMS.Application.Monitoring.AbnormalActivityService>();
+        builder.Services.AddSingleton<CLMS.Application.Monitoring.IAbnormalActivityRepository>(sp =>
+            new ActivityTestRepository(sp.GetRequiredService<CLMS.Application.Monitoring.IApplicationRegistryRepository>()));
         builder.Services.AddControllers().AddApplicationPart(typeof(ScreenCastFramesController).Assembly);
         builder.Services.AddAntiforgery();
         var app = builder.Build();
@@ -583,6 +634,8 @@ public sealed class AgentConnectionTests
         var caller = new CachedCaller(new ClaimsPrincipal(new ClaimsIdentity(claims, "AgentBearer")));
         var hub = new AgentConnectionHub(NullLogger<AgentConnectionHub>.Instance, screens, presence, TimeProvider.System,
             app.Services.GetRequiredService<FacultyStreamService>()) { Context = caller };
+            app.Services.GetRequiredService<ApplicationScanCoordinator>(),
+            app.Services.GetRequiredService<CLMS.Application.Monitoring.IApplicationRegistryRepository>()) { Context = caller };
         var filter = new AgentCredentialHubFilter(registry, screens, presence);
         await filter.OnConnectedAsync(new Microsoft.AspNetCore.SignalR.HubLifetimeContext(caller, app.Services, hub), _ => hub.OnConnectedAsync());
         var viewer = Viewer("owner");

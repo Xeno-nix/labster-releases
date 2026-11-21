@@ -9,6 +9,7 @@
 <PageTitle>CLMS — Laboratory Management</PageTitle>
 
 <div class="space-y-6">
+    <AuthorizeView Policy="@(Privileges.Prefix + (ActivePath == "/schedules" ? Privileges.SchedulesView : Privileges.BookingsView))"><Authorized>
     @switch (ActivePath)
     {
         case "/schedules":
@@ -18,18 +19,16 @@
             <Bookings HeaderTemplate="ManagementHeader" />
             break;
     }
+    </Authorized><NotAuthorized><p role="alert">You do not have access to this scheduling view.</p></NotAuthorized></AuthorizeView>
 </div>
 
 @code {
     private RenderFragment<RenderFragment> ManagementHeader => actions => @<div class="space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-                <h1 class="text-2xl font-semibold text-primary">Laboratory Management</h1>
-                <p class="mt-1 text-sm text-muted">Manage laboratory bookings and recurring class schedules.</p>
-            </div>
+            <h1 class="text-2xl font-semibold text-primary">Laboratory Management</h1>
             @actions
         </div>
-        <nav aria-label="Schedule and booking tabs" class="flex overflow-x-auto overflow-y-hidden border-b border-black/10">
+        <nav aria-label="Schedule and booking tabs" class="tab-strip segmented-tabs">
             @foreach (var tab in Tabs)
             {
                 <button type="button" @onclick="() => ChangeTab(tab.Path)" aria-pressed="@(ActivePath == tab.Path)"
@@ -43,7 +42,7 @@
     private static readonly (string Path, string Label)[] Tabs =
     [
         ("/bookings", "Bookings"),
-        ("/schedules", "Class Schedules")
+        ("/schedules", "Schedules")
     ];
 
     private string ActivePath = "/bookings";

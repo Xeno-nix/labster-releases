@@ -14,7 +14,8 @@
     <div class="grid gap-6 md:grid-cols-2">
         <section aria-labelledby="screen-preview-heading">
             <h3 id="screen-preview-heading" class="mb-3 text-sm font-semibold text-gray-800">Screen preview</h3>
-            <UnitScreenView @key="Unit.Id" UnitId="Unit.Id" UnitName="@Unit.Name" Online="@(Status != UnitMonitoringStatus.Offline)" />
+            <UnitScreenView @key="Unit.Id" UnitId="Unit.Id" UnitName="Unit.Name" Online="@(Status != UnitMonitoringStatus.Offline)" />
+            <UnitApplications @key="Unit.Id" UnitId="Unit.Id" Online="@(Status != UnitMonitoringStatus.Offline)" />
         </section>
 
         <section aria-labelledby="connection-heading">

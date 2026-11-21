@@ -1,0 +1,46 @@
+@inject IJSRuntime JS
+
+<CascadingValue Value="this" IsFixed="true">
+    @ChildContent
+</CascadingValue>
+
+@if (menuId is not null)
+{
+    <div @key="menuId" id="@menuId" class="action-menu-panel" popover="manual" role="group" aria-label="@label">
+        @items
+    </div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string? menuId;
+    private string? label;
+    private RenderFragment? items;
+    private bool openAfterRender;
+
+    public void Open(string id, string accessibleLabel, RenderFragment? content)
+    {
+        menuId = id;
+        label = accessibleLabel;
+        items = content;
+        openAfterRender = true;
+        StateHasChanged();
+    }
+
+    public void Release(string id)
+    {
+        if (menuId != id) return;
+        menuId = null;
+        items = null;
+        openAfterRender = false;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!openAfterRender || menuId is null) return;
+        openAfterRender = false;
+        await JS.InvokeVoidAsync("clms.toggleActionMenu", menuId);
+    }
+}

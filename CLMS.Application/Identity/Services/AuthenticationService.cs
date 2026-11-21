@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Mail;
 using CLMS.Application.Identity.Interfaces;
+using CLMS.Application.Authorization;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Identity.Exceptions;
 using CLMS.Application.Persistence.Interfaces;
@@ -22,7 +23,7 @@ public sealed class AuthenticationService(
     IEmailService emailService,
     AccountOptions options,
     IAccountSecurityCrypto crypto,
-    EmailLoginService emailLogin)
+    EmailLoginService emailLogin, IAuthorizationRepository authorization, IAuthorizationChanges authorizationChanges)
 {
     private const int MaxSessions = 5;
         
@@ -35,11 +36,12 @@ public sealed class AuthenticationService(
     /// <summary>Creates the account immediately. Email failure is a separate outcome, not a registration rollback.</summary>
     public async Task<RegistrationResultDto> RegisterAsync(RegisterDto request)
     {
-        await currentUser.RequireAdminAsync();
+        var actorId = await currentUser.RequirePrivilegeAsync(Privileges.UsersCreate);
+        await currentUser.RequirePrivilegeAsync(Privileges.UsersAssignRoles);
         var email = NormalizeEmail(request.Email);
         if (await userRepository.FindByEmailAsync(email) is not null)
             throw new InvalidOperationException("A user with this email already exists.");
-        if (!Enum.IsDefined(request.UserRole) || string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
+        if (!Privileges.IsStaff(request.UserRole) || string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 8)
             throw new InvalidOperationException("Provide a valid role and a password of at least 8 characters.");
         if (!Uri.TryCreate(options.PublicUrl, UriKind.Absolute, out var url) ||
             (url.Scheme != Uri.UriSchemeHttps && (options.RequireHttps || url.Scheme != Uri.UriSchemeHttp)) ||
@@ -62,7 +64,8 @@ public sealed class AuthenticationService(
                 passwordHasher.Hash(request.Password)) { PasswordChanged = false };
         }
         catch (ArgumentException ex) { throw new InvalidOperationException(ex.Message); }
-        if (!await userRepository.AddAsync(user)) throw new InvalidOperationException("The account could not be created.");
+        await authorization.SaveManagedUserAsync(actorId, user, true);
+        authorizationChanges.NotifyChanged();
 
         // The plaintext password exists only in the submitted request and this email, never in database storage or logs.
         var body = $"<h1>Your Labster account is ready</h1><p>Hello {Encode(user.GetFullName())},</p>" +
@@ -88,7 +91,7 @@ public sealed class AuthenticationService(
         var user = await userRepository.FindByEmailAsync(NormalizeEmail(request.Email));
         
         // if user not found using email
-        if (user is null || user.DeletedAt.HasValue) throw new InvalidCredentialsException();
+        if (user is null || user.DeletedAt.HasValue || !Privileges.IsStaff(user.UserRole)) throw new InvalidCredentialsException();
 
         // refuse while locked, even if the password is correct
         if (user.IsLockedOut) throw new AccountLockedException(user.LockoutEnd!.Value);

@@ -27,6 +27,10 @@ public static class AgentConnectionSetup
         services.AddScoped<WorkstationCommandService>();
         services.AddSingleton<CLMS.Web.Services.Notifications.BrowserNotificationBus>();
         services.AddScoped<CLMS.Web.Services.Notifications.SystemNotificationPublisher>();
+        services.AddSingleton<ApplicationScanCoordinator>();
+        services.AddSingleton<CLMS.Web.Services.MonitoringUpdates>();
+        services.AddSingleton<CLMS.Application.Monitoring.IAbnormalActivityNotifications>(sp => sp.GetRequiredService<CLMS.Web.Services.MonitoringUpdates>());
+        services.AddSingleton<CLMS.Application.Monitoring.IApplicationRegistryNotifications>(sp => sp.GetRequiredService<ApplicationScanCoordinator>());
         services.AddSingleton<ScreenCastService>();
         services.AddHostedService(provider => provider.GetRequiredService<ScreenCastService>());
         services.AddSingleton<FacultyStreamService>();

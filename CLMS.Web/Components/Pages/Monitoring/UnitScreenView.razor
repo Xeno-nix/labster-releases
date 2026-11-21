@@ -3,6 +3,7 @@
 @inject CLMS.Web.Services.ScreenCasting.ScreenCastService ScreenCasts
 @inject CLMS.Web.Services.ScreenCasting.LabScreenCastService LabScreenCasts
 @inject AuthenticationStateProvider Authentication
+@inject Microsoft.AspNetCore.Authorization.IAuthorizationService Authorization
 @inject IJSRuntime JS
 
 @if (Allowed)
@@ -88,7 +89,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         Viewer = (await Authentication.GetAuthenticationStateAsync()).User;
-        Allowed = Viewer.Identity?.IsAuthenticated == true && (Viewer.IsInRole("Admin") || Viewer.IsInRole("Faculty"));
+        Allowed = (await Authorization.AuthorizeAsync(Viewer, null, CLMS.Application.Authorization.Privileges.Prefix + CLMS.Application.Authorization.Privileges.UnitsMonitor)).Succeeded;
     }
 
     protected override void OnParametersSet()

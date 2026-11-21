@@ -273,7 +273,7 @@ public sealed class UnitRegistryIntegrationTests : IAsyncLifetime
             await Sql(admin, $"DROP DATABASE `{database}`");
         await admin.DisposeAsync();
     }
-    private sealed class AdminActor : ICurrentUser { public Task<Guid> RequireAdminAsync() => Task.FromResult(Administrator); }
+    private sealed class AdminActor : ICurrentUser { public Task<Guid> RequirePrivilegeAsync(string privilege) => RequireAdminAsync(); public Task<Guid> RequireAdminAsync() => Task.FromResult(Administrator); }
 }
 
 public sealed class RegistryDatabaseFactAttribute : FactAttribute

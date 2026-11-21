@@ -34,9 +34,17 @@ public sealed class ScreenCastService(IHubContext<AgentConnectionHub> hub, TimeP
     {
         var id = viewer.FindFirstValue(ClaimTypes.NameIdentifier);
         if (viewer.Identity?.IsAuthenticated != true || string.IsNullOrWhiteSpace(id)
-            || !(viewer.IsInRole("Admin") || viewer.IsInRole("Faculty")))
+            || !(viewer.IsInRole("Admin") || viewer.IsInRole("Faculty") || viewer.IsInRole("SuperAdmin")))
             throw new UnauthorizedAccessException("Only authorized staff can view unit screens.");
         return id;
+    }
+
+    private async Task<string> RequirePrivilegeAsync(ClaimsPrincipal viewer)
+    {
+        if (scopes is null) throw new UnauthorizedAccessException("Authorization is unavailable.");
+        using var scope = scopes.CreateScope();
+        return (await scope.ServiceProvider.GetRequiredService<CLMS.Application.Identity.Interfaces.ICurrentUser>()
+            .RequirePrivilegeForAsync(viewer, CLMS.Application.Authorization.Privileges.UnitsMonitor)).ToString();
     }
 
     public IReadOnlyList<Guid> GetConnectedUnits(ClaimsPrincipal viewer)
@@ -77,7 +85,7 @@ public sealed class ScreenCastService(IHubContext<AgentConnectionHub> hub, TimeP
 
     public async Task<Guid> StartAsync(ClaimsPrincipal viewer, Guid unitId, TimeSpan? leaseDuration = null)
     {
-        var viewerId = RequireViewer(viewer);
+        var viewerId = await RequirePrivilegeAsync(viewer);
         Session session;
         lock (sync)
         {
@@ -133,7 +141,7 @@ public sealed class ScreenCastService(IHubContext<AgentConnectionHub> hub, TimeP
     // Returns false for unknown, expired, or another user's session; never exposes its frames.
     public async Task<bool> ValidateSessionAgentAsync(ClaimsPrincipal viewer, Guid sessionId, CancellationToken ct)
     {
-        var viewerId = RequireViewer(viewer);
+        var viewerId = await RequirePrivilegeAsync(viewer);
         Guid unit;
         string connection;
         lock (sync)

@@ -2,7 +2,7 @@
 
 @using CLMS.Application.Services
 @rendermode InteractiveServer
-@attribute [Authorize]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.DashboardView)]
 @using System.Security.Claims
 @using CLMS.Application.DTOs.Dashboard
 
@@ -18,7 +18,7 @@
 }
 else
 {
-    <h1 class="mb-3 text-sm font-heading font-semibold uppercase tracking-wide text-muted">Current status</h1>
+    <h1 class="mb-3 text-2xl font-heading font-semibold text-primary">Dashboard</h1>
     <div class="dashboard-metrics">
         <div class="dashboard-metric" title="People currently in laboratories">
             <p class="text-sm text-muted">People in labs now</p>
@@ -32,19 +32,38 @@ else
             <p class="text-sm text-muted">Classes running now</p>
             <p class="text-2xl font-heading font-semibold text-gray-800">@snapshot.ClassesRunningNow</p>
         </div>
-        <div class="dashboard-metric" title="Items needing attention">
+        <a class="dashboard-metric" href="#dashboard-attention">
             <p class="text-sm text-muted">Needs attention</p>
             <p class="text-2xl font-heading font-semibold @(snapshot.AttentionCount > 0 ? "text-error" : "text-success")">
                 @snapshot.AttentionCount
             </p>
-        </div>
+        </a>
     </div>
 
+    <SchedulingOverview />
     <div class="dashboard-columns">
-        <div class="dashboard-availability min-w-0">
-            <UnitAvailabilityPanel />
+        <div id="dashboard-attention" class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
+            <h4 class="text-base font-heading font-semibold text-gray-800 mb-3">Needs attention</h4>
+            @if (snapshot.Attention.Count == 0)
+            {
+                <p class="text-sm text-success">All good — nothing needs attention.</p>
+            }
+            else
+            {
+                <div class="flex flex-col gap-3">
+                    @foreach (var item in snapshot.Attention)
+                    {
+                        <a href="@item.Href"
+                           class="flex items-start gap-2 py-2 border-b border-gray-100 last:border-b-0 text-sm text-gray-700 hover:text-primary transition-colors">
+                            <span class="w-6 h-6 shrink-0 rounded-full bg-error/10 text-error text-xs font-semibold flex items-center justify-center">
+                                @item.Count
+                            </span>
+                            <span class="min-w-0 break-words">@item.Label</span>
+                        </a>
+                    }
+                </div>
+            }
         </div>
-
         <div class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
             <h4 class="text-base font-heading font-semibold text-gray-800 mb-4">Today's timeline</h4>
             @if (snapshot.Timeline.Count == 0)
@@ -73,6 +92,10 @@ else
                 }
             }
         </div>
+        <div class="dashboard-availability min-w-0">
+            <UnitAvailabilityPanel />
+        </div>
+
         <div class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
             <h4 class="text-base font-heading font-semibold text-gray-800 mb-4">Lab occupancy</h4>
             @if (snapshot.Occupancy.Count == 0)
@@ -101,51 +124,17 @@ else
             }
         </div>
 
-    <div class="min-w-0 bg-white border border-gray-200 rounded-lg p-5">
-        <h4 class="text-base font-heading font-semibold text-gray-800 mb-3">Needs attention</h4>
-        @if (snapshot.Attention.Count == 0)
-        {
-            <p class="text-sm text-success">All good — nothing needs attention.</p>
-        }
-        else
-        {
-            <div class="flex flex-col gap-3">
-                @foreach (var item in snapshot.Attention)
-                {
-                    <a href="@item.Href"
-                       class="flex items-start gap-2 py-2 border-b border-gray-100 last:border-b-0 text-sm text-gray-700 hover:text-primary transition-colors">
-                        <span class="w-6 h-6 shrink-0 rounded-full bg-error/10 text-error text-xs font-semibold flex items-center justify-center">
-                            @item.Count
-                        </span>
-                        <span class="min-w-0 break-words">@item.Label</span>
-                    </a>
-                }
-            </div>
-        }
-    </div>
     </div>
 }
 
-<SchedulingOverview />
+
 
 @code {
     private DashboardSnapshotDTO? snapshot;
 
     protected override async Task OnInitializedAsync()
     {
-        // Admin sees everything; Faculty is scoped to their own classes/sessions.
-        // Claims are set in AuthController.CookieLogin (NameIdentifier + Role).
-        Guid? facultyId = null;
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        if (user.Identity?.IsAuthenticated == true && !user.IsInRole("Admin"))
-        {
-            var idClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (Guid.TryParse(idClaim, out var id))
-                facultyId = id;
-        }
-
-        snapshot = await DashboardService.GetSnapshotAsync(facultyId);
+        // The service derives visibility from the authenticated account.
+        snapshot = await DashboardService.GetSnapshotAsync();
     }
 }

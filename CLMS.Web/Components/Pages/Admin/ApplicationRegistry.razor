@@ -1,0 +1,109 @@
+@page "/admin/applications"
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.MonitoringConfigure)]
+@using CLMS.Application.Authorization
+@using CLMS.Application.Monitoring
+@using CLMS.Domain.Entities.UnitManagement
+@using CLMS.Web.Services
+@inject ApplicationRegistryService Registry
+@inject ApplicationIconStorage Icons
+@inject DialogService Dialogs
+@inject ILogger<ApplicationRegistry> Logger
+
+<!-- 
+    TODO: Description for fields
+    TODO: Must be able to close modal on the unit monitoring view
+    TODO: Default option for the platform is both
+-->
+<PageTitle>Application Registry | CLMS</PageTitle>
+<div class="space-y-6">
+    <header><h1 class="text-2xl text-primary">Application Registry</h1><p class="text-sm text-muted">Choose which applications staff can observe on laboratory computers.</p></header>
+    @if (Error is not null) { <p role="alert" class="rounded-lg bg-red-50 p-4 text-sm text-red-800">@Error</p> }
+    <section class="rounded-lg border border-black/10 bg-white p-5">
+        <h2 class="mb-3 font-semibold text-primary">@(Editing.HasValue ? "Edit application" : "Add application")</h2>
+        <form @onsubmit="SaveAsync" @onsubmit:preventDefault>
+            <div class="grid gap-4 md:grid-cols-2">
+                <label class="text-sm">Application name<input required maxlength="120" @bind="Name" class="mt-1 block w-full rounded-lg border border-black/10 p-2" /></label>
+                <label class="text-sm">Process name<input required maxlength="200" @bind="ProcessName" class="mt-1 block w-full rounded-lg border border-black/10 p-2" /></label>
+                <label class="text-sm">Platform<select @bind="Platform" class="mt-1 block w-full rounded-lg border border-black/10 p-2"><option value="Windows">Windows</option><option value="MacOS">macOS</option><option value="Both">Both</option></select></label>
+                <label class="text-sm">Optional icon (PNG/WebP, up to 256 KB)<InputFile @key="FileKey" OnChange="SelectIcon" accept="image/png,image/webp" class="mt-1 block w-full" /></label>
+                <label class="text-sm"><input type="checkbox" @bind="Enabled" /> Enabled for monitoring</label>
+                <div><label class="text-sm"><input type="checkbox" @bind="FlagForReview" aria-describedby="flag-for-review-help" /> Flag for Review</label><p id="flag-for-review-help" class="mt-1 text-xs text-muted">When detected running on a laboratory computer, this application will be highlighted and recorded in Abnormal Activity Monitoring.</p></div>
+                @if (IconPath is not null) { <label class="text-sm"><input type="checkbox" @bind="RemoveIcon" /> Remove current icon</label> }
+            </div>
+            <p class="mt-3 text-xs text-muted">Use the process name reported by .NET. Windows .exe suffixes are optional. Add separate entries for different Windows and macOS process names.</p>
+            <div class="mt-4 flex gap-3"><button type="submit" disabled="@Busy" class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Save application</button><button type="button" disabled="@Busy" @onclick="Reset" class="text-sm text-primary">Cancel</button></div>
+        </form>
+    </section>
+    <section class="overflow-x-auto rounded-lg border border-black/10 bg-white">
+        <table class="w-full text-left text-sm"><thead class="bg-surface text-muted"><tr><th class="p-4">Application</th><th class="p-4">Process</th><th class="p-4">Platform</th><th class="p-4">Status</th><th class="p-4">Review</th><th class="p-4">Actions</th></tr></thead>
+            <tbody class="divide-y divide-black/5">
+                @foreach (var app in Applications)
+                {
+                    <tr @key="app.Id"><td class="p-4"><div class="flex items-center gap-3"><img src="@(app.IconPath ?? ApplicationProcessNames.DefaultIcon)" onerror="this.onerror=null;this.src='/images/application-default.svg'" alt="" width="28" height="28" />@app.Name</div></td><td class="p-4">@app.ProcessName</td><td class="p-4">@(app.Platform == ApplicationPlatform.MacOS ? "macOS" : app.Platform.ToString())</td><td class="p-4">@(app.IsEnabled ? "Enabled" : "Disabled")</td>
+                    <td class="p-4">@(app.FlagForReview ? "Flagged for Review" : "Standard")</td><td class="p-4"><div class="flex gap-3"><button disabled="@Busy" class="text-primary" @onclick="() => Edit(app)">Edit</button><button disabled="@Busy" class="text-primary" @onclick="() => ToggleAsync(app)">@(app.IsEnabled ? "Disable" : "Enable")</button><button disabled="@Busy" class="text-red-700" @onclick="() => DeleteAsync(app)">Remove</button></div></td></tr>
+                }
+                @if (Applications.Count == 0) { <tr><td colspan="6" class="p-5 text-muted">@(Busy ? "Loading applications..." : "No registered applications.")</td></tr> }
+            </tbody>
+        </table>
+    </section>
+</div>
+
+@code {
+    private IReadOnlyList<MonitoredApplication> Applications = [];
+    private Guid? Editing;
+    private string Name = "", ProcessName = "";
+    private ApplicationPlatform Platform = ApplicationPlatform.Windows;
+    private string? IconPath, Error;
+    private bool Enabled = true, Busy, RemoveIcon, FlagForReview;
+    private IBrowserFile? SelectedIcon;
+    private Guid FileKey = Guid.NewGuid();
+
+    protected override Task OnInitializedAsync() => RunAsync(async () => Applications = await Registry.GetAllAsync());
+    private void SelectIcon(InputFileChangeEventArgs args) => SelectedIcon = args.File;
+    private void Reset()
+    {
+        Editing = null; Name = ProcessName = ""; IconPath = null; Enabled = true; RemoveIcon = false; FlagForReview = false;
+        SelectedIcon = null; FileKey = Guid.NewGuid(); Platform = ApplicationPlatform.Windows;
+    }
+    private void Edit(MonitoredApplication app)
+    {
+        Reset(); Editing = app.Id; Name = app.Name; ProcessName = app.ProcessName;
+        Platform = app.Platform; IconPath = app.IconPath; Enabled = app.IsEnabled; FlagForReview = app.FlagForReview;
+    }
+    private Task SaveAsync() => RunAsync(async () =>
+    {
+        string? uploaded = null;
+        try
+        {
+            if (SelectedIcon is not null)
+            {
+                await using var stream = SelectedIcon.OpenReadStream(ApplicationIconStorage.MaximumBytes);
+                uploaded = await Icons.UploadAsync(stream, SelectedIcon.ContentType);
+            }
+            await Registry.SaveAsync(Editing, Name, ProcessName, Platform, uploaded ?? (RemoveIcon ? null : IconPath), Enabled, flagForReview: FlagForReview);
+        }
+        catch { if (uploaded is not null) await Icons.DeleteAsync(uploaded); throw; }
+        if (IconPath is not null && (uploaded is not null || RemoveIcon)) await Icons.DeleteAsync(IconPath);
+        Reset(); Applications = await Registry.GetAllAsync();
+    });
+    private Task ToggleAsync(MonitoredApplication app) => RunAsync(async () =>
+    {
+        await Registry.SaveAsync(app.Id, app.Name, app.ProcessName, app.Platform, app.IconPath, !app.IsEnabled, flagForReview: app.FlagForReview);
+        Applications = await Registry.GetAllAsync();
+    });
+    private async Task DeleteAsync(MonitoredApplication app)
+    {
+        if (!await Dialogs.ShowConfirmDialogAsync($"Remove {app.Name} from application monitoring?", "Remove application")) return;
+        await RunAsync(async () => { await Registry.DeleteAsync(app.Id); await Icons.DeleteAsync(app.IconPath); if (Editing == app.Id) Reset(); Applications = await Registry.GetAllAsync(); });
+    }
+    private async Task RunAsync(Func<Task> action)
+    {
+        if (Busy) return;
+        Busy = true; Error = null;
+        try { await action(); }
+        catch (ArgumentException ex) { Error = ex.Message; }
+        catch (UnauthorizedAccessException) { Error = "Only active administrators can manage the application registry."; }
+        catch (Exception ex) { Logger.LogWarning(ex, "Application registry operation failed."); Error = "Could not update the application registry. Try again."; }
+        finally { Busy = false; }
+    }
+}

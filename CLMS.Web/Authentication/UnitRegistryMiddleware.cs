@@ -28,7 +28,7 @@ public sealed class UnitRegistryMiddleware(RequestDelegate next, ILogger<UnitReg
             if (ex.StatusCode == 429) context.Response.Headers.RetryAfter = "60";
             await Error(context, ex.StatusCode, ex.Code, ex.Message);
         }
-        catch (UnauthorizedAccessException) { await Error(context, 403, "administrator_required", "An active administrator is required."); }
+        catch (UnauthorizedAccessException) { await Error(context, 403, "authorization_required", "You do not have permission to perform this operation."); }
         catch (DbException)
         {
             // Do not log exception details: connectors may include connection or parameter information.

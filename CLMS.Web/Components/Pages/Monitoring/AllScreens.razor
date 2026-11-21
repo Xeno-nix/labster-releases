@@ -1,6 +1,6 @@
 @page "/unit-monitoring/screens"
 @layout ScreenWallLayout
-@attribute [Authorize(Roles = "Admin,Faculty")]
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.MonitoringLabScreens)]
 @inherits MonitoringPageBase
 @implements IAsyncDisposable
 @inject IJSRuntime JS
@@ -11,19 +11,12 @@
 
 <PageTitle>All Screens | CLMS</PageTitle>
 
-<div class="monitor-screen">
-    <header class="monitor-header">
-        <div class="monitor-heading-row">
-        <div class="monitor-heading">
-            <a href="@BackUrl" class="monitor-back" aria-label="Back to unit monitoring" title="Back to units">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
-            </a>
-            <span class="monitor-heading-icon" aria-hidden="true">
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5"/></svg>
-            </span>
-            <div>
-            <h1>Screen monitor</h1>
-            <p class="monitor-subtitle" role="status">
+<div class="screen-wall-page flex h-full flex-col">
+    <header class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+        <div>
+            <h1 class="text-lg font-semibold">Lab screen-cast session</h1>
+            <p class="text-xs text-gray-400">Select a lab and start a session. Live previews run for the PCs on the current page.</p>
+            <p class="text-xs text-gray-400" role="status">
                 @if (LastUpdatedUtc.HasValue)
                 {
                     <span>@VisibleUnits.Count workstations<span class="subtitle-divider">·</span>@VisibleUnits.Count(u => u.IsAvailableOnline(ObservedAtUtc)) online</span>
