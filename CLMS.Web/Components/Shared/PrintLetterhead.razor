@@ -1,0 +1,65 @@
+<section class="letterhead-sheet @SheetClass" aria-label="Page @PageNumber of @PageCount">
+    @if (PageNumber == 1)
+    {
+        @if (Header is not null)
+        {
+            @Header
+        }
+        else
+        {
+            <header class="letterhead-heading">
+                <img class="letterhead-university" src="/images/letterhead-university.png" alt="University of Southeastern Philippines" />
+                <div class="letterhead-office" data-print-field>@Office</div>
+                <h1 data-print-field>@Title</h1>
+                <p data-print-field>@Subtitle</p>
+            </header>
+        }
+    }
+
+    @ChildContent
+
+    <footer class="print-footer letterhead-footer" data-editable-footer="@(PageNumber == 1 ? "true" : null)">
+        <div data-default-footer>
+            @if (PageNumber == 1)
+            {
+                <div class="letterhead-contact-footer">
+                    <div class="letterhead-contact">
+                        <strong>VISION: PREMIER RESEARCH UNIVERSITY TRANSFORMING<br />COMMUNITIES IN THE ASEAN AND BEYOND</strong>
+                        <div class="letterhead-address">
+                            <span>University of Southeastern Philippines<br />Iñigo St., Bo. Obrero, Davao City<br />Philippines 8000</span>
+                            <span>(082) 227-8192 local 255<br />www.usep.edu.ph<br />president@usep.edu.ph</span>
+                        </div>
+                    </div>
+                    <img src="/images/letterhead-bagong-pilipinas.png" alt="Bagong Pilipinas" />
+                    <img src="/images/letterhead-pqa.png" alt="Philippine Quality Award" />
+                    <img src="/images/letterhead-tuv.png" alt="TÜV Rheinland certification" />
+                </div>
+            }
+            else
+            {
+                <div class="letterhead-running-footer">
+                    <strong>WE BUILD DREAMS WITHOUT LIMITS</strong>
+                    <div>
+                        <span>OBRERO | TAGUM-MABINI | MINTAL | MALABOG</span>
+                        <span>Collaboration | Accountability | Resilience | Excellence | Service Oriented</span>
+                    </div>
+                </div>
+            }
+        </div>
+        @if (PageNumber == 1)
+        {
+            <img class="letterhead-custom-footer" data-custom-footer alt="Custom first-page footer" hidden />
+        }
+    </footer>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public int PageNumber { get; set; }
+    [Parameter, EditorRequired] public int PageCount { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Subtitle { get; set; } = "";
+    [Parameter] public string Office { get; set; } = "College of Teacher Education and Technology";
+    [Parameter] public string? SheetClass { get; set; }
+    [Parameter] public RenderFragment? Header { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

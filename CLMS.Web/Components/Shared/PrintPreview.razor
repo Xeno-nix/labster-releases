@@ -1,0 +1,22 @@
+<inventory-print-editor class="letterhead-preview">
+    <div class="letterhead-toolbar">
+        <p>Edits apply to this copy. To download a PDF, choose <strong>Save as PDF</strong> in the print dialog.</p>
+        <div class="letterhead-actions">
+            <button type="button" data-edit="@EditLabel" aria-pressed="false">@EditLabel</button>
+            <button type="button" data-footer-toggle hidden>Replace footer</button>
+            <input type="file" accept="image/png,image/jpeg" aria-label="Choose a footer image" hidden />
+            <button type="button" data-remove-footer hidden>Remove footer</button>
+            <button type="button" class="letterhead-print" data-print>Print</button>
+        </div>
+        <span role="status"></span>
+    </div>
+
+    <div class="letterhead-scroll" role="region" aria-label="Print preview" tabindex="0">
+        @ChildContent
+    </div>
+</inventory-print-editor>
+
+@code {
+    [Parameter] public string EditLabel { get; set; } = "Edit preview";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -1,6 +1,5 @@
 using CLMS.Application.Authorization;
 using CLMS.Application.Identity.Interfaces;
-using System.Text;
 using CLMS.Application.DTOs.Logbook;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Interfaces.Repositories;
@@ -34,40 +33,9 @@ public class LogbookService
         };
     }
 
-    // Laravel: LogbookController::exportCsv() — builds the same CSV column layout.
-    public async Task<string> ExportCsvAsync(LogbookQueryDTO query)
+    public async Task<List<LogbookEntryDTO>> GetExportEntriesAsync(LogbookQueryDTO query)
     {
         await actor.RequirePrivilegeAsync(Privileges.LogbookExport);
-        var entries = await _repository.GetAllFilteredAsync(query).ConfigureAwait(false);
-
-        var sb = new StringBuilder();
-        sb.AppendLine(string.Join(",", CsvField("Date"), CsvField("Student ID"), CsvField("Name"),
-            CsvField("Purpose"), CsvField("Time In"), CsvField("Time Out")));
-
-        foreach (var e in entries)
-        {
-            sb.AppendLine(string.Join(",",
-                CsvField(e.Date?.ToString("yyyy-MM-dd") ?? string.Empty),
-                CsvField(e.StudentId),
-                CsvField(e.Name),
-                CsvField(e.Purpose ?? string.Empty),
-                CsvField(e.TimeIn?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty),
-                CsvField(e.TimeOut?.ToString("yyyy-MM-dd HH:mm:ss") ?? string.Empty)));
-        }
-
-        return sb.ToString();
-    }
-
-    private static string CsvField(string value)
-    {
-        // Quoting a field does not stop spreadsheet apps from interpreting it as a formula.
-        var trimmed = value.AsSpan().TrimStart();
-        if ((!trimmed.IsEmpty && trimmed[0] is '=' or '+' or '-' or '@') ||
-            (value.Length > 0 && value[0] is '\t' or '\r' or '\n'))
-            value = "'" + value;
-
-        // Quote every field and escape embedded quotes — matches PHP's fputcsv defaults closely
-        // enough for this data (no embedded newlines expected in these columns).
-        return "\"" + value.Replace("\"", "\"\"") + "\"";
+        return await _repository.GetAllFilteredAsync(query).ConfigureAwait(false);
     }
 }

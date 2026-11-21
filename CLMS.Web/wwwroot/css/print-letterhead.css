@@ -1,0 +1,126 @@
+@page { size: A4 landscape; margin: 0; }
+
+.letterhead-layout { min-height: 100vh; background: #f3f4f6; color: #191919; }
+.letterhead-preview { display: block; }
+.letterhead-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 16px clamp(16px, 4vw, 48px);
+    background: #fff;
+    border-bottom: 1px solid #d1d5db;
+    font: 14px/1.45 system-ui, sans-serif;
+}
+.letterhead-toolbar p, .letterhead-toolbar [role="status"] { margin: 0; color: #444; }
+.letterhead-toolbar p { flex: 1 1 24rem; }
+.letterhead-toolbar [role="status"] { flex-basis: 100%; }
+.letterhead-toolbar [role="status"]:empty { display: none; }
+.letterhead-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-inline-start: auto; }
+.letterhead-actions button {
+    padding: 8px 14px;
+    border: 1px solid #aaa;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+}
+.letterhead-actions button:hover { background: #f3f4f6; }
+.letterhead-actions .letterhead-print { color: #fff; background: #800000; border-color: #800000; }
+.letterhead-actions .letterhead-print:hover { background: #610000; }
+.letterhead-scroll { overflow-x: auto; padding: 24px 16px; }
+.letterhead-sheet {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: 297mm;
+    min-height: 209mm;
+    margin: 0 auto 24px;
+    padding: 10mm 25mm;
+    background: #fff;
+    box-shadow: 0 3px 16px rgb(0 0 0 / 12%);
+    color: #111;
+    font: 10pt/1.2 Arial, sans-serif;
+}
+.letterhead-sheet:last-child { margin-bottom: 0; }
+.letterhead-heading { text-align: center; margin-bottom: 4mm; }
+.letterhead-university { display: block; width: 216mm; max-width: 100%; height: auto; margin: 0 auto; }
+.letterhead-office { font: 14pt/1.1 "Old English Text MT", "Times New Roman", serif; }
+.letterhead-heading h1 { margin: 3mm 0 0; font-size: 12pt; font-weight: bold; text-transform: uppercase; }
+.letterhead-heading p { margin: 1mm 0 0; font-size: 10pt; }
+.letterhead-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.letterhead-table th, .letterhead-table td {
+    box-sizing: border-box;
+    height: 5.5mm;
+    border: 1px solid #222;
+    padding: 0.7mm 1.2mm;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+}
+.letterhead-table th { text-align: center; font-size: 8.5pt; font-weight: bold; text-transform: uppercase; }
+.logbook-grid td:first-child { text-align: center; }
+.inventory-print-sheet { padding-inline: 12.7mm; font-size: 11px; }
+.inventory-print-sheet .letterhead-footer { margin-inline: 2.8mm; }
+.inventory-print-sheet .masterlist-title { text-transform: uppercase; }
+.inventory-print-sheet .doc-header { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+.inventory-print-sheet .doc-header td { border: 1px solid #000; vertical-align: middle; }
+.inventory-print-sheet .logo-cell { width: 120px; text-align: center; padding: 10px; }
+.inventory-print-sheet .logo-cell img { max-width: 90px; height: auto; }
+.inventory-print-sheet .univ-info-cell { text-align: center; padding: 10px; line-height: 1.3; }
+.inventory-print-sheet .univ-name { font-family: "Times New Roman", Times, serif; font-size: 18px; font-weight: bold; margin: 5px 0; }
+.inventory-print-sheet .meta-cell { width: 250px; padding: 0; vertical-align: top; }
+.inventory-print-sheet .meta-table { width: 100%; border-collapse: collapse; }
+.inventory-print-sheet .meta-table td { border: none; border-bottom: 1px solid #000; padding: 4px 8px; font-size: 10px; }
+.inventory-print-sheet .meta-table tr:last-child td { border-bottom: none; }
+.inventory-print-sheet .meta-table td:first-child { border-right: 1px solid #000; width: 40%; }
+.inventory-print-sheet .doc-title-row td { text-align: center; padding: 8px; font-weight: bold; font-size: 14px; }
+.inventory-print-sheet .updated-date { font-weight: normal; font-size: 11px; display: block; margin-top: 4px; }
+.inventory-print-sheet .masterlist-table { width: 100%; border-collapse: collapse; }
+.inventory-print-sheet .masterlist-table th, .inventory-print-sheet .masterlist-table td { border: 1px solid #000; padding: 6px; text-align: center; vertical-align: middle; }
+.inventory-print-sheet .masterlist-table th { text-transform: uppercase; font-weight: normal; font-size: 10px; background: #fff; }
+.inventory-print-sheet .masterlist-table td { font-size: 11px; }
+.inventory-print-sheet .text-left { text-align: left; }
+.inventory-print-sheet .empty-row td { height: 22px; }
+.letterhead-footer { margin: auto -9.5mm 0; padding-top: 5mm; }
+.letterhead-contact-footer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 3mm;
+    font: italic 8.5pt/1.17 "Arial Narrow", Arial, sans-serif;
+}
+.letterhead-contact { border-top: 1px solid #222; padding-top: 1.5mm; }
+.letterhead-address { display: flex; gap: 4mm; }
+.letterhead-contact-footer img { display: block; height: 18mm; width: auto; }
+.letterhead-contact-footer img:last-child { height: 17mm; }
+.letterhead-running-footer { font: 9pt/1.25 "Arial Narrow", Arial, sans-serif; }
+.letterhead-running-footer > div {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #222;
+    padding-top: 1.5mm;
+}
+.letterhead-custom-footer {
+    display: block;
+    width: 100%;
+    height: 21mm;
+    object-fit: contain;
+}
+.letterhead-preview [hidden] { display: none !important; }
+.letterhead-preview .print-field { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+@media screen {
+    .letterhead-preview [contenteditable="plaintext-only"] { outline: 1px dashed #777; outline-offset: -2px; cursor: text; }
+    .letterhead-preview [contenteditable="plaintext-only"]:focus { outline: 2px solid #800000; }
+}
+
+@media print {
+    html, body, .letterhead-layout { min-height: 0; margin: 0; padding: 0; overflow: visible; background: #fff; }
+    .letterhead-toolbar { display: none; }
+    .letterhead-scroll { overflow: visible; padding: 0; }
+    .letterhead-sheet { width: 100%; margin: 0; box-shadow: none; }
+    .letterhead-sheet + .letterhead-sheet { break-before: page; }
+    .letterhead-table thead { display: table-header-group; }
+    .letterhead-table tr, .letterhead-heading, .letterhead-footer { break-inside: avoid; }
+    .masterlist-table tr, .doc-header { break-inside: avoid; }
+}
