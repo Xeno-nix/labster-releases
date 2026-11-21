@@ -21,7 +21,7 @@ public class LogbookService
     public async Task<LogbookPageResultDTO> GetLogsAsync(LogbookQueryDTO query)
     {
         await actor.RequirePrivilegeAsync(Privileges.LogbookView);
-        var (entries, totalCount, supportsLaboratory) = await _repository.GetPagedAsync(query).ConfigureAwait(false);
+        var (entries, totalCount,supportsLaboratory) = await _repository.GetPagedAsync(query).ConfigureAwait(false);
 
         return new LogbookPageResultDTO
         {
@@ -39,3 +39,4 @@ public class LogbookService
         return await _repository.GetAllFilteredAsync(query).ConfigureAwait(false);
     }
 }
+
