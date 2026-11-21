@@ -28,7 +28,10 @@
     flex-shrink: 0;
 }
 
-.sidebar-logo,
+.sidebar-logo img {
+    filter: brightness(0) invert(1);
+}
+
 .sidebar-avatar,
 .sidebar-link-active {
     background-color: #fff;

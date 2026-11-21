@@ -4,7 +4,7 @@ The follow-on [Abnormal Activity Monitoring](abnormal-activity-monitoring.md) mo
 
 Apply `Database/migrations/2026-11-21-application-monitoring.sql` before deploying the server. This follows the existing manual MySQL migration convention. No process snapshots are written to the database.
 
-Administrators manage the registry at `/admin/applications`. Active administrator authorization is checked inside the registry and icon services as well as on the page. Enabled entries contain a display name, an exact process name, a platform, and an optional uploaded icon. Process names are trimmed, case-folded, and stripped of a trailing `.exe`. Use separate Windows/macOS entries where names differ. The database uniquely indexes platform and normalized process name.
+Administrators manage the registry at `/unit-monitoring/applications`. Active administrator authorization is checked inside the registry and icon services as well as on the page. Enabled entries contain a display name, an exact process name, a platform, and an optional uploaded icon. Process names are trimmed, case-folded, and stripped of a trailing `.exe`. Use separate Windows/macOS entries where names differ. The database uniquely indexes platform and normalized process name.
 
 Uploads are limited to PNG/WebP, checked against their content type and file header, and capped at 256 KB. Generated filenames live under `CLMS.Web/wwwroot/application-icons`. Keep this directory writable by the server and preserve it across deployments. Back it up with the database; the existing database backup feature does not include static files. The generic icon is `/images/application-default.svg`.
 

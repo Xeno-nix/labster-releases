@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using CLMS.Application;
+using CLMS.Application.Authorization;
 using CLMS.Web.Components;
 using CLMS.Application.Services;
 using CLMS.Infrastructure.Services;
@@ -323,6 +324,12 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapControllers();
+app.MapGet("/admin/applications", (HttpRequest request) =>
+    Results.LocalRedirect("/unit-monitoring/applications" + request.QueryString))
+    .RequireAuthorization(Privileges.Prefix + Privileges.MonitoringConfigure);
+app.MapGet("/admin/unit-registry", (HttpRequest request) =>
+    Results.LocalRedirect("/unit-monitoring/unit-registry" + request.QueryString))
+    .RequireAuthorization(Privileges.Prefix + Privileges.UnitsManage);
 app.MapHub<AgentConnectionHub>(AgentConnectionProtocol.HubPath,
     options =>
     {

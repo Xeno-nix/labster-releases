@@ -31,7 +31,7 @@ public partial class App : Microsoft.Maui.Controls.Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        var window = new Window(settings) { Title = "CLMS Agent settings", Width = 660, Height = 800 };
+        var window = new Window(settings) { Title = "Labster settings", Width = 660, Height = 800 };
         window.Created += async (_, _) =>
         {
             try

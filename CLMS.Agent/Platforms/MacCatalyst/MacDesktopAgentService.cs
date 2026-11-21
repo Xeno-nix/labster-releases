@@ -40,14 +40,14 @@ public sealed class MacDesktopAgentService(ILogger<MacDesktopAgentService> logge
         statusBar = Send(Class.GetHandle("NSStatusBar"), Sel("systemStatusBar"));
         if (statusBar == 0) throw new InvalidOperationException("The Mac menu bar is unavailable.");
         statusItem = SendDouble(statusBar, Sel("statusItemWithLength:"), -1);
-        if (statusItem == 0) throw new InvalidOperationException("Cannot create the CLMS menu-bar indicator.");
+        if (statusItem == 0) throw new InvalidOperationException("Cannot create the Labster menu-bar indicator.");
         Send(statusItem, Sel("retain"));
         actions = new MenuActions(this, stopSharing, quit);
         var button = Send(statusItem, Sel("button"));
-        SetText(button, "setTitle:", "CLMS");
+        SetText(button, "setTitle:", "Labster");
         var menu = Send(Send(Class.GetHandle("NSMenu"), Sel("alloc")), Sel("init"));
         SendBool(menu, Sel("setAutoenablesItems:"), false);
-        statusText = AddItem(menu, "CLMS Agent — starting", null);
+        statusText = AddItem(menu, "Labster — starting", null);
         SendBool(statusText, Sel("setEnabled:"), false);
         AddItem(menu, "Open settings", "openSettings:");
         AddItem(menu, "Stop screen sharing", "stopSharing:");
@@ -56,7 +56,7 @@ public sealed class MacDesktopAgentService(ILogger<MacDesktopAgentService> logge
         SendArg(statusItem, Sel("setMenu:"), menu);
         Send(menu, Sel("release"));
         backgroundActivity = NSProcessInfo.ProcessInfo.BeginActivity(
-            NSActivityOptions.InitiatedAllowingIdleSystemSleep, "Maintain the configured CLMS agent connection");
+            NSActivityOptions.InitiatedAllowingIdleSystemSleep, "Maintain the configured Labster connection");
 
         // Keep this single settings scene alive; users use Hide or the menu-bar actions.
         // Replacing Catalyst's NSWindow delegate would break its scene lifecycle.
@@ -106,8 +106,8 @@ public sealed class MacDesktopAgentService(ILogger<MacDesktopAgentService> logge
     public void SetStatus(string status)
     {
         if (disposed || statusItem == 0) return;
-        SetText(statusText, "setTitle:", "CLMS Agent — " + status);
-        SetText(Send(statusItem, Sel("button")), "setTitle:", status.StartsWith("Sharing", StringComparison.Ordinal) ? "CLMS • Sharing" : "CLMS");
+        SetText(statusText, "setTitle:", "Labster — " + status);
+        SetText(Send(statusItem, Sel("button")), "setTitle:", status.StartsWith("Sharing", StringComparison.Ordinal) ? "Labster • Sharing" : "Labster");
     }
 
     internal void RunAction(Func<Task> action) => MainThread.BeginInvokeOnMainThread(async () =>

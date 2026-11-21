@@ -1,6 +1,6 @@
 # Unit Registry and persistent device authentication
 
-The administrator page is `/admin/unit-registry`. It reuses administrator cookies,
+The administrator page is `/unit-monitoring/unit-registry`. It reuses administrator cookies,
 active-administrator checks, confirmation dialogs, toasts, and the registry use cases.
 Agents use the separate `AgentBearer` scheme, `CLMS.Agent` audience, and `AgentOnly`
 policy. Human authentication and human refresh tokens are unchanged.
@@ -131,7 +131,7 @@ Install the resulting application in a stable directory and use its login-startu
 
 Rotation and reset are available in settings. Before resetting or retiring a device, revoke its server credential as an administrator. Local reset clears the cached JWT and journals retirement/deletion of its keys. After a lost rotation response, the coordinator probes the replacement first and only deletes the old key after durable confirmation.
 
-The agent reports workstation connectivity through its authenticated heartbeat. CLMS workstation sign-in and sign-out use the separate [lockscreen contract](workstation-sessions.md).
+The agent reports workstation connectivity through its authenticated heartbeat. Labster workstation sign-in and sign-out use the separate [lockscreen contract](workstation-sessions.md).
 
 Run shared tests and browser checks described in [agent-architecture.md](agent-architecture.md). Native Keychain, capture, startup, signing, and Mac ABI tests require a real Mac. Database integration tests require a disposable configured MySQL database. Building in Rider does not update installed binaries or stop an old installed machine service.
 

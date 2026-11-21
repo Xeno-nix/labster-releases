@@ -60,11 +60,11 @@ public sealed class WindowsDesktopAgentService(ILogger<WindowsDesktopAgentServic
         {
             Size = (uint)Marshal.SizeOf<NotifyIconData>(), Window = hwnd, Id = 1,
             Flags = 1 | 2 | 4, CallbackMessage = TrayMessage,
-            Icon = LoadIcon(0, (nint)32512), Tip = "CLMS Agent — starting",
+            Icon = LoadIcon(0, (nint)32512), Tip = "Labster — starting",
             Info = string.Empty, InfoTitle = string.Empty
         };
         AddIcon();
-        if (!iconAdded) throw new InvalidOperationException("Cannot create the CLMS tray indicator. Settings will remain visible.");
+        if (!iconAdded) throw new InvalidOperationException("Cannot create the Labster tray indicator. Settings will remain visible.");
         appWindow.Closing += OnClosing;
     }
 
@@ -93,7 +93,8 @@ public sealed class WindowsDesktopAgentService(ILogger<WindowsDesktopAgentServic
     public void SetStatus(string status)
     {
         if (disposed || !iconAdded) return;
-        icon.Tip = ("CLMS Agent — " + status)[..Math.Min(127, 13 + status.Length)];
+        var tooltip = "Labster — " + status;
+        icon.Tip = tooltip[..Math.Min(127, tooltip.Length)];
         Shell_NotifyIcon(1, ref icon);
     }
 

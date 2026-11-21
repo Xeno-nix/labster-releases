@@ -4,7 +4,7 @@ The integration combines `chore/architecture-rewrite` (registry, persistent devi
 
 ## Deployment and ownership
 
-**One workstation application: `CLMS.Agent`.** It is a .NET 10 MAUI desktop process for Windows or Mac Catalyst. There is no separate Core library, service, console host, local control socket, named-pipe server, or session companion. `CLMS.Shared` remains the common contract assembly (and currently references Domain); the web server and its application/infrastructure projects remain separate.
+**One workstation application: Labster (`CLMS.Agent`).** It is a .NET 10 MAUI desktop process for Windows or Mac Catalyst. There is no separate Core library, service, console host, local control socket, named-pipe server, or session companion. `CLMS.Shared` remains the common contract assembly (and currently references Domain); the web server and its application/infrastructure projects remain separate.
 
 The signed-in OS user owns enrollment and protected keys. The application runtime owns authentication polling and the outbound SignalR connection. Settings merely controls and observes these services. Capture belongs to a shorter, viewer-authorized session. Hiding settings or stopping capture leaves the application alive; logout or Quit ends it. Pause stops authentication polling, transport, and capture.
 
@@ -88,7 +88,7 @@ Lab membership and session metadata stay server-side in existing tables. No imag
 
 ## Monitoring, deployment, and verification
 
-The web server records CLMS workstation sessions through the [lockscreen contract](workstation-sessions.md). The agent reports connectivity via heartbeat.
+The web server records Labster workstation sessions through the [lockscreen contract](workstation-sessions.md). The agent reports connectivity via heartbeat.
 
 Only one old device needs manual transition: revoke/soft-delete its registry assignment, stop and uninstall the old machine service/Aqua companion, install the desktop app, and register/approve again. Registry recovery preserves the computer-unit GUID and history. Do not export old keys or auto-import machine vaults. No new database migration is required for this consolidation; existing registry schema prerequisites still apply.
 
