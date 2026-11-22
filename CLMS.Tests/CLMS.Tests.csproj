@@ -40,6 +40,7 @@
     <Compile Include="../CLMS.Agent/Platforms/Windows/WindowsDeviceKeyStore.cs" Link="Agent/WindowsDeviceKeyStore.cs" />
     <Compile Include="../CLMS.Agent/Platforms/MacCatalyst/MacDeviceKeyStore.cs" Link="Agent/MacDeviceKeyStore.cs" />
     <Compile Include="../CLMS.Agent/Services/IAgentAccessTokenProvider.cs" Link="Agent/IAgentAccessTokenProvider.cs" />
+    <Compile Include="../CLMS.Agent/Services/Settings/SettingsSession.cs" Link="Agent/SettingsSession.cs" />
   </ItemGroup>
 
 </Project>

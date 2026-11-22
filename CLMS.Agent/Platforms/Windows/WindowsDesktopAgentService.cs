@@ -86,6 +86,7 @@ public sealed class WindowsDesktopAgentService(ILogger<WindowsDesktopAgentServic
 
     public void Hide()
     {
+        if (Microsoft.Maui.Controls.Application.Current is App app) app.LockSettings();
         // Never hide the only settings entry point if the tray failed to initialize.
         if (!disposed && iconAdded) ShowWindow(hwnd, 0);
     }

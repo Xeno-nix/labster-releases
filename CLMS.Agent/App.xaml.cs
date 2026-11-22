@@ -6,7 +6,8 @@ namespace CLMS.Agent;
 
 public partial class App : Microsoft.Maui.Controls.Application
 {
-    private readonly MainPage settings;
+    private readonly IServiceProvider services;
+    private MainPage? settings;
     private readonly AgentRuntimeService runtime;
     private readonly AgentConnectionService connection;
     private readonly ScreenCastSender screenCast;
@@ -17,11 +18,11 @@ public partial class App : Microsoft.Maui.Controls.Application
     public bool OwnsLifetime { get; private set; }
     public string? StartupError { get; private set; }
 
-    public App(MainPage settings, AgentRuntimeService runtime, AgentConnectionService connection,
+    public App(IServiceProvider services, AgentRuntimeService runtime, AgentConnectionService connection,
         ScreenCastSender screenCast, IDesktopAgentService desktop, ILogger<App> logger)
     {
         InitializeComponent();
-        this.settings = settings;
+        this.services = services;
         this.runtime = runtime;
         this.connection = connection;
         this.screenCast = screenCast;
@@ -31,12 +32,16 @@ public partial class App : Microsoft.Maui.Controls.Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        var window = new Window(settings) { Title = "Labster settings", Width = 660, Height = 800 };
+        // Page XAML uses application theme resources. Resolve it only after
+        // InitializeComponent has loaded App.xaml, rather than during App constructor injection.
+        var settings = services.GetRequiredService<MainPage>();
+        this.settings = settings;
+        var window = new Window(settings) { Title = "Labster | Agent settings", Width = 820, Height = 860, MinimumWidth = 560, MinimumHeight = 640 };
         window.Created += async (_, _) =>
         {
             try
             {
-                desktop.Initialize(window, () => screenCast.StopAsync(), QuitAgentAsync);
+                desktop.Initialize(window, () => screenCast.StopAsync(), settings.RequestQuitAsync);
                 var directory = CLMS.Agent.Service.UserAgentVault.StateDirectory;
                 Directory.CreateDirectory(directory);
                 if (!OperatingSystem.IsWindows())
@@ -59,6 +64,8 @@ public partial class App : Microsoft.Maui.Controls.Application
             }
         };
         window.Destroying += async (_, _) => await QuitAgentAsync();
+        window.Deactivated += (_, _) => settings.SetWindowActive(false);
+        window.Activated += (_, _) => settings.SetWindowActive(true);
         return window;
     }
 
@@ -67,6 +74,8 @@ public partial class App : Microsoft.Maui.Controls.Application
     private void UpdateIndicator(string _) => MainThread.BeginInvokeOnMainThread(() =>
         desktop.SetStatus(screenCast.IsSharing ? "Sharing screen with an authorized viewer"
             : connection.IsRunning ? connection.Snapshot.Status : runtime.Status));
+
+    public void LockSettings() => settings?.LockSettings();
 
     public async Task QuitAgentAsync()
     {

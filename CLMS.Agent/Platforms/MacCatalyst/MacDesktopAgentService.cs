@@ -100,6 +100,7 @@ public sealed class MacDesktopAgentService(ILogger<MacDesktopAgentService> logge
 
     public void Hide()
     {
+        if (Microsoft.Maui.Controls.Application.Current is App app) app.LockSettings();
         if (!disposed && statusItem != 0) SendArg(NativeApp, Sel("hide:"), 0);
     }
 

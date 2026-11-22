@@ -12,6 +12,10 @@ public partial class MainPage : ContentPage
     private readonly AgentConnectionService connection;
     private readonly ScreenCastSender sender;
     private readonly IDesktopAgentService desktop;
+    private readonly SettingsSession session;
+    private bool authenticating, validating;
+    private DateTimeOffset nextValidation;
+    private bool windowActive = true;
     private IDispatcherTimer? timer;
     private bool busy, updating;
     private bool serverLoaded;
@@ -19,10 +23,11 @@ public partial class MainPage : ContentPage
     public ObservableCollection<RegistrationLaboratory> Laboratories { get; } = [];
 
     public MainPage(AgentCoordinator identity, AgentRuntimeService runtime, AgentConnectionService connection,
-        ScreenCastSender sender, IDesktopAgentService desktop)
+        ScreenCastSender sender, IDesktopAgentService desktop, SettingsSession session)
     {
         this.identity = identity; this.runtime = runtime; this.connection = connection;
         this.sender = sender; this.desktop = desktop;
+        this.session = session;
         InitializeComponent();
     }
 
@@ -35,7 +40,8 @@ public partial class MainPage : ContentPage
         timer.Tick += OnTick;
         timer.Start();
         RefreshStatus();
-        if (identity.Status.CanRegister && Laboratories.Count == 0) await Execute(LoadLaboratories);
+        try { await identity.InitializeAsync(default); }
+        catch { LoginError.Text = "Unable to load local enrollment. Check protected storage permissions."; LoginError.IsVisible = true; }
     }
     protected override void OnDisappearing()
     {
@@ -43,9 +49,101 @@ public partial class MainPage : ContentPage
         // Visibility never owns the runtime, credentials, transport, or capture lifetime.
         base.OnDisappearing();
     }
-    private void OnTick(object? sender, EventArgs args) => RefreshStatus();
+    private async void OnTick(object? sender, EventArgs args)
+    {
+        RefreshStatus();
+        if (!session.IsUnlocked || validating || busy || DateTimeOffset.UtcNow < nextValidation) return;
+        validating = true;
+        try { await session.RequireAccessAsync(); nextValidation = DateTimeOffset.UtcNow.AddSeconds(30); }
+        catch { LockSettings(); }
+        finally { validating = false; }
+    }
+    public void LockSettings()
+    {
+        session.Lock();
+        PasswordEntry.Text = CodeEntry.Text = "";
+        CodeLoginPanel.IsVisible = false;
+        CredentialsPanel.IsVisible = true;
+        LoginPanel.IsVisible = true;
+        SettingsPanel.IsVisible = false;
+    }
+    public void SetWindowActive(bool active)
+    {
+        windowActive = active;
+        PasswordEntry.Text = "";
+        // Keep a pending email challenge while the administrator reads their email.
+        if (!active && session.IsUnlocked) LockSettings();
+    }
+    private async void LoginClicked(object? sender, EventArgs e) => await Authenticate(async () =>
+    {
+        var password = PasswordEntry.Text ?? "";
+        PasswordEntry.Text = "";
+        await identity.InitializeAsync(default);
+        var server = identity.Status.ServerAddress
+            ?? Environment.GetEnvironmentVariable("CLMS_AGENT_SERVER_URL")
+            ?? "https://localhost:7190";
+        await session.SignInAsync(server, EmailEntry.Text ?? "", password);
+    });
+    private async void VerifyClicked(object? sender, EventArgs e) => await Authenticate(async () =>
+    {
+        var code = CodeEntry.Text ?? "";
+        CodeEntry.Text = "";
+        await session.VerifyAsync(code);
+    });
+    private async void ResendClicked(object? sender, EventArgs e) => await Authenticate(session.ResendAsync);
+    private void BackClicked(object? sender, EventArgs e) => LockSettings();
+    private async Task Authenticate(Func<Task> action)
+    {
+        if (authenticating) return;
+        authenticating = true;
+        LoginError.IsVisible = false;
+        LoginButton.IsEnabled = VerifyButton.IsEnabled = ResendButton.IsEnabled = false;
+        LoginActivity.IsVisible = LoginActivity.IsRunning = true;
+        try
+        {
+            await action();
+            if (session.IsUnlocked && !windowActive) { LockSettings(); return; }
+            CodeLoginPanel.IsVisible = session.NeedsCode;
+            CredentialsPanel.IsVisible = !session.NeedsCode;
+            if (session.IsUnlocked)
+            {
+                if (!identity.Status.CanConfigure && identity.Status.ServerAddress is { } existing &&
+                    AgentApi.ValidateAddress(existing) != AgentApi.ValidateAddress(session.Server!))
+                    throw new UnauthorizedAccessException("Sign in to the server used by this enrolled agent.");
+                if (identity.Status.CanConfigure)
+                {
+                    await identity.ConfigureAsync(session.Server!, default);
+                    await runtime.StartAsync();
+                }
+                nextValidation = DateTimeOffset.UtcNow.AddSeconds(30);
+                RefreshStatus();
+                if (identity.Status.CanRegister && Laboratories.Count == 0) await Execute(LoadLaboratories);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!session.NeedsCode) LockSettings();
+            LoginError.Text = ex is UnauthorizedAccessException or ArgumentException ? ex.Message
+                : "Unable to reach the server. Check the HTTPS address, certificate trust, and connection.";
+            LoginError.IsVisible = true;
+        }
+        finally
+        {
+            authenticating = false;
+            LoginButton.IsEnabled = VerifyButton.IsEnabled = ResendButton.IsEnabled = true;
+            LoginActivity.IsVisible = LoginActivity.IsRunning = false;
+        }
+    }
+    private void LockClicked(object? sender, EventArgs e) => LockSettings();
     private void RefreshStatus()
     {
+        if (!session.IsUnlocked)
+        {
+            if (SettingsPanel.IsVisible) LockSettings();
+            return;
+        }
+        LoginPanel.IsVisible = false;
+        SettingsPanel.IsVisible = true;
         var status = identity.Status;
         PhaseLabel.Text = status.Phase;
         MessageLabel.Text = status.Message;
@@ -90,6 +188,7 @@ public partial class MainPage : ContentPage
         RefreshStatusButton.IsEnabled = ConnectButton.IsEnabled = PauseButton.IsEnabled = owns && !busy;
         RotateButton.IsEnabled = owns && !busy && identity.Status.Phase == "Connected";
         ResetButton.IsEnabled = owns && !busy;
+        StartupSwitch.IsEnabled = HiddenSwitch.IsEnabled = owns && !busy;
         StopSharingButton.IsEnabled = sender.IsSharing;
         Activity.IsVisible = Activity.IsRunning = busy;
     }
@@ -103,7 +202,8 @@ public partial class MainPage : ContentPage
             return;
         }
         busy = true; ErrorLabel.IsVisible = false; UpdateControls();
-        try { await action(); }
+        try { await session.RequireAccessAsync(); await action(); }
+        catch (UnauthorizedAccessException) { LockSettings(); }
         catch (ArgumentException ex) { ErrorLabel.Text = ex.Message; ErrorLabel.IsVisible = true; }
         catch
         {
@@ -123,7 +223,7 @@ public partial class MainPage : ContentPage
     private void LaboratoryChanged(object? sender, EventArgs e) => UpdateControls();
     private async void ConfigureClicked(object? sender, EventArgs e) => await Execute(async () =>
     {
-        await identity.ConfigureAsync(ServerEntry.Text ?? "", default);
+        await identity.ConfigureAsync(session.Server ?? "", default);
         Laboratories.Clear();
         await runtime.StartAsync();
         await LoadLaboratories();
@@ -166,8 +266,15 @@ public partial class MainPage : ContentPage
     }
     private void HiddenChanged(object? sender, ToggledEventArgs e)
     {
-        if (!updating) Preferences.Default.Set("agent.start-hidden", e.Value);
+        if (!updating) SaveHiddenAsync(e.Value);
     }
+    private async void SaveHiddenAsync(bool value) => await Execute(() =>
+    { Preferences.Default.Set("agent.start-hidden", value); return Task.CompletedTask; });
     private void HideClicked(object? sender, EventArgs e) => desktop.Hide();
-    private async void QuitClicked(object? sender, EventArgs e) => await ((App)Microsoft.Maui.Controls.Application.Current!).QuitAgentAsync();
+    public async Task RequestQuitAsync()
+    {
+        if (!session.IsUnlocked) { desktop.Show(); return; }
+        await Execute(() => ((App)Microsoft.Maui.Controls.Application.Current!).QuitAgentAsync());
+    }
+    private async void QuitClicked(object? sender, EventArgs e) => await RequestQuitAsync();
 }
