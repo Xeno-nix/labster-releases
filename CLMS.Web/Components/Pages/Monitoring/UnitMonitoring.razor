@@ -15,7 +15,12 @@
 <div class="monitoring-page">
     <header class="flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div>
-            <h1 class="mb-1 text-2xl text-primary">Unit Monitoring</h1>
+            <div class="page-help-heading">
+                <h1 class="text-2xl text-primary">Unit Monitoring</h1>
+                <PageHelp Guide="monitoring">
+                    <p><strong>Offline</strong> means Labster has no recent heartbeat. Open <strong>View details</strong> and check <strong>Last heartbeat</strong>. If no time is recorded, verify the registration and that the agent is running. If a time is recorded, check that the PC is powered on and connected to the network.</p>
+                </PageHelp>
+            </div>
             <p class="text-xs text-muted" role="status">
                 @if (LastUpdatedUtc.HasValue)
                 {

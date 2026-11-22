@@ -8,7 +8,7 @@
     {
         <p>You are @(receipt.Enabled ? "enabling" : "disabling") email two-factor authentication.</p>
         <p>Enter your current password and the six-digit code sent to your registered email.</p>
-        <p>The code expires at @receipt.Challenge.ExpiresAt.ToString("HH:mm:ss") UTC.</p>
+        <p>The code expires at @receipt.Challenge.ExpiresAt.ToString("HH:mm:ss") UTC. Use the latest code, or select Resend code if it expires.</p>
         <p>@(receipt.Enabled ? "Enabling signs you out of existing sessions." : "Disabling keeps this browser signed in and revokes other existing sessions.")</p>
         <form method="post" action="/account/two-factor/confirm" data-enhance="false">
             <AntiforgeryToken />

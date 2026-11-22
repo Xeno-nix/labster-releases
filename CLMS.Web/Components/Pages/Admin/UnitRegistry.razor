@@ -14,7 +14,10 @@
 <MonitoringTabs ActivePath="/unit-monitoring/unit-registry" />
 <div class="space-y-6">
     <header class="flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-primary text-2xl">Unit Registry</h1>
+        <div class="page-help-heading">
+            <h1 class="text-primary text-2xl">Unit Registry</h1>
+            <PageHelp Guide="registry" />
+        </div>
         <button class="rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50" disabled="@Busy" @onclick="LoadAsync">Refresh</button>
     </header>
     @if (Error is not null) { <p role="alert" class="rounded-lg bg-red-50 p-4 text-sm text-red-800">@Error</p> }
@@ -70,6 +73,7 @@
                 <option>Pending</option><option>Approved</option><option>Rejected</option><option>Expired</option>
             </select>
         </div>
+        <p class="px-5 py-3 text-sm text-muted">If a code has expired, request a new registration on the workstation and select <strong>Refresh</strong> here.</p>
         <div class="table-scroll overflow-x-auto"><table role="table" class="responsive-records data-table w-full text-left text-sm">
             <thead class="bg-surface text-xs uppercase text-muted"><tr><th class="px-5 py-3">Code</th><th class="px-5 py-3">Requested assignment</th><th class="px-5 py-3">Device</th><th class="px-5 py-3">Requested / Expires (UTC)</th><th class="px-5 py-3">Status <span class="row-actions-caption">Actions</span></th></tr></thead>
             <tbody class="divide-y divide-black/5">

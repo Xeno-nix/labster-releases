@@ -6,7 +6,7 @@
     @if (Model.Message is not null) { <p role="status">@Model.Message</p> }
     @if (Model.Mode == "forgot")
     {
-        <p>Enter your registered email address. If the account is eligible, we will email a reset link.</p>
+        <p>Enter your registered email address. If the account is eligible, we will email a reset link. Check your inbox and spam folder and use the latest link.</p>
         <form method="post" action="/forgot-password" data-enhance="false">
             <AntiforgeryToken />
             <label for="email">Email address</label>
@@ -38,7 +38,7 @@
     else
     {
         <p>Enter the six-digit code sent to your registered email. Check your spam folder if needed.</p>
-        <p>Expires at @Model.ExpiresAt?.ToString("HH:mm:ss") UTC. Use only the latest code.</p>
+        <p>Expires at @Model.ExpiresAt?.ToString("HH:mm:ss") UTC. Use the latest code. If it expires, select Resend code.</p>
         <form method="post" action="/auth/two-factor" data-enhance="false">
             <AntiforgeryToken />
             <label for="code">Email code</label>
