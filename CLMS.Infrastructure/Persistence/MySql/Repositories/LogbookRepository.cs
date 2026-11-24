@@ -74,8 +74,10 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
     {
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
-        var supportsLaboratory = query.LaboratoryId is > 0 && await HasLaboratoryAsync(connection);
+        var supportsLaboratory = await HasLaboratoryAsync(connection);
         var (whereClause, parameters) = BuildWhereClause(query, supportsLaboratory);
+        var laboratoryColumn = supportsLaboratory ? "l.lab_name" : "NULL";
+        var laboratoryJoin = supportsLaboratory ? "LEFT JOIN laboratories l ON al.laboratory_id = l.lab_id" : "";
 
         var sql = $"""
             SELECT
@@ -88,12 +90,16 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
                 al.log_date,
                 al.time_in,
                 al.time_out,
-                NULL AS lab_name
+                {laboratoryColumn} AS lab_name,
+                NULLIF(TRIM(CONCAT_WS(' ', faculty.first_name, faculty.last_name)), '') AS faculty_name,
+                al.course
             FROM attendance_logs al
             LEFT JOIN students s ON al.student_id = s.student_id
             LEFT JOIN guests g ON al.guest_id = g.guest_id
+            LEFT JOIN users faculty ON al.faculty_in_charge = faculty.user_id
+            {laboratoryJoin}
             {whereClause}
-            ORDER BY al.time_in DESC;
+            ORDER BY al.time_in DESC, al.utilization_log_id DESC;
             """;
 
         await using var command = new MySqlCommand(sql, connection);
@@ -101,16 +107,19 @@ public class LogbookRepository(MySqlConnectionFactory connectionFactory) : ILogb
 
         var entries = new List<LogbookEntryDTO>();
         await using var reader = await command.ExecuteReaderAsync();
+        var facultyOrdinal = reader.GetOrdinal("faculty_name");
+        var courseOrdinal = reader.GetOrdinal("course");
         while (await reader.ReadAsync())
         {
-            entries.Add(MapEntry(reader));
+            var entry = MapEntry(reader);
+            entry.FacultyName = reader.IsDBNull(facultyOrdinal) ? null : reader.GetString(facultyOrdinal);
+            entry.Course = reader.IsDBNull(courseOrdinal) ? null : reader.GetString(courseOrdinal);
+            entries.Add(entry);
         }
 
         return entries;
     }
 
-    // Builds the shared WHERE clause + parameter list used by both the count and data
-    // queries (and the CSV export query) — mirrors buildLogQuery()'s conditional filters.
     private static async Task<bool> HasLaboratoryAsync(MySqlConnection connection)
     {
         // Earlier attendance schemas did not record a laboratory.

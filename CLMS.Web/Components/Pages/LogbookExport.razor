@@ -1,0 +1,81 @@
+@page "/logbook/export"
+@attribute [Authorize(Policy = Privileges.Prefix + Privileges.LogbookExport)]
+@layout Layout.PrintLayout
+@using CLMS.Application.DTOs.Logbook
+@using CLMS.Application.Services
+@inject LogbookService Logbook
+
+<PageTitle>Laboratory Utilization Logbook</PageTitle>
+
+@if (_entries is null)
+{
+    <p class="p-6" role="status">Loading logbook preview…</p>
+}
+else
+{
+    <PrintPreview>
+        @for (var page = 0; page < PageCount; page++)
+        {
+            var offset = page * RowsPerPage;
+            <PrintLetterhead PageNumber="@(page + 1)" PageCount="@PageCount" Title="@DocumentTitle" Subtitle="(SOM Building)">
+            <table class="letterhead-table logbook-grid" aria-label="Laboratory attendance">
+                <colgroup>
+                    <col style="width: 10%" />
+                    <col style="width: 24%" />
+                    <col style="width: 21%" />
+                    <col style="width: 24%" />
+                    <col style="width: 11%" />
+                    <col style="width: 10%" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        @foreach (var column in Columns)
+                        {
+                            <th scope="col" data-print-field data-repeat-field="@column">@column</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var index = 0; index < RowsPerPage; index++)
+                    {
+                        var entry = offset + index < _entries.Count ? _entries[offset + index] : null;
+                        <tr>
+                            <td data-print-field>@(entry?.Date?.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture))</td>
+                            <td data-print-field>@entry?.Purpose</td>
+                            <td data-print-field>@entry?.FacultyName</td>
+                            <td data-print-field>@entry?.Name</td>
+                            <td data-print-field>@entry?.Course</td>
+                            <td data-print-field></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </PrintLetterhead>
+        }
+    </PrintPreview>
+}
+
+@code {
+    private const int RowsPerPage = 14;
+    private static readonly string[] Columns = ["Date", "Subject/Purpose", "Faculty Name", "Name of Student", "Course", "Signature"];
+    private IReadOnlyList<LogbookEntryDTO>? _entries;
+
+    [SupplyParameterFromQuery(Name = "search")] private string? Search { get; set; }
+    [SupplyParameterFromQuery(Name = "filter")] private string? Filter { get; set; }
+    [SupplyParameterFromQuery(Name = "lab")] private int? LaboratoryId { get; set; }
+
+    private int PageCount => Math.Max(1, (_entries!.Count + RowsPerPage - 1) / RowsPerPage);
+    private string DocumentTitle => LaboratoryId is > 0 && _entries!.FirstOrDefault()?.Laboratory is { Length: > 0 } name
+        ? $"{name} Utilization Logbook"
+        : "Computer Laboratory Utilization Logbook";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _entries = await Logbook.GetExportEntriesAsync(new LogbookQueryDTO
+        {
+            Search = Search,
+            Filter = Filter,
+            LaboratoryId = LaboratoryId
+        });
+    }
+}

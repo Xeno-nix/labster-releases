@@ -7,28 +7,39 @@ class InventoryPrintEditor extends HTMLElement {
             const options = { signal: this.events.signal };
             const edit = this.querySelector("[data-edit]");
             const footerToggle = this.querySelector("[data-footer-toggle]");
-            const footer = this.querySelector(".print-footer");
-            const image = footer.querySelector("img");
+            const footer = this.querySelector("[data-editable-footer]");
+            const defaultFooter = footer.querySelector("[data-default-footer]");
+            const image = footer.querySelector("[data-custom-footer]");
             const picker = this.querySelector('input[type="file"]');
             const remove = this.querySelector("[data-remove-footer]");
             const status = this.querySelector('[role="status"]');
-            const printStyle = document.createElement("style");
-            this.append(printStyle);
-            this.printStyle = printStyle;
 
             edit.addEventListener("click", () => {
                 const editing = edit.getAttribute("aria-pressed") !== "true";
-                const fields = this.querySelectorAll(
-                    ".univ-info-cell > div, .meta-table td, .doc-title-row span, .masterlist-table :is(th, td)"
-                );
+                const fields = this.querySelectorAll("[data-print-field], .letterhead-table td, .masterlist-table :is(th, td)");
                 for (const field of fields) {
                     field.classList.add("print-field");
                     field.contentEditable = editing ? "plaintext-only" : "false";
                 }
                 edit.setAttribute("aria-pressed", String(editing));
-                edit.textContent = editing ? "Done editing" : "Edit print list";
+                edit.textContent = editing ? "Done editing" : (edit.dataset.edit || "Edit print list");
                 footerToggle.hidden = !editing;
                 remove.hidden = !editing || footer.hidden;
+            }, options);
+
+            this.querySelector("[data-print]")?.addEventListener("click", async () => {
+                await Promise.all([...this.querySelectorAll("img[src]")].map(image => image.decode().catch(() => {})));
+                if (this.isConnected) window.print();
+            }, options);
+
+            this.addEventListener("input", event => {
+                const key = event.target.dataset?.repeatField;
+                if (!key) return;
+                for (const field of this.querySelectorAll("[data-repeat-field]")) {
+                    if (field !== event.target && field.dataset.repeatField === key) {
+                        field.textContent = event.target.textContent;
+                    }
+                }
             }, options);
 
             footerToggle.addEventListener("click", () => picker.click(), options);
@@ -47,21 +58,13 @@ class InventoryPrintEditor extends HTMLElement {
                     preview.src = url;
                     await preview.decode();
                     if (this.footerRequest !== request) return;
-                    // Generated images in page margins use their intrinsic dimensions.
-                    const canvas = document.createElement("canvas");
-                    canvas.width = 720;
-                    canvas.height = 86;
-                    const scale = Math.min(canvas.width / preview.naturalWidth, canvas.height / preview.naturalHeight);
-                    const height = preview.naturalHeight * scale;
-                    canvas.getContext("2d").drawImage(preview, 0, (canvas.height - height) / 2, preview.naturalWidth * scale, height);
-                    const printImage = canvas.toDataURL("image/png");
                     this.releaseFooter();
                     this.footerUrl = url;
+                    defaultFooter.hidden = true;
                     image.src = url;
-                    printStyle.textContent = `@page inventory-with-footer { @bottom-left { content: url("${printImage}"); } }`;
+                    image.hidden = false;
                     footer.hidden = false;
                     remove.hidden = footerToggle.hidden;
-                    footerToggle.textContent = "Replace footer";
                     status.textContent = "";
                 } catch {
                     if (this.footerRequest === request) status.textContent = "This image could not be opened.";
@@ -72,11 +75,11 @@ class InventoryPrintEditor extends HTMLElement {
 
             remove.addEventListener("click", () => {
                 this.footerRequest = null;
-                printStyle.textContent = "";
+                image.hidden = true;
                 image.removeAttribute("src");
+                footer.hidden = true;
                 this.releaseFooter();
-                footer.hidden = remove.hidden = true;
-                footerToggle.textContent = "Add footer";
+                remove.hidden = true;
                 status.textContent = "";
             }, options);
         });
@@ -91,7 +94,6 @@ class InventoryPrintEditor extends HTMLElement {
         this.events?.abort();
         this.events = null;
         this.footerRequest = null;
-        this.printStyle?.remove();
         this.releaseFooter();
     }
 }

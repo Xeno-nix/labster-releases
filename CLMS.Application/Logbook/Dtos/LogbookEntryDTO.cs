@@ -9,6 +9,8 @@ public class LogbookEntryDTO
     public string Name { get; set; } = string.Empty;
 
     public string? Purpose { get; set; }
+    public string? FacultyName { get; set; }
+    public string? Course { get; set; }
     public string? Laboratory { get; set; }
 
     public DateOnly? Date { get; set; }
