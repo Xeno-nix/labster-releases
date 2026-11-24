@@ -27,9 +27,6 @@
             @* Header *@
             <div class="text-center mb-8">
                 <h1 class="text-primary text-2xl sm:text-3xl mb-2">Laboratory Logging Terminal</h1>
-                <p class="text-muted text-sm">
-                    Sign in when you arrive. Sign out when you leave.
-                </p>
             </div>
 
             @* Success / error flash *@
@@ -121,12 +118,6 @@
                                 <ValidationMessage For="@(() => GuestModel.GuestName)" class="text-xs text-red-500 mt-1" />
                             </div>
 
-                            <p class="text-xs text-muted">
-                                Each attendee signs in with the same reservation name but their own full name.
-                                Don't have a reservation?
-                                <a href="/reserve" class="text-primary underline">Book one here</a>.
-                            </p>
-
                         }
                         else
                         {
@@ -142,10 +133,6 @@
                                                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
                                 <ValidationMessage For="@(() => StudentModel.StudentId)" class="text-xs text-red-500 mt-1" />
                             </div>
-
-                            <p class="text-xs text-muted">
-                                The laboratory, course, and instructor will be detected from your active class schedule.
-                            </p>
                         }
 
                         <button type="submit" disabled="@IsBusy"
