@@ -2,7 +2,6 @@ using CLMS.Application.DTOs.Inventory;
 using CLMS.Application.Interfaces;
 using CLMS.Application.Services;
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
 
 namespace CLMS.Web.Components.Pages.Inventory;
 
@@ -10,13 +9,16 @@ public partial class InventoryPrint : ComponentBase
 {
     [Inject] private EquipmentService EquipmentService { get; set; } = default!;
     [Inject] private SupplyService SupplyService { get; set; } = default!;
-    [Inject] private IJSRuntime JS { get; set; } = default!;
-    [Inject] private NavigationManager Nav { get; set; } = default!;
 
     [SupplyParameterFromQuery(Name = "tab")]
     public string? TabFromQuery { get; set; }
 
     private string Tab => TabFromQuery == "supplies" ? "supplies" : "equipment";
+    private const int RowsPerPage = 12;
+    private int RowCount => Tab == "equipment" ? EquipmentRows.Count : SuppliesRows.Count;
+    private int PageCount => Math.Max(1, (RowCount + RowsPerPage - 1) / RowsPerPage);
+    private string DocumentTitle => Tab == "equipment" ? "Masterlist of Equipment" : "Masterlist of Supplies";
+    private string UpdatedDate { get; } = $"Updated as of: {DateTime.Now:MMMM dd, yyyy}";
     private bool Loaded { get; set; }
 
     private List<EquipmentItem> EquipmentRows { get; set; } = new();
@@ -39,9 +41,6 @@ public partial class InventoryPrint : ComponentBase
         SuppliesRows = supplies.Select(MapSupply).ToList();
         Loaded = true;
     }
-
-    private Task Print() => JS.InvokeVoidAsync("print").AsTask();
-    private Task ClosePage() => JS.InvokeVoidAsync("close").AsTask();
 
     private static string BrandModel(string? brand, string? model)
     {

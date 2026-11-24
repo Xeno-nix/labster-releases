@@ -64,6 +64,7 @@
                 }
             </div>
 
+            <AuthorizeView Policy="@(Privileges.Prefix + Privileges.LogbookExport)">
             <a href="@ExportUrl" data-enhance-nav="false"
                class="flex items-center gap-2 px-4 py-2 bg-success text-white rounded-lg hover:bg-success-dark transition-colors text-sm font-medium">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -72,8 +73,9 @@
                     <polyline points="7 10 12 15 17 10" />
                     <line x1="12" x2="12" y1="15" y2="3" />
                 </svg>
-                Export CSV
+                Export logbook
             </a>
+            </AuthorizeView>
         </div>
 
         <p class="table-hint">Scroll sideways for more details.</p>
