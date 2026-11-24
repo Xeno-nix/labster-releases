@@ -1,3 +1,4 @@
+using System.Text.Json;
 ﻿using System.Data.Common;
 using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces.Repositories;
@@ -12,16 +13,7 @@ public class StudentRepository(MySqlConnectionFactory connectionFactory) : IStud
 {
     public async Task<Student?> GetByIdAsync(string studentId)
     {
-        const string sql = """
-            SELECT
-                student_id,
-                first_name,
-                last_name,
-                middle_name,
-                suffix
-            FROM students
-            WHERE student_id = @StudentId;
-            """;
+        const string sql = "CALL sp_student_get_by_id(@StudentId);";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
@@ -44,16 +36,7 @@ public class StudentRepository(MySqlConnectionFactory connectionFactory) : IStud
     /// </summary>
     public async Task<EnrolledStudentDTO?> FindByIdAsync(string studentId)
     {
-        const string sql = """
-            SELECT
-                student_id,
-                first_name,
-                last_name,
-                middle_name,
-                suffix
-            FROM students
-            WHERE student_id = @StudentId;
-            """;
+        const string sql = "CALL sp_student_find_by_id(@StudentId);";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
@@ -75,38 +58,18 @@ public class StudentRepository(MySqlConnectionFactory connectionFactory) : IStud
         DbConnection? connection = null,
         DbTransaction? transaction = null)
     {
-        var ids = studentIds.Distinct().ToList();
-        if (ids.Count == 0)
-            return [];
-
         var result = new List<string>();
-        const int maxIdsPerBatch = 500;
-
-        for (var offset = 0; offset < ids.Count; offset += maxIdsPerBatch)
+        foreach (var batch in studentIds.Distinct().Chunk(500))
         {
-            var batch = ids.Skip(offset).Take(maxIdsPerBatch).ToList();
-            var placeholders = string.Join(',', batch.Select((_, i) => $"@Id{i}"));
-
-            var sql = $"""
-                SELECT student_id
-                FROM students
-                WHERE student_id IN ({placeholders});
-                """;
-
-            var (command, ownedConnection) = await CreateCommandAsync(sql, connection, transaction);
+            var (command, ownedConnection) = await CreateCommandAsync("CALL sp_student_get_existing_ids(@ids);", connection, transaction);
             await using (ownedConnection)
             await using (command)
             {
-                for (var i = 0; i < batch.Count; i++)
-                    command.Parameters.AddWithValue($"@Id{i}", batch[i]);
-
+                command.Parameters.AddWithValue("ids", JsonSerializer.Serialize(batch));
                 await using var reader = await command.ExecuteReaderAsync();
-
-                while (await reader.ReadAsync())
-                    result.Add(reader.GetString("student_id"));
+                while (await reader.ReadAsync()) result.Add(reader.GetString("student_id"));
             }
         }
-
         return result;
     }
 
@@ -120,38 +83,18 @@ public class StudentRepository(MySqlConnectionFactory connectionFactory) : IStud
         DbConnection? connection = null,
         DbTransaction? transaction = null)
     {
-        var ids = studentIds.Distinct().ToList();
-        if (ids.Count == 0)
-            return [];
-
         var result = new List<EnrolledStudentDTO>();
-        const int maxIdsPerBatch = 500;
-
-        for (var offset = 0; offset < ids.Count; offset += maxIdsPerBatch)
+        foreach (var batch in studentIds.Distinct().Chunk(500))
         {
-            var batch = ids.Skip(offset).Take(maxIdsPerBatch).ToList();
-            var placeholders = string.Join(',', batch.Select((_, i) => $"@Id{i}"));
-
-            var sql = $"""
-                SELECT student_id, first_name, last_name, middle_name, suffix
-                FROM students
-                WHERE student_id IN ({placeholders});
-                """;
-
-            var (command, ownedConnection) = await CreateCommandAsync(sql, connection, transaction);
+            var (command, ownedConnection) = await CreateCommandAsync("CALL sp_student_find_by_ids(@ids);", connection, transaction);
             await using (ownedConnection)
             await using (command)
             {
-                for (var i = 0; i < batch.Count; i++)
-                    command.Parameters.AddWithValue($"@Id{i}", batch[i]);
-
+                command.Parameters.AddWithValue("ids", JsonSerializer.Serialize(batch));
                 await using var reader = await command.ExecuteReaderAsync();
-
-                while (await reader.ReadAsync())
-                    result.Add(MapRosterStudent(reader));
+                while (await reader.ReadAsync()) result.Add(MapRosterStudent(reader));
             }
         }
-
         return result;
     }
 
@@ -160,38 +103,17 @@ public class StudentRepository(MySqlConnectionFactory connectionFactory) : IStud
         DbConnection? connection = null,
         DbTransaction? transaction = null)
     {
-        var rows = students.ToList();
-        if (rows.Count == 0)
-            return;
-
-        const int maxRowsPerBatch = 200;
-
-        for (var offset = 0; offset < rows.Count; offset += maxRowsPerBatch)
+        foreach (var batch in students.Chunk(200))
         {
-            var batch = rows.Skip(offset).Take(maxRowsPerBatch).ToList();
-            var valueClauses = batch.Select((_, i) => $"(@Student{i}, @First{i}, @Last{i}, @Middle{i}, @Suffix{i})");
-
-            var sql = $"""
-                INSERT INTO students (student_id, first_name, last_name, middle_name, suffix)
-                VALUES {string.Join(',', valueClauses)}
-                ON DUPLICATE KEY UPDATE student_id = student_id;
-                """;
-
-            var (command, ownedConnection) = await CreateCommandAsync(sql, connection, transaction);
+            var (command, ownedConnection) = await CreateCommandAsync("CALL sp_student_create_many(@students);", connection, transaction);
             await using (ownedConnection)
             await using (command)
             {
-                for (var i = 0; i < batch.Count; i++)
-                {
-                    var student = batch[i];
-                    command.Parameters.AddWithValue($"@Student{i}", student.StudentId);
-                    command.Parameters.AddWithValue($"@First{i}", student.FirstName.Value);
-                    command.Parameters.AddWithValue($"@Last{i}", student.LastName.Value);
-                    command.Parameters.AddWithValue($"@Middle{i}", (object?)student.MiddleName?.Value ?? DBNull.Value);
-                    command.Parameters.AddWithValue($"@Suffix{i}", (object?)student.Suffix ?? DBNull.Value);
-                }
-
-                await command.ExecuteNonQueryAsync();
+                var rows = batch.Select(student => new { student_id = student.StudentId,
+                    first_name = student.FirstName.Value, last_name = student.LastName.Value,
+                    middle_name = student.MiddleName?.Value, suffix = student.Suffix });
+                command.Parameters.AddWithValue("students", JsonSerializer.Serialize(rows));
+                await command.ExecuteAffectedRowsAsync();
             }
         }
     }

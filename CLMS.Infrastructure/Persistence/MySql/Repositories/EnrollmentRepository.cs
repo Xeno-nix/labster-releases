@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Data.Common;
 using CLMS.Application.DTOs.Booking;
 using CLMS.Application.Interfaces.Repositories;
@@ -11,22 +12,7 @@ public class EnrollmentRepository(
 {
     public async Task<IReadOnlyList<EnrolledStudentDTO>> GetRosterAsync(int scheduleId)
     {
-        const string sql = """
-            SELECT
-                s.student_id,
-                s.first_name,
-                s.last_name,
-                s.middle_name,
-                s.suffix
-            FROM student_enrollment se
-            INNER JOIN students s
-                ON s.student_id = se.student_id
-            INNER JOIN class_schedule cs
-                ON cs.class_schedule_id = se.class_schedule_id
-            WHERE se.class_schedule_id = @ScheduleId
-              AND cs.deleted_at IS NULL
-            ORDER BY s.last_name, s.first_name;
-            """;
+        const string sql = "CALL sp_enrollment_get_roster(@ScheduleId);";
 
         var roster = new List<EnrolledStudentDTO>();
 
@@ -52,38 +38,18 @@ public class EnrollmentRepository(
         DbConnection? connection = null,
         DbTransaction? transaction = null)
     {
-        var ids = scheduleIds.ToList();
-        if (ids.Count == 0)
-            return [];
-
-        var placeholders = string.Join(',', ids.Select((_, i) => $"@S{i}"));
-        var sql = $"""
-            SELECT DISTINCT se.student_id
-            FROM student_enrollment se
-            INNER JOIN class_schedule cs
-                ON cs.class_schedule_id = se.class_schedule_id
-            WHERE cs.deleted_at IS NULL
-              AND se.class_schedule_id IN ({placeholders});
-            """;
-
-        var result = new List<string>();
-
-        var (command, ownedConnection) = await CreateCommandAsync(sql, connection, transaction);
+        var ids = scheduleIds.Distinct().ToArray();
+        if (ids.Length == 0) return [];
+        var (command, ownedConnection) = await CreateCommandAsync("CALL sp_enrollment_get_enrolled_student_ids(@ids);", connection, transaction);
         await using (ownedConnection)
         await using (command)
         {
-            for (var i = 0; i < ids.Count; i++)
-                command.Parameters.AddWithValue($"@S{i}", ids[i]);
-
+            command.Parameters.AddWithValue("ids", JsonSerializer.Serialize(ids));
+            var result = new List<string>();
             await using var reader = await command.ExecuteReaderAsync();
-
-            while (await reader.ReadAsync())
-            {
-                result.Add(reader.GetString("student_id"));
-            }
+            while (await reader.ReadAsync()) result.Add(reader.GetString("student_id"));
+            return result;
         }
-
-        return result;
     }
 
     public async Task<int> EnrollAsync(
@@ -92,51 +58,23 @@ public class EnrollmentRepository(
         DbConnection? connection = null,
         DbTransaction? transaction = null)
     {
-        var slots = scheduleIds.ToList();
-        var students = studentIds.Distinct().ToList();
-        if (slots.Count == 0 || students.Count == 0)
-            return 0;
-
-        // Cross product: every student in every slot. Rows that already exist are left
-        // untouched by ON DUPLICATE KEY UPDATE (assigning enrollment_id to itself, so the
-        // affected-rows count still reports genuinely new rows).
-        var rows = new List<(string StudentId, int ScheduleId)>(slots.Count * students.Count);
+        var slots = scheduleIds.Distinct().ToArray();
+        var students = studentIds.Distinct().ToArray();
+        var inserted = 0;
+        // Bound each cross-product insert to 500 rows and retain the caller's transaction.
         foreach (var slot in slots)
-        foreach (var student in students)
-            rows.Add((student, slot));
-
-        var totalInserted = 0;
-        const int maxRowsPerBatch = 500;
-
-        for (var offset = 0; offset < rows.Count; offset += maxRowsPerBatch)
+        foreach (var batch in students.Chunk(500))
         {
-            var batch = rows.Skip(offset).Take(maxRowsPerBatch).ToList();
-
-            var valueClauses = batch
-                .Select((_, i) => $"(@Student{i}, @Schedule{i})");
-
-            var sql = $"""
-                INSERT INTO student_enrollment (student_id, class_schedule_id)
-                VALUES {string.Join(',', valueClauses)}
-                ON DUPLICATE KEY UPDATE enrollment_id = enrollment_id;
-                """;
-
-            var (command, ownedConnection) = await CreateCommandAsync(sql, connection, transaction);
+            var (command, ownedConnection) = await CreateCommandAsync("CALL sp_enrollment_enroll(@slots, @students);", connection, transaction);
             await using (ownedConnection)
             await using (command)
             {
-                for (var i = 0; i < batch.Count; i++)
-                {
-                    command.Parameters.AddWithValue($"@Student{i}", batch[i].StudentId);
-                    command.Parameters.AddWithValue($"@Schedule{i}", batch[i].ScheduleId);
-                }
-
-                var inserted = await command.ExecuteNonQueryAsync();
-                totalInserted += inserted;
+                command.Parameters.AddWithValue("slots", JsonSerializer.Serialize(new[] { slot }));
+                command.Parameters.AddWithValue("students", JsonSerializer.Serialize(batch));
+                inserted += await command.ExecuteAffectedRowsAsync();
             }
         }
-
-        return totalInserted;
+        return inserted;
     }
 
     public async Task<int> RemoveAsync(
@@ -145,26 +83,15 @@ public class EnrollmentRepository(
         DbConnection? connection = null,
         DbTransaction? transaction = null)
     {
-        var slots = scheduleIds.ToList();
-        if (slots.Count == 0)
-            return 0;
-
-        var placeholders = string.Join(',', slots.Select((_, i) => $"@S{i}"));
-        var sql = $"""
-            DELETE FROM student_enrollment
-            WHERE student_id = @StudentId
-              AND class_schedule_id IN ({placeholders});
-            """;
-
-        var (command, ownedConnection) = await CreateCommandAsync(sql, connection, transaction);
+        var slots = scheduleIds.Distinct().ToArray();
+        if (slots.Length == 0) return 0;
+        var (command, ownedConnection) = await CreateCommandAsync("CALL sp_enrollment_remove(@slots, @student);", connection, transaction);
         await using (ownedConnection)
         await using (command)
         {
-            command.Parameters.AddWithValue("@StudentId", studentId);
-            for (var i = 0; i < slots.Count; i++)
-                command.Parameters.AddWithValue($"@S{i}", slots[i]);
-
-            return await command.ExecuteNonQueryAsync();
+            command.Parameters.AddWithValue("slots", JsonSerializer.Serialize(slots));
+            command.Parameters.AddWithValue("student", studentId);
+            return await command.ExecuteAffectedRowsAsync();
         }
     }
 
@@ -173,24 +100,14 @@ public class EnrollmentRepository(
         DbConnection? connection = null,
         DbTransaction? transaction = null)
     {
-        var slots = scheduleIds.ToList();
-        if (slots.Count == 0)
-            return 0;
-
-        var placeholders = string.Join(',', slots.Select((_, i) => $"@S{i}"));
-        var sql = $"""
-            DELETE FROM student_enrollment
-            WHERE class_schedule_id IN ({placeholders});
-            """;
-
-        var (command, ownedConnection) = await CreateCommandAsync(sql, connection, transaction);
+        var slots = scheduleIds.Distinct().ToArray();
+        if (slots.Length == 0) return 0;
+        var (command, ownedConnection) = await CreateCommandAsync("CALL sp_enrollment_delete_all(@slots);", connection, transaction);
         await using (ownedConnection)
         await using (command)
         {
-            for (var i = 0; i < slots.Count; i++)
-                command.Parameters.AddWithValue($"@S{i}", slots[i]);
-
-            return await command.ExecuteNonQueryAsync();
+            command.Parameters.AddWithValue("slots", JsonSerializer.Serialize(slots));
+            return await command.ExecuteAffectedRowsAsync();
         }
     }
 
@@ -203,42 +120,18 @@ public class EnrollmentRepository(
         DbConnection? connection = null,
         DbTransaction? transaction = null)
     {
-        var ids = scheduleIds.Distinct().ToList();
-        if (ids.Count == 0)
-            return new Dictionary<int, int>();
-
         var result = new Dictionary<int, int>();
-        const int maxIdsPerBatch = 500;
-
-        for (var offset = 0; offset < ids.Count; offset += maxIdsPerBatch)
+        foreach (var batch in scheduleIds.Distinct().Chunk(500))
         {
-            var batch = ids.Skip(offset).Take(maxIdsPerBatch).ToList();
-            var placeholders = string.Join(',', batch.Select((_, i) => $"@S{i}"));
-
-            var sql = $"""
-                SELECT se.class_schedule_id, COUNT(DISTINCT se.student_id) AS cnt
-                FROM student_enrollment se
-                INNER JOIN class_schedule cs
-                    ON cs.class_schedule_id = se.class_schedule_id
-                WHERE cs.deleted_at IS NULL
-                  AND se.class_schedule_id IN ({placeholders})
-                GROUP BY se.class_schedule_id;
-                """;
-
-            var (command, ownedConnection) = await CreateCommandAsync(sql, connection, transaction);
+            var (command, ownedConnection) = await CreateCommandAsync("CALL sp_enrollment_get_counts(@ids);", connection, transaction);
             await using (ownedConnection)
             await using (command)
             {
-                for (var i = 0; i < batch.Count; i++)
-                    command.Parameters.AddWithValue($"@S{i}", batch[i]);
-
+                command.Parameters.AddWithValue("ids", JsonSerializer.Serialize(batch));
                 await using var reader = await command.ExecuteReaderAsync();
-
-                while (await reader.ReadAsync())
-                    result[reader.GetInt32("class_schedule_id")] = reader.GetInt32("cnt");
+                while (await reader.ReadAsync()) result[reader.GetInt32("class_schedule_id")] = reader.GetInt32("cnt");
             }
         }
-
         return result;
     }
 

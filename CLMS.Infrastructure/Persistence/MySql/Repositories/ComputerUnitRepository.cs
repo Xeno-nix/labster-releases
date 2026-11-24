@@ -11,26 +11,7 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
 
     public async Task CreateAsync(ComputerUnit computerUnit)
     {
-        const string sql = """
-            INSERT INTO computer_units
-            (
-                computer_unit_id,
-                unit_name,
-                unit_number,
-                laboratory_id,
-                created_at,
-                last_modified_at
-            )
-            VALUES
-            (
-                @Id,
-                @UnitName,
-                @UnitNumber,
-                @LaboratoryId,
-                UTC_TIMESTAMP(6),
-                UTC_TIMESTAMP(6)
-            );
-            """;
+        const string sql = "CALL sp_computer_unit_create(@Id, @UnitName, @UnitNumber, @LaboratoryId);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -45,26 +26,14 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
         command.Parameters.AddWithValue("@UnitNumber", computerUnit.UnitNumber);
         command.Parameters.AddWithValue("@LaboratoryId", computerUnit.LaboratoryId);
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     public async Task<IEnumerable<ComputerUnitDTO>> GetAllAsync()
     {
         var units = new List<ComputerUnitDTO>();
 
-        const string sql = """
-            SELECT
-                cu.computer_unit_id,
-                cu.unit_name,
-                cu.unit_number,
-                cu.laboratory_id,
-                l.lab_name
-            FROM computer_units cu
-            INNER JOIN laboratories l
-                ON cu.laboratory_id = l.lab_id
-            WHERE cu.deleted_at IS NULL
-            ORDER BY l.lab_name, cu.unit_number;
-            """;
+        const string sql = "CALL sp_computer_unit_get_all();";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -87,19 +56,7 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
 
     public async Task<ComputerUnitDTO?> GetByIdAsync(Guid id)
     {
-        const string sql = """
-            SELECT
-                cu.computer_unit_id,
-                cu.unit_name,
-                cu.unit_number,
-                cu.laboratory_id,
-                l.lab_name
-            FROM computer_units cu
-            INNER JOIN laboratories l
-                ON cu.laboratory_id = l.lab_id
-            WHERE cu.computer_unit_id = @Id
-              AND cu.deleted_at IS NULL;
-            """;
+        const string sql = "CALL sp_computer_unit_get_by_id(@Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -125,14 +82,7 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
         byte unitNumber,
         Guid? excludingId = null)
     {
-        const string sql = """
-            SELECT COUNT(*)
-            FROM computer_units
-            WHERE laboratory_id = @LaboratoryId
-              AND unit_number = @UnitNumber
-              AND deleted_at IS NULL
-              AND (@ExcludingId IS NULL OR computer_unit_id <> @ExcludingId);
-            """;
+        const string sql = "CALL sp_computer_unit_exists_active_at_lab_and_number(@LaboratoryId, @UnitNumber, @ExcludingId);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -157,29 +107,16 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
     {
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
-        await using var command = new MySqlCommand("""
-            SELECT EXISTS(SELECT 1 FROM computer_units WHERE laboratory_id=@Lab AND unit_number=@Number
-              AND (@Excluded IS NULL OR computer_unit_id<>@Excluded))
-            """, connection);
-        command.Parameters.AddWithValue("@Lab", laboratoryId);
-        command.Parameters.AddWithValue("@Number", unitNumber);
-        command.Parameters.AddWithValue("@Excluded", excludingId is null ? DBNull.Value : excludingId.Value.ToString());
+        await using var command = new MySqlCommand("CALL sp_computer_unit_exists_at_lab_and_number(@p0, @p1, @p2);", connection);
+        command.Parameters.AddWithValue("p0", laboratoryId);
+        command.Parameters.AddWithValue("p1", unitNumber);
+        command.Parameters.AddWithValue("p2", (object?)excludingId?.ToString() ?? DBNull.Value);
         return Convert.ToBoolean(await command.ExecuteScalarAsync());
     }
 
     public async Task UpdateAsync(ComputerUnit computerUnit)
     {
-        const string sql = """
-            UPDATE computer_units
-            SET
-                unit_name = @UnitName,
-                unit_number = @UnitNumber,
-                laboratory_id = @LaboratoryId,
-                last_modified_at = UTC_TIMESTAMP(6)
-            WHERE computer_unit_id = @Id
-              AND deleted_at IS NULL
-              AND (registered_at IS NULL OR (laboratory_id=@LaboratoryId AND unit_number=@UnitNumber));
-            """;
+        const string sql = "CALL sp_computer_unit_update(@UnitName, @UnitNumber, @LaboratoryId, @Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -194,28 +131,19 @@ public class ComputerUnitRepository(MySqlConnectionFactory connectionFactory) : 
         command.Parameters.AddWithValue("@UnitNumber", computerUnit.UnitNumber);
         command.Parameters.AddWithValue("@LaboratoryId", computerUnit.LaboratoryId);
 
-        if (await command.ExecuteNonQueryAsync() == 0)
+        if (await command.ExecuteAffectedRowsAsync() == 0)
             throw new InvalidOperationException("Registered assignments cannot be changed. Use the registry deletion and approval workflow.");
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        await new CLMS.Infrastructure.Persistence.MySql.Repositories.UnitRegistryRepository(connectionFactory)
-            .TransactionAsync(new(CLMS.Application.UnitRegistry.RegistryLockKind.Unit, id.ToString()), async tx =>
-            {
-                var unit = await tx.UnitAsync(id);
-                if (unit is null) return false;
-                if (!unit.DeletedAt.HasValue)
-                {
-                    unit.DeletedAt = unit.LastModifiedAt = tx.Now;
-                    unit.Enabled = false;
-                    unit.CredentialGeneration++;
-                    await tx.SaveUnitAsync(unit, false);
-                }
-                await tx.RevokeCredentialsAsync(id);
-                await tx.SetOfflineAsync(id);
-                return true;
-            });
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+        await using var command = new MySqlCommand("CALL sp_computer_unit_delete(@p0);", connection);
+        command.Parameters.AddWithValue("p0", id.ToString());
+        try { await command.ExecuteAffectedRowsAsync(); }
+        catch (MySqlException ex) when (ex.Number == 1644)
+        { throw CLMS.Application.UnitRegistry.RegistryException.InvalidCredential(); }
     }
 
     private static ComputerUnitDTO MapComputerUnit(MySqlDataReader reader)

@@ -9,6 +9,8 @@
     time_start        time        not null,
     time_end          time        not null,
     term_id           int         not null,
+    year_level        tinyint unsigned null,
+    section           varchar(10) null,
     deleted_at        datetime    null,
     constraint class_schedule_ibfk_1
         foreign key (course_id) references courses (course_id),

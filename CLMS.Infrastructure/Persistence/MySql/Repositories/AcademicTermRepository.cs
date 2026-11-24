@@ -10,10 +10,7 @@ public class AcademicTermRepository(MySqlConnectionFactory connectionFactory) : 
 {
     public async Task<int> CreateAsync(AcademicTerm term)
     {
-        const string sql = """
-            INSERT INTO academic_terms (academic_year, semester, start_date, end_date)
-            VALUES (@Year, @Semester, @Start, @End);
-            """;
+        const string sql = "CALL sp_academic_term_create(@Year, @Semester, @Start, @End);";
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
         await using var command = new MySqlCommand(sql, connection);
@@ -23,8 +20,7 @@ public class AcademicTermRepository(MySqlConnectionFactory connectionFactory) : 
         command.Parameters.AddWithValue("@End", (object?)term.EndDate?.ToDateTime(TimeOnly.MinValue) ?? DBNull.Value);
         try
         {
-            await command.ExecuteNonQueryAsync();
-            return checked((int)command.LastInsertedId);
+            return Convert.ToInt32(await command.ExecuteScalarAsync());
         }
         catch (MySqlException ex) when (ex.Number == 1062)
         {
@@ -35,10 +31,7 @@ public class AcademicTermRepository(MySqlConnectionFactory connectionFactory) : 
 
     public async Task<bool> UpdateAsync(AcademicTerm term)
     {
-        const string sql = """
-            UPDATE academic_terms SET academic_year = @Year, semester = @Semester,
-                start_date = @Start, end_date = @End WHERE academic_term_id = @Id;
-            """;
+        const string sql = "CALL sp_academic_term_update(@Year, @Semester, @Start, @End, @Id);";
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
         await using var command = new MySqlCommand(sql, connection);
@@ -47,7 +40,7 @@ public class AcademicTermRepository(MySqlConnectionFactory connectionFactory) : 
         command.Parameters.AddWithValue("@Semester", term.Semester.ToString());
         command.Parameters.AddWithValue("@Start", (object?)term.StartDate?.ToDateTime(TimeOnly.MinValue) ?? DBNull.Value);
         command.Parameters.AddWithValue("@End", (object?)term.EndDate?.ToDateTime(TimeOnly.MinValue) ?? DBNull.Value);
-        try { return await command.ExecuteNonQueryAsync() > 0; }
+        try { return await command.ExecuteAffectedRowsAsync() > 0; }
         catch (MySqlException ex) when (ex.Number == 1062)
         {
             throw new InvalidOperationException("This semester already exists for the selected school year.", ex);
@@ -58,25 +51,12 @@ public class AcademicTermRepository(MySqlConnectionFactory connectionFactory) : 
     {
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
-        await using var transaction = await connection.BeginTransactionAsync();
-        await using var command = new MySqlCommand("SELECT academic_term_id FROM academic_terms WHERE academic_term_id = @Id FOR UPDATE;", connection, transaction);
-        command.Parameters.AddWithValue("@Id", id);
-        if (await command.ExecuteScalarAsync() is null) return false;
-
-        command.CommandText = "SELECT EXISTS(SELECT 1 FROM class_schedule WHERE term_id = @Id);";
-        if (Convert.ToInt32(await command.ExecuteScalarAsync()) != 0)
-            throw new InvalidOperationException("This school semester is used by class schedules. Remove or reassign those schedules before deleting it.");
-
-        command.CommandText = "DELETE FROM academic_terms WHERE academic_term_id = @Id;";
-        try
+        await using var command = new MySqlCommand("CALL sp_academic_term_delete(@Id);", connection);
+        command.Parameters.AddWithValue("Id", id);
+        try { return await command.ExecuteAffectedRowsAsync() > 0; }
+        catch (MySqlException ex) when (ex.Number is 1451 or 1644)
         {
-            var deleted = await command.ExecuteNonQueryAsync() > 0;
-            await transaction.CommitAsync();
-            return deleted;
-        }
-        catch (MySqlException ex) when (ex.Number == 1451)
-        {
-            throw new InvalidOperationException("This school semester is in use and cannot be deleted.", ex);
+            throw new InvalidOperationException("This school semester is used by class schedules. Remove or reassign those schedules before deleting it.", ex);
         }
     }
 
@@ -84,16 +64,7 @@ public class AcademicTermRepository(MySqlConnectionFactory connectionFactory) : 
     {
         var academicTerms = new List<AcademicTerm>();
 
-        const string sql = """
-            SELECT
-                academic_term_id,
-                academic_year,
-                semester,
-                start_date,
-                end_date
-            FROM academic_terms
-            ORDER BY academic_year, semester;
-            """;
+        const string sql = "CALL sp_academic_term_get_all();";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
@@ -121,19 +92,7 @@ public class AcademicTermRepository(MySqlConnectionFactory connectionFactory) : 
     /// </summary>
     public async Task<AcademicTerm?> GetCurrentAsync(DateOnly today)
     {
-        const string sql = """
-            SELECT
-                academic_term_id,
-                academic_year,
-                semester,
-                start_date,
-                end_date
-            FROM academic_terms
-            WHERE (start_date IS NULL OR start_date <= @Today)
-              AND (end_date IS NULL OR end_date >= @Today)
-            ORDER BY start_date DESC
-            LIMIT 1;
-            """;
+        const string sql = "CALL sp_academic_term_get_current(@Today);";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();

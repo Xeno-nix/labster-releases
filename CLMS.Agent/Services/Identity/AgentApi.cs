@@ -46,6 +46,9 @@ public sealed class AgentApi(HttpClient http)
     public Task<bool> Heartbeat(string server, string accessToken, CancellationToken ct) =>
         Send<bool>(server, "api/agent/heartbeat", new { }, accessToken, ct);
 
+    internal Task<T> Kiosk<T>(string server, string action, object payload, string token, CancellationToken ct) =>
+        Send<T>(server, "api/agent/kiosk/" + action, payload, token, ct);
+
     /// <summary>Sends a bounded HTTPS JSON request with a timeout covering headers and body. Converts unsuccessful responses to structured errors without exposing their bodies in UI messages.</summary>
     private async Task<T> Send<T>(string server, string path, object? body, string? access, CancellationToken ct)
     {

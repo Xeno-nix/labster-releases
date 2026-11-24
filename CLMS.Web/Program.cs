@@ -52,6 +52,7 @@ builder.Services.AddOptions<AccountOptions>()
     .PostConfigure(options => options.RequireHttps = !isDevelopment);
 builder.Services.AddSingleton(sp => sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AccountOptions>>().Value);
 builder.Services.AddHostedService<DeviceChallengeCleanup>();
+builder.Services.AddHostedService<KioskLeaseCleanup>();
 builder.Services.AddHostedService<PasswordRecoveryWorker>();
 builder.Services.AddScoped<HumanSessionValidator>();
 builder.Services.AddRateLimiter(options =>

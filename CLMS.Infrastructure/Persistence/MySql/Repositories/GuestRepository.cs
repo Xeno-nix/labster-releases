@@ -9,24 +9,7 @@ public class GuestRepository(MySqlConnectionFactory connectionFactory) : IGuestR
 {
     public async Task<int> CreateAsync(Guest guest)
     {
-        const string sql = """
-            INSERT INTO guests
-            (
-                guest_name,
-                organization,
-                contact_number,
-                purpose
-            )
-            VALUES
-            (
-                @GuestName,
-                @Organization,
-                @ContactNumber,
-                @Purpose
-            );
-
-            SELECT LAST_INSERT_ID();
-            """;
+        const string sql = "CALL sp_guest_create(@GuestName, @Organization, @ContactNumber, @Purpose);";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();
@@ -47,16 +30,7 @@ public class GuestRepository(MySqlConnectionFactory connectionFactory) : IGuestR
 
     public async Task<Guest?> GetByIdAsync(int id)
     {
-        const string sql = """
-            SELECT
-                guest_id,
-                guest_name,
-                organization,
-                contact_number,
-                purpose
-            FROM guests
-            WHERE guest_id = @Id;
-            """;
+        const string sql = "CALL sp_guest_get_by_id(@Id);";
 
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync();

@@ -11,26 +11,7 @@ public class SupplyRepository(MySqlConnectionFactory connectionFactory) : ISuppl
 {
     public async Task<int> CreateAsync(Supply supply)
     {
-        const string sql = """
-            INSERT INTO supplies
-            (
-                name,
-                category,
-                unit,
-                status,
-                remarks
-            )
-            VALUES
-            (
-                @Name,
-                @Category,
-                @Unit,
-                @Status,
-                @Remarks
-            );
-
-            SELECT LAST_INSERT_ID();
-            """;
+        const string sql = "CALL sp_supply_create(@Name, @Category, @Unit, @Status, @Remarks);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -55,17 +36,7 @@ public class SupplyRepository(MySqlConnectionFactory connectionFactory) : ISuppl
     {
         var supplies = new List<SupplyDTO>();
 
-        const string sql = """
-            SELECT
-                supply_id,
-                name,
-                category,
-                unit,
-                status,
-                remarks
-            FROM supplies
-            ORDER BY name;
-            """;
+        const string sql = "CALL sp_supply_get_all();";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -88,17 +59,7 @@ public class SupplyRepository(MySqlConnectionFactory connectionFactory) : ISuppl
 
     public async Task<SupplyDTO?> GetByIdAsync(int id)
     {
-        const string sql = """
-            SELECT
-                supply_id,
-                name,
-                category,
-                unit,
-                status,
-                remarks
-            FROM supplies
-            WHERE supply_id = @Id;
-            """;
+        const string sql = "CALL sp_supply_get_by_id(@Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -121,16 +82,7 @@ public class SupplyRepository(MySqlConnectionFactory connectionFactory) : ISuppl
 
     public async Task UpdateAsync(Supply supply)
     {
-        const string sql = """
-            UPDATE supplies
-            SET
-                name = @Name,
-                category = @Category,
-                unit = @Unit,
-                status = @Status,
-                remarks = @Remarks
-            WHERE supply_id = @Id;
-            """;
+        const string sql = "CALL sp_supply_update(@Name, @Category, @Unit, @Status, @Remarks, @Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -147,17 +99,12 @@ public class SupplyRepository(MySqlConnectionFactory connectionFactory) : ISuppl
         command.Parameters.AddWithValue("@Status", ToDbStatus(supply.Status));
         command.Parameters.AddWithValue("@Remarks", (object?)supply.Remarks ?? DBNull.Value);
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     public async Task UpdateStatusAsync(int id, SupplyStatus status)
     {
-        const string sql = """
-            UPDATE supplies
-            SET
-                status = @Status
-            WHERE supply_id = @Id;
-            """;
+        const string sql = "CALL sp_supply_update_status(@Status, @Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -170,15 +117,12 @@ public class SupplyRepository(MySqlConnectionFactory connectionFactory) : ISuppl
         command.Parameters.AddWithValue("@Id", id);
         command.Parameters.AddWithValue("@Status", ToDbStatus(status));
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     public async Task DeleteAsync(int id)
     {
-        const string sql = """
-            DELETE FROM supplies
-            WHERE supply_id = @Id;
-            """;
+        const string sql = "CALL sp_supply_delete(@Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -190,7 +134,7 @@ public class SupplyRepository(MySqlConnectionFactory connectionFactory) : ISuppl
 
         command.Parameters.AddWithValue("@Id", id);
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     private static SupplyDTO MapSupply(MySqlDataReader reader)

@@ -12,23 +12,7 @@ public class BookingRepository(MySqlConnectionFactory connectionFactory) : IBook
     {
         var bookings = new List<BookingDTO>();
 
-        const string sql = """
-            SELECT
-                b.booking_id,
-                b.lab_id,
-                l.lab_name,
-                b.requestor_name,
-                b.email,
-                b.purpose,
-                b.booking_date,
-                b.start_time,
-                b.end_time
-            FROM bookings b
-            INNER JOIN laboratories l
-                ON b.lab_id = l.lab_id
-            WHERE b.deleted_at IS NULL
-            ORDER BY b.booking_date, b.start_time;
-            """;
+        const string sql = "CALL sp_booking_get_all();";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -51,23 +35,7 @@ public class BookingRepository(MySqlConnectionFactory connectionFactory) : IBook
 
     public async Task<BookingDTO?> GetByIdAsync(int id)
     {
-        const string sql = """
-            SELECT
-                b.booking_id,
-                b.lab_id,
-                l.lab_name,
-                b.requestor_name,
-                b.email,
-                b.purpose,
-                b.booking_date,
-                b.start_time,
-                b.end_time
-            FROM bookings b
-            INNER JOIN laboratories l
-                ON b.lab_id = l.lab_id
-            WHERE b.booking_id = @Id
-              AND b.deleted_at IS NULL;
-            """;
+        const string sql = "CALL sp_booking_get_by_id(@Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -90,30 +58,7 @@ public class BookingRepository(MySqlConnectionFactory connectionFactory) : IBook
 
     public async Task<int> CreateAsync(Booking booking)
     {
-        const string sql = """
-            INSERT INTO bookings
-            (
-                lab_id,
-                requestor_name,
-                email,
-                purpose,
-                booking_date,
-                start_time,
-                end_time
-            )
-            VALUES
-            (
-                @LaboratoryId,
-                @RequestorName,
-                @Email,
-                @Purpose,
-                @Date,
-                @StartTime,
-                @EndTime
-            );
-
-            SELECT LAST_INSERT_ID();
-            """;
+        const string sql = "CALL sp_booking_create(@LaboratoryId, @RequestorName, @Email, @Purpose, @Date, @StartTime, @EndTime);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -161,21 +106,7 @@ public class BookingRepository(MySqlConnectionFactory connectionFactory) : IBook
         // Added for the logging terminal's Guest Time-In flow.
         var bookings = new List<Booking>();
 
-        const string sql = """
-            SELECT
-                booking_id,
-                lab_id,
-                requestor_name,
-                email,
-                purpose,
-                booking_date,
-                start_time,
-                end_time
-            FROM bookings
-            WHERE requestor_name = @RequestorName
-            AND booking_date = @Date
-            ORDER BY start_time;
-            """;
+        const string sql = "CALL sp_booking_find_by_requestor_name_and_date(@RequestorName, @Date);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -201,19 +132,7 @@ public class BookingRepository(MySqlConnectionFactory connectionFactory) : IBook
 
     public async Task UpdateAsync(Booking booking)
     {
-        const string sql = """
-            UPDATE bookings
-            SET
-                lab_id = @LaboratoryId,
-                requestor_name = @RequestorName,
-                email = @Email,
-                purpose = @Purpose,
-                booking_date = @Date,
-                start_time = @StartTime,
-                end_time = @EndTime
-            WHERE booking_id = @Id
-              AND deleted_at IS NULL;
-            """;
+        const string sql = "CALL sp_booking_update(@LaboratoryId, @RequestorName, @Email, @Purpose, @Date, @StartTime, @EndTime, @Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -253,18 +172,12 @@ public class BookingRepository(MySqlConnectionFactory connectionFactory) : IBook
             "@EndTime",
             booking.EndTime.ToTimeSpan());
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     public async Task DeleteAsync(int id)
     {
-        const string sql = """
-            UPDATE bookings
-            SET
-                deleted_at = NOW()
-            WHERE booking_id = @Id
-              AND deleted_at IS NULL;
-            """;
+        const string sql = "CALL sp_booking_delete(@Id);";
 
         await using var connection =
             connectionFactory.CreateConnection();
@@ -276,7 +189,7 @@ public class BookingRepository(MySqlConnectionFactory connectionFactory) : IBook
 
         command.Parameters.AddWithValue("@Id", id);
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteAffectedRowsAsync();
     }
 
     private static BookingDTO MapBooking(

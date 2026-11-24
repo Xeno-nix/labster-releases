@@ -2,13 +2,17 @@
 (
     utilization_log_id int auto_increment
         primary key,
+    laboratory_id int null,
     student_id         varchar(12)  null,
     guest_id           int          null,
     purpose_subject    varchar(255) null,
+    course varchar(255) null,
     faculty_in_charge  varchar(50)  null,
     log_date           date         null,
     time_in            datetime     null,
     time_out           datetime     null,
+    constraint attendance_logs_laboratory_fk
+        foreign key (laboratory_id) references laboratories (lab_id),
     constraint attendance_logs_ibfk_1
         foreign key (student_id) references students (student_id),
     constraint attendance_logs_ibfk_2
