@@ -17,6 +17,7 @@ public partial class App : MauiWinUIApplication
 	/// </summary>
 	public App()
 	{
+        UnhandledException += (_, args) => RecordStartupFailure(args.Exception);
         bool ownsInstance;
         try { ownsInstance = instanceMutex.WaitOne(0); }
         catch (AbandonedMutexException) { ownsInstance = true; }
@@ -32,6 +33,23 @@ public partial class App : MauiWinUIApplication
 	}
 
 	/// <summary>Connects the Windows platform bootstrap to the shared MAUI application builder.</summary>
-	protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+	protected override MauiApp CreateMauiApp()
+    {
+        try { return MauiProgram.CreateMauiApp(); }
+        catch (Exception ex) { RecordStartupFailure(ex); throw; }
+    }
+
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        try { base.OnLaunched(args); }
+        catch (Exception ex) { RecordStartupFailure(ex); throw; }
+    }
+
+    private static void RecordStartupFailure(Exception exception)
+    {
+        try { File.AppendAllText(Path.Combine(Path.GetTempPath(), "clms-agent-startup-error.log"),
+            $"{DateTimeOffset.UtcNow:O}{Environment.NewLine}{exception}{Environment.NewLine}"); }
+        catch { /* Preserve the original startup exception if diagnostics cannot be written. */ }
+    }
 }
 

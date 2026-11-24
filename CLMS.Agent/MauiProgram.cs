@@ -32,6 +32,9 @@ public static class MauiProgram
 #error Register a screen capture implementation for this platform.
 #endif
 		builder.Services.AddTransient<CLMS.Agent.Views.MainPage>();
+		builder.Services.AddSingleton(_ => new CLMS.Agent.Services.SettingsSession(
+            new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false })
+            { Timeout = TimeSpan.FromSeconds(15) }));
 		builder.Services.AddSingleton<CLMS.Agent.Services.AgentConnectionService>();
 		builder.Services.AddSingleton<CLMS.Agent.Services.ApplicationProcessMonitor>();
 		builder.Services.AddSingleton<CLMS.Agent.Services.ScreenCastSender>();

@@ -1,47 +1,134 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="CLMS.Agent.Views.MainPage" x:Name="RegistrationPage" Title="Labster">
-    <ScrollView><VerticalStackLayout Padding="32" Spacing="18" MaximumWidthRequest="640">
-        <Label Text="Labster" FontSize="24" FontAttributes="Bold" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" />
-        <Label x:Name="PhaseLabel" Text="Starting agent" FontSize="20" FontAttributes="Bold" />
-        <Label x:Name="MessageLabel" Text="Loading this user's enrollment." FontSize="14" />
-        <Label x:Name="ErrorLabel" IsVisible="False" TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorOnDark}}" />
-        <VerticalStackLayout x:Name="ServerPanel" IsVisible="False" Spacing="10">
-            <Label Text="HTTPS server address" /><Entry x:Name="ServerEntry" Placeholder="https://clms.lab:7443" Keyboard="Url" />
-            <Button x:Name="ConfigureButton" Text="Connect to server" Clicked="ConfigureClicked" />
-        </VerticalStackLayout>
-        <VerticalStackLayout x:Name="RegistrationPanel" IsVisible="False" Spacing="10">
-            <Label Text="Laboratory" />
-            <Picker x:Name="LaboratoryPicker" Title="Select a laboratory"
-                    ItemsSource="{Binding Laboratories, Source={x:Reference RegistrationPage}}"
-                    ItemDisplayBinding="{Binding Name}" SelectedIndexChanged="LaboratoryChanged" />
-            <Label x:Name="LaboratoriesMessageLabel" IsVisible="False" FontSize="14" />
-            <Button x:Name="LaboratoriesButton" Text="Reload laboratories" Clicked="LaboratoriesClicked" />
-            <Label Text="Unit number (1–255)" /><Entry x:Name="UnitNumberEntry" Placeholder="1" Keyboard="Numeric" MaxLength="3" />
-            <Button x:Name="RegisterButton" Text="Request registration" Clicked="RegisterClicked" />
-        </VerticalStackLayout>
-        <VerticalStackLayout x:Name="CodePanel" IsVisible="False" Spacing="10">
-            <Label Text="Show this code on this physical computer to the laboratory administrator:" />
-            <Label x:Name="CodeLabel" FontSize="38" FontAttributes="Bold" CharacterSpacing="5" HorizontalTextAlignment="Center" />
-            <Label x:Name="ExpiryLabel" HorizontalTextAlignment="Center" />
-        </VerticalStackLayout>
-        <Label x:Name="UnitLabel" IsVisible="False" />
-        <Button x:Name="RetryButton" Text="Start a new registration" IsVisible="False" Clicked="RetryClicked" />
-        <Button x:Name="RefreshStatusButton" Text="Refresh status" Clicked="RefreshClicked" />
-        <Label x:Name="RuntimeLabel" />
-        <Label x:Name="ConnectionLabel" />
-        <Label x:Name="SharingLabel" />
-        <Button x:Name="ConnectButton" Text="Reconnect" Clicked="ConnectClicked" />
-        <Button x:Name="PauseButton" Text="Pause connection" Clicked="PauseClicked" />
-        <Button x:Name="StopSharingButton" Text="Stop screen sharing" Clicked="StopSharingClicked" />
-        <Button x:Name="RotateButton" Text="Rotate device key" Clicked="RotateClicked" />
-        <Button x:Name="ResetButton" Text="Reset local enrollment" Clicked="ResetClicked" />
-        <Label Text="Start at this user's login" /><Switch x:Name="StartupSwitch" Toggled="StartupChanged" />
-        <Label x:Name="StartupLabel" />
-        <Label Text="Start with settings hidden after enrollment" /><Switch x:Name="HiddenSwitch" Toggled="HiddenChanged" />
-        <Button Text="Hide settings" Clicked="HideClicked" />
-        <Button Text="Quit agent" Clicked="QuitClicked" />
-        <ActivityIndicator x:Name="Activity" IsVisible="False" />
-    </VerticalStackLayout></ScrollView>
+<?xml version="1.0" encoding="utf-8"?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" x:Class="CLMS.Agent.Views.MainPage" x:Name="RegistrationPage" Title="Labster">
+    <ContentPage.Resources>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=White, Dark=#292929}" />
+            <Setter Property="Stroke" Value="{AppThemeBinding Light=#E5E7EB, Dark=#404040}" />
+            <Setter Property="StrokeShape" Value="RoundRectangle 10" />
+            <Setter Property="Padding" Value="24" />
+        </Style>
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F5EAEE, Dark=#404040}" />
+            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primary}, Dark=White}" />
+        </Style>
+    </ContentPage.Resources>
+    <Grid RowDefinitions="Auto,*">
+        <Grid BackgroundColor="{StaticResource Primary}" Padding="28,18" ColumnDefinitions="*,Auto">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Labster" FontSize="24" FontAttributes="Bold" TextColor="White" />
+                <Label Text="COMPUTER LABORATORY MANAGEMENT SYSTEM" FontSize="10" CharacterSpacing="1" TextColor="#F0DCE3" />
+            </VerticalStackLayout>
+            <Label Grid.Column="1" Text="DESKTOP AGENT" FontSize="11" TextColor="White" VerticalOptions="Center" />
+        </Grid>
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="28" Spacing="20" MaximumWidthRequest="740">
+                <VerticalStackLayout x:Name="LoginPanel" Spacing="18" MaximumWidthRequest="460" HorizontalOptions="Fill">
+                    <Border BackgroundColor="White" StrokeThickness="0" StrokeShape="RoundRectangle 12" Padding="12" HorizontalOptions="Center" Margin="0,16,0,0">
+                        <Image Source="labster_logo.png" HeightRequest="64" WidthRequest="64" />
+                    </Border>
+                    <Label Text="Agent settings" FontSize="28" FontAttributes="Bold" TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" HorizontalTextAlignment="Center" />
+                    <Label Text="Sign in with your Labster administrator account." HorizontalTextAlignment="Center" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="16">
+                            <VerticalStackLayout x:Name="CredentialsPanel" Spacing="12">
+                                <Label Text="Email address" />
+                                <Entry x:Name="EmailEntry" Placeholder="Enter your email" Keyboard="Email" MaxLength="254" />
+                                <Label Text="Password" />
+                                <Entry x:Name="PasswordEntry" Placeholder="Enter your password" IsPassword="True" MaxLength="256" ReturnType="Go" Completed="LoginClicked" />
+                                <Button x:Name="LoginButton" Text="Sign in" Clicked="LoginClicked" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout x:Name="CodeLoginPanel" IsVisible="False" Spacing="12">
+                                <Label Text="Check your email" FontSize="20" FontAttributes="Bold" />
+                                <Label Text="Enter the verification code sent to your account." />
+                                <Entry x:Name="CodeEntry" Placeholder="Verification code" Keyboard="Numeric" MaxLength="6" ReturnType="Go" Completed="VerifyClicked" />
+                                <Button x:Name="VerifyButton" Text="Verify and open settings" Clicked="VerifyClicked" />
+                                <Button x:Name="ResendButton" Text="Resend code" Style="{StaticResource SecondaryButton}" Clicked="ResendClicked" />
+                                <Button Text="Back to sign in" Style="{StaticResource SecondaryButton}" Clicked="BackClicked" />
+                            </VerticalStackLayout>
+                            <Label x:Name="LoginError" IsVisible="False" TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorOnDark}}" />
+                            <ActivityIndicator x:Name="LoginActivity" IsVisible="False" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Label Text="Admin and Super Admin access only. Settings lock when hidden, when switching apps, or after 10 minutes. Your configured agent continues running in the background." FontSize="13" TextColor="{AppThemeBinding Light=#6C757D, Dark=#C8C8C8}" HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+                <VerticalStackLayout x:Name="SettingsPanel" IsVisible="False" Spacing="20">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Agent settings" FontSize="28" FontAttributes="Bold" />
+                            <Label Text="Manage this workstation in Labster." FontSize="13" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="Lock settings" Style="{StaticResource SecondaryButton}" Clicked="LockClicked" />
+                    </Grid>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="Workstation status" FontSize="18" FontAttributes="Bold" />
+                            <Label x:Name="PhaseLabel" Text="Starting agent" FontSize="20" FontAttributes="Bold" />
+                            <Label x:Name="MessageLabel" Text="Loading this user's enrollment." FontSize="14" />
+                            <Label x:Name="ErrorLabel" IsVisible="False" TextColor="{AppThemeBinding Light={StaticResource Error}, Dark={StaticResource ErrorOnDark}}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="14">
+                            <Label Text="Server and enrollment" FontSize="18" FontAttributes="Bold" />
+                            <VerticalStackLayout x:Name="ServerPanel" IsVisible="False" Spacing="10">
+                                <Label Text="HTTPS server address" />
+                                <Entry x:Name="ServerEntry" IsReadOnly="True" Placeholder="https://clms.lab:7443" Keyboard="Url" />
+                                <Button x:Name="ConfigureButton" Text="Connect to server" Clicked="ConfigureClicked" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout x:Name="RegistrationPanel" IsVisible="False" Spacing="10">
+                                <Label Text="Laboratory" />
+                                <Picker x:Name="LaboratoryPicker" Title="Select a laboratory" ItemsSource="{Binding Laboratories, Source={x:Reference RegistrationPage}}" ItemDisplayBinding="{Binding Name}" SelectedIndexChanged="LaboratoryChanged" />
+                                <Label x:Name="LaboratoriesMessageLabel" IsVisible="False" FontSize="14" />
+                                <Button x:Name="LaboratoriesButton" Text="Reload laboratories" Clicked="LaboratoriesClicked" Style="{StaticResource SecondaryButton}" />
+                                <Label Text="Unit number (1-255)" />
+                                <Entry x:Name="UnitNumberEntry" Placeholder="1" Keyboard="Numeric" MaxLength="3" />
+                                <Button x:Name="RegisterButton" Text="Request registration" Clicked="RegisterClicked" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout x:Name="CodePanel" IsVisible="False" Spacing="10">
+                                <Label Text="Show this code on this physical computer to the laboratory administrator:" />
+                                <Label x:Name="CodeLabel" FontSize="38" FontAttributes="Bold" CharacterSpacing="5" HorizontalTextAlignment="Center" />
+                                <Label x:Name="ExpiryLabel" HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                            <Label x:Name="UnitLabel" IsVisible="False" />
+                            <Button x:Name="RetryButton" Text="Start a new registration" IsVisible="False" Clicked="RetryClicked" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="Connection and sharing" FontSize="18" FontAttributes="Bold" />
+                            <Button x:Name="RefreshStatusButton" Text="Refresh status" Clicked="RefreshClicked" Style="{StaticResource SecondaryButton}" />
+                            <Label x:Name="RuntimeLabel" />
+                            <Label x:Name="ConnectionLabel" />
+                            <Label x:Name="SharingLabel" />
+                            <Button x:Name="ConnectButton" Text="Reconnect" Clicked="ConnectClicked" />
+                            <Button x:Name="PauseButton" Text="Pause connection" Clicked="PauseClicked" Style="{StaticResource SecondaryButton}" />
+                            <Button x:Name="StopSharingButton" Text="Stop screen sharing" Clicked="StopSharingClicked" Style="{StaticResource SecondaryButton}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="Device security" FontSize="18" FontAttributes="Bold" />
+                            <Label Text="Reset removes local enrollment. Revoke the old credential in the web app before enrolling again." FontSize="13" />
+                            <Button x:Name="RotateButton" Text="Rotate device key" Clicked="RotateClicked" Style="{StaticResource SecondaryButton}" />
+                            <Button x:Name="ResetButton" BackgroundColor="{StaticResource Error}" Text="Reset local enrollment" Clicked="ResetClicked" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="Startup preferences" FontSize="18" FontAttributes="Bold" />
+                            <Label Text="Start at this user's login" />
+                            <Switch x:Name="StartupSwitch" Toggled="StartupChanged" />
+                            <Label x:Name="StartupLabel" />
+                            <Label Text="Start with settings hidden after enrollment" />
+                            <Switch x:Name="HiddenSwitch" Toggled="HiddenChanged" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Button Text="Hide settings" Clicked="HideClicked" Style="{StaticResource SecondaryButton}" />
+                    <Button Text="Quit agent" Clicked="QuitClicked" Style="{StaticResource SecondaryButton}" />
+                    <ActivityIndicator x:Name="Activity" IsVisible="False" />
+                </VerticalStackLayout>
+                <Label Text="Labster | USeP TMC - Tagum Unit" HorizontalTextAlignment="Center" FontSize="12" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
 </ContentPage>
