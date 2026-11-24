@@ -206,3 +206,16 @@ SELECT user_id, first_name, last_name, middle_name, suffix,
        email, role_type, deleted_at, created_at, last_modified_at,
        password_changed, failed_login_attempts, lockout_end, two_factor_enabled
 FROM users;
+
+-- Shared projection for logbook paging and exports. Keep nullable historical rows.
+CREATE OR REPLACE VIEW vw_logbook_entries AS
+SELECT a.utilization_log_id, a.laboratory_id, l.lab_name, a.student_id,
+       s.first_name AS student_first_name, s.last_name AS student_last_name,
+       g.guest_name, a.purpose_subject, a.log_date, a.time_in, a.time_out,
+       NULLIF(TRIM(CONCAT_WS(' ', faculty.first_name, faculty.last_name)), '') AS faculty_name,
+       a.course
+FROM attendance_logs a
+LEFT JOIN students s ON s.student_id = a.student_id
+LEFT JOIN guests g ON g.guest_id = a.guest_id
+LEFT JOIN laboratories l ON l.lab_id = a.laboratory_id
+LEFT JOIN users faculty ON faculty.user_id = a.faculty_in_charge;

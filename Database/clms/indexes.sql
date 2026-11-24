@@ -64,10 +64,13 @@ CREATE INDEX ix_attendance_guest_open_time
     ON attendance_logs (guest_id, time_out, time_in);
 
 -- LogbookRepository day filter: equality on log_date, then newest arrivals.
--- Existing YEARWEEK/MONTH/YEAR predicates do not become date-range seeks merely
--- by adding this index; those queries retain their current SQL and semantics.
+-- Logbook procedures use half-open date ranges for day/week/month filters.
 CREATE INDEX ix_attendance_date_time
     ON attendance_logs (log_date, time_in);
+
+-- Laboratory-scoped logbook paging/export: equality before the date range.
+CREATE INDEX ix_attendance_lab_date_time
+    ON attendance_logs (laboratory_id, log_date, time_in, utilization_log_id);
 
 -- LogbookRepository unfiltered paging/export: newest arrivals first.
 CREATE INDEX ix_attendance_time

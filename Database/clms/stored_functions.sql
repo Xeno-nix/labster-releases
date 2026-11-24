@@ -1,6 +1,6 @@
 -- CLMS stored functions (MySQL 8.0.21+).
 -- Select the intended database, then install before stored_procedures.sql.
--- Only a shared scalar business rule is extracted; no CRUD, table scans,
+-- Shared scalar business rules only; no CRUD, table scans,
 -- authorization, token generation or ordinary name formatting is wrapped here.
 -- DROP/CREATE allows reinstallation but implicitly commits. Quiesce callers
 -- during replacement and reapply routine-specific grants if necessary.
@@ -28,6 +28,24 @@ BEGIN
     RETURN CASE
         WHEN p_status = 'Pending' AND p_expires_at <= p_as_of_utc THEN 'Expired'
         ELSE p_status
+    END;
+END$$
+DELIMITER ;
+
+-- Compute a boundary once per request, keeping functions off indexed log_date.
+-- MySQL mode-1 weeks start on Monday, including weeks crossing New Year.
+DROP FUNCTION IF EXISTS sf_logbook_period_start;
+DELIMITER $$
+CREATE FUNCTION sf_logbook_period_start(p_filter VARCHAR(20), p_as_of DATE)
+RETURNS DATE
+DETERMINISTIC
+NO SQL
+BEGIN
+    RETURN CASE p_filter
+        WHEN 'day' THEN p_as_of
+        WHEN 'week' THEN DATE_SUB(p_as_of, INTERVAL WEEKDAY(p_as_of) DAY)
+        WHEN 'month' THEN DATE_SUB(p_as_of, INTERVAL (DAYOFMONTH(p_as_of)-1) DAY)
+        ELSE NULL
     END;
 END$$
 DELIMITER ;

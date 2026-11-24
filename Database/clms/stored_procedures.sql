@@ -1853,49 +1853,61 @@ proc: BEGIN
 END$$
 DELIMITER ;
 
--- LogbookRepository.GetPagedAsync
--- Two result sets: total_count, then the requested entries.
+-- LogbookRepository.GetPagedAsync: caller uses a repeatable-read snapshot.
 DROP PROCEDURE IF EXISTS sp_logbook_get_paged;
 DELIMITER $$
 CREATE PROCEDURE sp_logbook_get_paged(
-    IN p_search VARCHAR(255),
-    IN p_filter VARCHAR(20),
-    IN p_page INT,
-    IN p_page_size INT
+    IN p_search TEXT, IN p_filter VARCHAR(20),
+    IN p_page INT, IN p_page_size INT, IN p_laboratory_id INT
 )
-proc: BEGIN
+BEGIN
     DECLARE v_offset BIGINT UNSIGNED;
-    IF p_page_size <= 0 OR p_page_size IS NULL THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='PageSize must be positive.'; END IF;
-    SET v_offset=GREATEST(0,(CAST(p_page AS SIGNED)-1)*p_page_size);
-    SELECT COUNT(*) AS total_count FROM attendance_logs al LEFT JOIN students s ON al.student_id=s.student_id LEFT JOIN guests g ON al.guest_id=g.guest_id WHERE (p_search IS NULL OR TRIM(p_search)='' OR al.purpose_subject LIKE CONCAT('%',p_search,'%')
-    OR s.student_id LIKE CONCAT('%',p_search,'%') OR s.first_name LIKE CONCAT('%',p_search,'%')
-    OR s.last_name LIKE CONCAT('%',p_search,'%') OR g.guest_name LIKE CONCAT('%',p_search,'%'))
-    AND (CASE p_filter WHEN 'day' THEN al.log_date=CURDATE()
-    WHEN 'week' THEN YEARWEEK(al.log_date,1)=YEARWEEK(CURDATE(),1)
-    WHEN 'month' THEN MONTH(al.log_date)=MONTH(CURDATE()) AND YEAR(al.log_date)=YEAR(CURDATE()) ELSE TRUE END);
-    SELECT al.utilization_log_id,al.student_id,s.first_name AS student_first_name,s.last_name AS student_last_name,g.guest_name,al.purpose_subject,al.log_date,al.time_in,al.time_out FROM attendance_logs al LEFT JOIN students s ON al.student_id=s.student_id LEFT JOIN guests g ON al.guest_id=g.guest_id WHERE (p_search IS NULL OR TRIM(p_search)='' OR al.purpose_subject LIKE CONCAT('%',p_search,'%')
-    OR s.student_id LIKE CONCAT('%',p_search,'%') OR s.first_name LIKE CONCAT('%',p_search,'%')
-    OR s.last_name LIKE CONCAT('%',p_search,'%') OR g.guest_name LIKE CONCAT('%',p_search,'%'))
-    AND (CASE p_filter WHEN 'day' THEN al.log_date=CURDATE()
-    WHEN 'week' THEN YEARWEEK(al.log_date,1)=YEARWEEK(CURDATE(),1)
-    WHEN 'month' THEN MONTH(al.log_date)=MONTH(CURDATE()) AND YEAR(al.log_date)=YEAR(CURDATE()) ELSE TRUE END) ORDER BY al.time_in DESC LIMIT p_page_size OFFSET v_offset;
+    DECLARE v_start DATE;
+    DECLARE v_end DATE;
+    IF p_page IS NULL OR p_page < 1 OR p_page_size IS NULL OR p_page_size < 1 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Page and PageSize must be positive.';
+    END IF;
+    SET v_offset=(CAST(p_page AS SIGNED)-1)*p_page_size;
+    SET v_start=sf_logbook_period_start(p_filter,CURDATE());
+    SET v_end=CASE p_filter WHEN 'day' THEN DATE_ADD(v_start,INTERVAL 1 DAY)
+        WHEN 'week' THEN DATE_ADD(v_start,INTERVAL 7 DAY)
+        WHEN 'month' THEN DATE_ADD(v_start,INTERVAL 1 MONTH) ELSE NULL END;
+    SELECT COUNT(*) AS total_count FROM vw_logbook_entries
+    WHERE (p_laboratory_id IS NULL OR laboratory_id=p_laboratory_id)
+      AND (p_search IS NULL OR TRIM(p_search)='' OR purpose_subject LIKE CONCAT('%',p_search,'%')
+        OR student_id LIKE CONCAT('%',p_search,'%') OR student_first_name LIKE CONCAT('%',p_search,'%')
+        OR student_last_name LIKE CONCAT('%',p_search,'%') OR guest_name LIKE CONCAT('%',p_search,'%'))
+      AND (v_start IS NULL OR (log_date >= v_start AND log_date < v_end));
+    SELECT * FROM vw_logbook_entries
+    WHERE (p_laboratory_id IS NULL OR laboratory_id=p_laboratory_id)
+      AND (p_search IS NULL OR TRIM(p_search)='' OR purpose_subject LIKE CONCAT('%',p_search,'%')
+        OR student_id LIKE CONCAT('%',p_search,'%') OR student_first_name LIKE CONCAT('%',p_search,'%')
+        OR student_last_name LIKE CONCAT('%',p_search,'%') OR guest_name LIKE CONCAT('%',p_search,'%'))
+      AND (v_start IS NULL OR (log_date >= v_start AND log_date < v_end))
+    ORDER BY time_in DESC, utilization_log_id DESC LIMIT p_page_size OFFSET v_offset;
 END$$
 DELIMITER ;
 
--- LogbookRepository.GetAllFilteredAsync
+-- LogbookRepository.GetAllFilteredAsync: same laboratory scope as paging.
 DROP PROCEDURE IF EXISTS sp_logbook_get_all_filtered;
 DELIMITER $$
 CREATE PROCEDURE sp_logbook_get_all_filtered(
-    IN p_search VARCHAR(255),
-    IN p_filter VARCHAR(20)
+    IN p_search TEXT, IN p_filter VARCHAR(20), IN p_laboratory_id INT
 )
-proc: BEGIN
-    SELECT al.utilization_log_id,al.student_id,s.first_name AS student_first_name,s.last_name AS student_last_name,g.guest_name,al.purpose_subject,al.log_date,al.time_in,al.time_out FROM attendance_logs al LEFT JOIN students s ON al.student_id=s.student_id LEFT JOIN guests g ON al.guest_id=g.guest_id WHERE (p_search IS NULL OR TRIM(p_search)='' OR al.purpose_subject LIKE CONCAT('%',p_search,'%')
-    OR s.student_id LIKE CONCAT('%',p_search,'%') OR s.first_name LIKE CONCAT('%',p_search,'%')
-    OR s.last_name LIKE CONCAT('%',p_search,'%') OR g.guest_name LIKE CONCAT('%',p_search,'%'))
-    AND (CASE p_filter WHEN 'day' THEN al.log_date=CURDATE()
-    WHEN 'week' THEN YEARWEEK(al.log_date,1)=YEARWEEK(CURDATE(),1)
-    WHEN 'month' THEN MONTH(al.log_date)=MONTH(CURDATE()) AND YEAR(al.log_date)=YEAR(CURDATE()) ELSE TRUE END) ORDER BY al.time_in DESC;
+BEGIN
+    DECLARE v_start DATE;
+    DECLARE v_end DATE;
+    SET v_start=sf_logbook_period_start(p_filter,CURDATE());
+    SET v_end=CASE p_filter WHEN 'day' THEN DATE_ADD(v_start,INTERVAL 1 DAY)
+        WHEN 'week' THEN DATE_ADD(v_start,INTERVAL 7 DAY)
+        WHEN 'month' THEN DATE_ADD(v_start,INTERVAL 1 MONTH) ELSE NULL END;
+    SELECT * FROM vw_logbook_entries
+    WHERE (p_laboratory_id IS NULL OR laboratory_id=p_laboratory_id)
+      AND (p_search IS NULL OR TRIM(p_search)='' OR purpose_subject LIKE CONCAT('%',p_search,'%')
+        OR student_id LIKE CONCAT('%',p_search,'%') OR student_first_name LIKE CONCAT('%',p_search,'%')
+        OR student_last_name LIKE CONCAT('%',p_search,'%') OR guest_name LIKE CONCAT('%',p_search,'%'))
+      AND (v_start IS NULL OR (log_date >= v_start AND log_date < v_end))
+    ORDER BY time_in DESC, utilization_log_id DESC;
 END$$
 DELIMITER ;
 

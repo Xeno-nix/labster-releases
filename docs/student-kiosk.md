@@ -11,7 +11,7 @@ server, and Brevo configuration for verification and password reset.
    term covers today in Philippine time. Add the student's verified school
    email using a trusted roster. The app checks current-term enrollment.
    Existing accounts keep their passwords when updating roster data.
-   
+
    ```sql
    INSERT INTO student_kiosk_accounts (student_id, email)
    VALUES ('TEST_ID', 'test-student@your-school.example');
