@@ -28,7 +28,7 @@
             <div class="text-center mb-8">
                 <h1 class="text-primary text-2xl sm:text-3xl mb-2">Laboratory Logging Terminal</h1>
                 <p class="text-muted text-sm">
-                    Record your laboratory visit. Select visitor if you do not have a student number.
+                    Sign in when you arrive. Sign out when you leave.
                 </p>
             </div>
 
@@ -60,8 +60,8 @@
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 p-6">
                     <h2 class="text-lg font-semibold text-primary">@(IsTimeOut ? "Sign out" : "Sign in")</h2>
                     <button type="button" @onclick="ToggleTimeOut" disabled="@IsBusy"
-                            class="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary-dark disabled:opacity-60">
-                        @(IsTimeOut ? "Back to sign in" : "Sign out instead")
+                            class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-60">
+                        @(IsTimeOut ? "Sign in" : "Sign out")
                     </button>
                 </div>
 
@@ -154,6 +154,14 @@
                         </button>
                     </fieldset>
                 </EditForm>
+                <details class="border-t border-black/10 px-6 py-4 text-sm">
+                    <summary class="w-fit cursor-pointer font-medium text-primary underline underline-offset-4">Need help?</summary>
+                    <ul class="mt-3 list-disc space-y-2 pl-5 text-muted">
+                        <li>Students sign in with their student number. If it is rejected, check for typos and ask your instructor to confirm your class schedule and enrollment.</li>
+                        <li>Visitors select <strong>I'm a visitor</strong> and enter the name on the reservation and their own full name.</li>
+                        <li>When signing out, use the same student number or full name you used to sign in. Wait for confirmation before leaving.</li>
+                    </ul>
+                </details>
             </div>
         </div>
     </main>

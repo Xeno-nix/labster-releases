@@ -15,7 +15,17 @@
 <div class="space-y-5">
     <header class="flex flex-wrap items-center justify-between gap-3">
         <div>
-            <h1 class="text-2xl font-semibold text-primary">Database Backup &amp; Restore</h1>
+            <div class="page-help-heading">
+                <h1 class="text-2xl font-semibold text-primary">Database Backup &amp; Restore</h1>
+                <PageHelp Guide="backups">
+                    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsCreate)" Context="helpCreate">
+                        <p>Select <strong>Back up now</strong> to create a snapshot.</p>
+                    </AuthorizeView>
+                    <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsRestore)" Context="helpRestore">
+                        <p>During maintenance, choose <strong>Restore</strong> on the snapshot you want. Review the warning and type RESTORE to confirm.</p>
+                    </AuthorizeView>
+                </PageHelp>
+            </div>
             <p class="mt-1 text-sm text-muted">@(Settings.Value.Enabled ? $"Daily backup at {Settings.Value.HourPhilippineTime:D2}:00 Philippine time (UTC+8) while the server is running." : "Scheduled backups are disabled.")</p>
             <p class="text-sm text-muted">Keeps the latest @Settings.Value.KeepLast regular backups and @Settings.Value.KeepLast recovery backups.</p>
         </div>
@@ -74,7 +84,7 @@
 </div>
 
 <Modal Show="@(Selected is not null)" Title="Restore database" OnClose="CloseRestore">
-    <p class="text-sm">Restore the backup from @Selected?.CreatedUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd HH:mm:ss") PH time? Current records in its tables will be replaced. Confirm that other users and agents have stopped writing to the database.</p>
+    <p class="text-sm">Restore the backup from @Selected?.CreatedUtc.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd HH:mm:ss") PH time? Current records in the tables included in the snapshot will be replaced, including changes made after the backup. Tables outside the snapshot stay as they are. A recovery backup is created first. Before continuing, disconnect agents and ask other users to stop using the system.</p>
     <label for="restore-confirmation" class="mt-4 block text-sm">Type RESTORE to confirm</label>
     <input id="restore-confirmation" @bind="Confirmation" @bind:event="oninput" autocomplete="off" class="mt-2 w-full rounded-lg border border-black/10 p-2" />
     <AuthorizeView Policy="@(Privileges.Prefix + Privileges.BackupsRestore)" Context="actionAccess23"><button type="button" @onclick="Restore" disabled="@(Busy || Confirmation != "RESTORE")" class="mt-4 rounded-lg bg-primary px-4 py-2 text-sm text-white disabled:opacity-50">Restore database</button></AuthorizeView>

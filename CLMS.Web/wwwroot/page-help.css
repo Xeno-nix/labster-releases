@@ -1,0 +1,69 @@
+.page-help-heading {
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.page-help-heading > :is(h1, h2) {
+    margin: 0;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+.dashboard-help-heading { margin-block-end: .875rem; }
+
+.page-help-trigger {
+    --page-help-maroon: #8b1538;
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    inline-size: 2.75rem;
+    block-size: 2.75rem;
+    padding: 0;
+    color: var(--page-help-maroon);
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.page-help-icon {
+    display: grid;
+    place-items: center;
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    background: transparent;
+}
+
+.page-help-trigger:is(:hover, :focus-visible) .page-help-icon {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.page-help-trigger:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+.page-help-tooltip {
+    position: absolute;
+    z-index: 10;
+    inset-block-start: 100%;
+    inset-inline-end: 0;
+    inline-size: max-content;
+    max-inline-size: min(12rem, 45vw);
+    padding: .375rem .625rem;
+    border-radius: .375rem;
+    background: #272129;
+    color: white;
+    font-size: .75rem;
+    font-weight: 500;
+    line-height: 1.35;
+    visibility: hidden;
+}
+
+.page-help-trigger:is(:hover, :focus-visible) .page-help-tooltip { visibility: visible; }
+.page-help-copy { line-height: 1.6; overflow-wrap: anywhere; }
+.page-help-copy ol { list-style: decimal; padding-inline-start: 1.5rem; margin-block: .75rem 0; }
+.page-help-copy li + li { margin-block-start: .5rem; }
+.page-help-note { margin-block-start: .875rem; }

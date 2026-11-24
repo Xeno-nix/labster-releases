@@ -14,7 +14,10 @@
 <div class="screen-wall-page flex h-full flex-col">
     <header class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <div>
-            <h1 class="text-lg font-semibold">Lab screen-cast session</h1>
+            <div class="page-help-heading">
+                <h1 class="text-lg font-semibold">Lab screen-cast session</h1>
+                <PageHelp Guide="screens" />
+            </div>
             <p class="text-xs text-gray-400">Select a lab and start a session. Live previews run for the PCs on the current page.</p>
             <p class="text-xs text-gray-400" role="status">
                 @if (LastUpdatedUtc.HasValue)

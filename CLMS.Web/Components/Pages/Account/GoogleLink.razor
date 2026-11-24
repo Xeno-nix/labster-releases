@@ -4,7 +4,7 @@
 <AccountLayout Title="Link your Google account">
     <h1>Link your Google account</h1>
     <p>Your organization Google email matches the Labster account <strong>@Model.Email</strong>.</p>
-    <p>Enter this account's Labster password to confirm linking. You can then use Google to sign in.</p>
+    <p>Enter this account's Labster password to confirm linking. You can then use Google to sign in. If the email above is incorrect, cancel and choose the correct Google account.</p>
     @if (Model.Error is not null)
     {
         <p role="alert">@Model.Error</p>

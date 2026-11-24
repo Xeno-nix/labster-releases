@@ -30,7 +30,10 @@
 @code {
     private RenderFragment<RenderFragment> ManagementHeader => actions => @<div class="space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <h1 class="text-2xl font-semibold text-primary">Class Management</h1>
+            <div class="page-help-heading">
+                <h1 class="text-2xl font-semibold text-primary">Class Management</h1>
+                <PageHelp Guide="@ActivePath" />
+            </div>
             @actions
         </div>
         <nav aria-label="Class management tabs" class="tab-strip segmented-tabs">

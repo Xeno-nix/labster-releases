@@ -30,7 +30,10 @@
 
 <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 class="text-primary text-2xl">User Management</h1>
+        <div class="page-help-heading">
+            <h1 class="text-primary text-2xl">User Management</h1>
+            <PageHelp Guide="users" />
+        </div>
         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
             <AuthorizeView Policy="@(Privileges.Prefix + Privileges.SecurityManage)"><a href="/admin/users/roles" class="rounded-lg border border-black/10 px-4 py-2 text-sm text-primary">Role privileges</a></AuthorizeView>
             <AuthorizeView Policy="RegisterUsers" Context="actionAccess21"><button type="button"
