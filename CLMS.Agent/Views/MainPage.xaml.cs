@@ -13,6 +13,7 @@ public partial class MainPage : ContentPage
     private readonly ScreenCastSender sender;
     private readonly IDesktopAgentService desktop;
     private readonly SettingsSession session;
+    private readonly IDesktopNotifications notifications;
     private bool authenticating, validating;
     private DateTimeOffset nextValidation;
     private bool windowActive = true;
@@ -23,11 +24,12 @@ public partial class MainPage : ContentPage
     public ObservableCollection<RegistrationLaboratory> Laboratories { get; } = [];
 
     public MainPage(AgentCoordinator identity, AgentRuntimeService runtime, AgentConnectionService connection,
-        ScreenCastSender sender, IDesktopAgentService desktop, SettingsSession session)
+        ScreenCastSender sender, IDesktopAgentService desktop, SettingsSession session, IDesktopNotifications notifications)
     {
         this.identity = identity; this.runtime = runtime; this.connection = connection;
         this.sender = sender; this.desktop = desktop;
         this.session = session;
+        this.notifications = notifications;
         InitializeComponent();
     }
 
@@ -150,6 +152,8 @@ public partial class MainPage : ContentPage
         RuntimeLabel.Text = runtime.Status;
         ConnectionLabel.Text = connection.Snapshot.Status;
         SharingLabel.Text = this.sender.Status;
+        NotificationsLabel.Text = notifications.Status;
+        NotificationsButton.Text = notifications.Enabled ? "Disable desktop notifications" : "Enable desktop notifications";
         ServerPanel.IsVisible = status.CanConfigure;
         if (!serverLoaded || displayedServer != status.ServerAddress)
         {
@@ -186,6 +190,7 @@ public partial class MainPage : ContentPage
         RegisterButton.IsEnabled = owns && !busy && LaboratoryPicker.SelectedItem is RegistrationLaboratory;
         ConfigureButton.IsEnabled = LaboratoriesButton.IsEnabled = RetryButton.IsEnabled = owns && !busy;
         RefreshStatusButton.IsEnabled = ConnectButton.IsEnabled = PauseButton.IsEnabled = owns && !busy;
+        NotificationsButton.IsEnabled = owns && !busy;
         RotateButton.IsEnabled = owns && !busy && identity.Status.Phase == "Connected";
         ResetButton.IsEnabled = owns && !busy;
         StartupSwitch.IsEnabled = HiddenSwitch.IsEnabled = owns && !busy;
@@ -221,6 +226,8 @@ public partial class MainPage : ContentPage
         LaboratoriesMessageLabel.IsVisible = labs.Count == 0;
     }
     private void LaboratoryChanged(object? sender, EventArgs e) => UpdateControls();
+    private async void NotificationsClicked(object? sender, EventArgs e) => await Execute(async () =>
+        await notifications.SetEnabledAsync(!notifications.Enabled));
     private async void ConfigureClicked(object? sender, EventArgs e) => await Execute(async () =>
     {
         await identity.ConfigureAsync(session.Server ?? "", default);

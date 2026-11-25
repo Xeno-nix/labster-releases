@@ -13,13 +13,14 @@ public partial class App : Microsoft.Maui.Controls.Application
     private readonly ScreenCastSender screenCast;
     private readonly IDesktopAgentService desktop;
     private readonly ILogger<App> logger;
+    private readonly IDesktopNotifications notifications;
     private bool quitting;
     private FileStream? processLock;
     public bool OwnsLifetime { get; private set; }
     public string? StartupError { get; private set; }
 
     public App(IServiceProvider services, AgentRuntimeService runtime, AgentConnectionService connection,
-        ScreenCastSender screenCast, IDesktopAgentService desktop, ILogger<App> logger)
+        ScreenCastSender screenCast, IDesktopAgentService desktop, ILogger<App> logger, IDesktopNotifications notifications)
     {
         InitializeComponent();
         this.services = services;
@@ -28,6 +29,7 @@ public partial class App : Microsoft.Maui.Controls.Application
         this.screenCast = screenCast;
         this.desktop = desktop;
         this.logger = logger;
+        this.notifications = notifications;
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
@@ -60,6 +62,7 @@ public partial class App : Microsoft.Maui.Controls.Application
                 processLock = new FileStream(Path.Combine(directory, "desktop.lock"),
                     FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
                 OwnsLifetime = true;
+                notifications.Initialize();
                 runtime.StatusChanged += UpdateIndicator;
                 connection.StatusChanged += OnConnectionChanged;
                 screenCast.StatusChanged += UpdateIndicator;
@@ -103,6 +106,7 @@ public partial class App : Microsoft.Maui.Controls.Application
             connection.StatusChanged -= OnConnectionChanged;
             screenCast.StatusChanged -= UpdateIndicator;
             desktop.Dispose();
+            notifications.Dispose();
             OwnsLifetime = false;
             processLock?.Dispose();
             Quit();

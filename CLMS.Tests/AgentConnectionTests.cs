@@ -56,6 +56,24 @@ public sealed class AgentConnectionTests
         Assert.Equal(HubConnectionState.Disconnected, connection.State);
     }
 
+    [Fact]
+    public async Task NetworkReadingsAreStoredForTheAuthenticatedUnit()
+    {
+        await using var app = await StartServerAsync();
+        await using var connection = CreateConnection(app, DeviceKey);
+        await connection.StartAsync();
+        var reading = new NetworkResourceReading(12000, 3400);
+        await connection.InvokeAsync(AgentConnectionProtocol.ReportNetworkResourcesMethod, reading);
+        var presence = app.Services.GetRequiredService<AgentPresenceStore>().Snapshot()[UnitId];
+        Assert.Equal(reading, presence.NetworkResources);
+        Assert.NotNull(presence.NetworkResourcesUtc);
+        await Assert.ThrowsAsync<Microsoft.AspNetCore.SignalR.HubException>(() =>
+            connection.InvokeAsync(AgentConnectionProtocol.ReportNetworkResourcesMethod, new NetworkResourceReading(-1, 0)));
+        Assert.Equal(reading, app.Services.GetRequiredService<AgentPresenceStore>().Snapshot()[UnitId].NetworkResources);
+        await connection.InvokeAsync(AgentConnectionProtocol.ReportNetworkResourcesMethod, (NetworkResourceReading?)null);
+        Assert.Null(app.Services.GetRequiredService<AgentPresenceStore>().Snapshot()[UnitId].NetworkResources);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("a-different-device-key-at-least-32-characters")]
@@ -277,6 +295,75 @@ public sealed class AgentConnectionTests
         }
     }
 
+    [Fact]
+    public async Task LabLeaseUsesTheApplicationCookieAndEnforcesStaffRoles()
+    {
+        await using var app = await StartServerAsync();
+        using var staff = await CreateBrowserAsync(app, Guid.NewGuid().ToString(), "Admin");
+        Assert.Equal(System.Net.HttpStatusCode.NotFound,
+            (await staff.GetAsync("/api/screen-cast/labs/1/lease")).StatusCode);
+        using var anonymous = app.GetTestClient();
+        anonymous.BaseAddress = new Uri("https://localhost");
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized,
+            (await anonymous.GetAsync("/api/screen-cast/labs/1/lease")).StatusCode);
+        using var student = await CreateBrowserAsync(app, Guid.NewGuid().ToString(), "Student");
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden,
+            (await student.GetAsync("/api/screen-cast/labs/1/lease")).StatusCode);
+    }
+
+    [Fact]
+    public async Task FacultyOfferAndAnswerUseTheDeviceHubWithoutEndingMonitoring()
+    {
+        await using var app = await StartServerAsync();
+        await using var agent = CreateConnection(app, DeviceKey);
+        var offered = new TaskCompletionSource<FacultyStreamOffer>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopped = new TaskCompletionSource<Guid>(TaskCreationOptions.RunContinuationsAsynchronously);
+        agent.On<FacultyStreamOffer>(FacultyStreamProtocol.Offer, offer => offered.TrySetResult(offer));
+        agent.On<Guid>(FacultyStreamProtocol.Stop, id => stopped.TrySetResult(id));
+        await agent.StartAsync();
+        await agent.InvokeAsync<AgentConnectionInfo>(AgentConnectionProtocol.HeartbeatMethod);
+        var faculty = Viewer(Guid.NewGuid().ToString(), "Admin");
+        var screens = app.Services.GetRequiredService<ScreenCastService>();
+        var preview = await screens.StartAsync(faculty, UnitId);
+        var broadcasts = app.Services.GetRequiredService<FacultyStreamService>();
+        var monitoring = app.Services.GetRequiredService<LabScreenCastService>();
+        var sessionId = await monitoring.StartAsync(faculty, 1);
+        var stream = await broadcasts.StartAsync(faculty, 1, sessionId);
+        Assert.True(await agent.InvokeAsync<bool>(ScreenCastProtocol.PublishFrame, Frame(preview)));
+        var peer = Assert.Single((await broadcasts.PollAsync(faculty, stream.Id)).Peers);
+        await broadcasts.OfferAsync(faculty, stream.Id, peer.Id, "v=0\r\ns=faculty");
+        var received = await offered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(stream.Id, received.StreamId);
+        Assert.Equal(peer.Id, received.PeerId);
+        await agent.InvokeAsync(FacultyStreamProtocol.Answer, new FacultyStreamAnswer(stream.Id, peer.Id, "v=0\r\ns=workstation"));
+        Assert.Equal("v=0\r\ns=workstation", Assert.Single((await broadcasts.PollAsync(faculty, stream.Id)).Peers).AnswerSdp);
+        await broadcasts.StopAsync(faculty, stream.Id);
+        Assert.Equal(stream.Id, await stopped.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.True(screens.TryGetFrame(faculty, preview, 0, out var frame));
+        Assert.NotNull(frame);
+        Assert.True(await monitoring.RenewAsync(faculty, sessionId));
+        stopped = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var nextStream = await broadcasts.StartAsync(faculty, 1, sessionId);
+        var nextPeer = Assert.Single((await broadcasts.PollAsync(faculty, nextStream.Id)).Peers);
+        await broadcasts.OfferAsync(faculty, nextStream.Id, nextPeer.Id, "v=0\r\ns=faculty");
+        await monitoring.EndAsync(faculty, sessionId);
+        Assert.Equal(nextStream.Id, await stopped.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => broadcasts.PollAsync(faculty, nextStream.Id));
+        Assert.Equal(UnitId, (await agent.InvokeAsync<AgentConnectionInfo>(AgentConnectionProtocol.HeartbeatMethod)).ComputerUnitId);
+        Assert.True(app.Services.GetRequiredService<AgentPresenceStore>().Snapshot()[UnitId].Connected);
+    }
+
+    private sealed class StreamLaboratories : CLMS.Application.Interfaces.Repositories.ILaboratoryRepository,
+        CLMS.Application.Interfaces.Repositories.IUnitMonitoringRepository
+    {
+        public Task<IEnumerable<CLMS.Domain.Entities.Booking.Laboratory>> GetAllAsync() =>
+            Task.FromResult<IEnumerable<CLMS.Domain.Entities.Booking.Laboratory>>([new() { Id = 1, Name = "Test lab" }]);
+        public Task<CLMS.Domain.Entities.Booking.Laboratory?> GetByIdAsync(int id) =>
+            Task.FromResult<CLMS.Domain.Entities.Booking.Laboratory?>(id == 1 ? new() { Id = 1, Name = "Test lab" } : null);
+        public Task<IReadOnlyList<CLMS.Application.DTOs.Monitoring.UnitMonitoringDTO>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<CLMS.Application.DTOs.Monitoring.UnitMonitoringDTO>>([new() { Id = UnitId, LaboratoryId = 1, Name = "PC 1" }]);
+    }
+
     private sealed class TestCapture : IScreenCaptureService
     {
         public Task<ScreenFrame> CaptureAsync(CancellationToken cancellationToken)
@@ -364,14 +451,17 @@ public sealed class AgentConnectionTests
         builder.Services.AddSingleton<IUnitRegistryRepository>(new HubRegistry { Active = provisionDevice, Generation = duplicateKey ? 2 : 1 });
         if (clock is not null) builder.Services.AddSingleton(clock);
         builder.Services.AddAgentConnections(builder.Configuration);
-        builder.Services.AddSingleton<CLMS.Application.Identity.Interfaces.ICurrentUser>(new TestCurrentUser());
+        builder.Services.AddSingleton<CLMS.Application.Identity.Interfaces.ICurrentUser, CommandActor>();
+        builder.Services.AddSingleton<CLMS.Application.Interfaces.Repositories.IScreenCastRepository, FacultyStreamHistory>();
+        var streamLabs = new StreamLaboratories();
+        builder.Services.AddSingleton<CLMS.Application.Interfaces.Repositories.ILaboratoryRepository>(streamLabs);
+        builder.Services.AddSingleton<CLMS.Application.Interfaces.Repositories.IUnitMonitoringRepository>(streamLabs);
+        builder.Services.AddAuthentication().AddCookie(AuthenticationSchemes.Cookie);
         builder.Services.AddSingleton<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, TestPrivilegeHandler>();
         builder.Services.AddSingleton<CLMS.Application.Monitoring.IApplicationRegistryRepository, ApplicationMonitoringTests.Registry>();
         builder.Services.AddScoped<CLMS.Application.Monitoring.AbnormalActivityService>();
-        builder.Services.AddSingleton<CLMS.Application.Interfaces.Repositories.IUnitMonitoringRepository>(new ActivityTestUnits(UnitId));
         builder.Services.AddSingleton<CLMS.Application.Monitoring.IAbnormalActivityRepository>(sp =>
             new ActivityTestRepository(sp.GetRequiredService<CLMS.Application.Monitoring.IApplicationRegistryRepository>()));
-        builder.Services.AddAuthentication().AddCookie(AuthenticationSchemes.Cookie);
         builder.Services.AddControllers().AddApplicationPart(typeof(ScreenCastFramesController).Assembly);
         builder.Services.AddAntiforgery();
         var app = builder.Build();
@@ -431,6 +521,98 @@ public sealed class AgentConnectionTests
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, error.StatusCode);
     }
 
+    [Theory]
+    [InlineData(WorkstationCommandKind.SendMessage, "  Save your work  ")]
+    [InlineData(WorkstationCommandKind.Lock, null)]
+    [InlineData(WorkstationCommandKind.Restart, null)]
+    [InlineData(WorkstationCommandKind.Shutdown, null)]
+    public async Task AdminCommandsReachTheAuthorizedWorkstationAndReturnItsResponse(WorkstationCommandKind kind, string? message)
+    {
+        await using var app = await StartServerAsync();
+        await using var agent = CreateConnection(app, DeviceKey);
+        WorkstationCommand? received = null;
+        agent.On<WorkstationCommand, WorkstationCommandResult>(WorkstationCommandProtocol.Execute, command =>
+        {
+            received = command;
+            return Task.FromResult(new WorkstationCommandResult(command.Id, WorkstationCommandStatus.Requested));
+        });
+        await agent.StartAsync();
+        await agent.InvokeAsync<AgentConnectionInfo>(AgentConnectionProtocol.HeartbeatMethod);
+        using var scope = app.Services.CreateScope();
+        var commands = scope.ServiceProvider.GetRequiredService<WorkstationCommandService>();
+        Assert.Equal(WorkstationCommandStatus.Requested, await commands.ExecuteAsync(UnitId, kind, message));
+        Assert.NotNull(received);
+        Assert.Equal(kind, received.Kind);
+        Assert.Equal(message?.Trim(), received.Message);
+        Assert.NotEqual(Guid.Empty, received.Id);
+    }
+
+    [Fact]
+    public async Task WorkstationCommandsRejectNonAdminsOfflineAndRevokedDevices()
+    {
+        await using var app = await StartServerAsync();
+        using var scope = app.Services.CreateScope();
+        var commands = scope.ServiceProvider.GetRequiredService<WorkstationCommandService>();
+        var actor = (CommandActor)app.Services.GetRequiredService<CLMS.Application.Identity.Interfaces.ICurrentUser>();
+        actor.Allowed = false;
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => commands.ExecuteAsync(UnitId, WorkstationCommandKind.Lock));
+        actor.Allowed = true;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => commands.ExecuteAsync(UnitId, WorkstationCommandKind.Lock));
+        await using var agent = CreateConnection(app, DeviceKey);
+        await agent.StartAsync();
+        await agent.InvokeAsync<AgentConnectionInfo>(AgentConnectionProtocol.HeartbeatMethod);
+        ((HubRegistry)app.Services.GetRequiredService<IUnitRegistryRepository>()).Active = false;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => commands.ExecuteAsync(UnitId, WorkstationCommandKind.Shutdown));
+    }
+
+    [Fact]
+    public async Task NotificationsReachExplicitBrowserAndWorkstationRecipients()
+    {
+        await using var app = await StartServerAsync();
+        var bus = app.Services.GetRequiredService<CLMS.Web.Services.Notifications.BrowserNotificationBus>();
+        var user = Guid.NewGuid();
+        using var intended = bus.Subscribe(user);
+        using var other = bus.Subscribe(Guid.NewGuid());
+        await using var agent = CreateConnection(app, DeviceKey);
+        SystemNotification? received = null;
+        var calls = 0;
+        agent.On<SystemNotification, DesktopNotificationResult>(SystemNotificationProtocol.Receive, notification =>
+        {
+            calls++;
+            received = notification;
+            return Task.FromResult(new DesktopNotificationResult(notification.Id, DesktopNotificationStatus.Submitted));
+        });
+        await agent.StartAsync();
+        await agent.InvokeAsync<AgentConnectionInfo>(AgentConnectionProtocol.HeartbeatMethod);
+        using var scope = app.Services.CreateScope();
+        var publisher = scope.ServiceProvider.GetRequiredService<CLMS.Web.Services.Notifications.SystemNotificationPublisher>();
+        var message = SystemNotificationTests.Notification();
+        var missing = Guid.NewGuid();
+        var report = await publisher.PublishAsync(message, [user], [UnitId, UnitId, missing]);
+        Assert.Equal(1, report.BrowserConnections);
+        Assert.True(intended.Reader.TryRead(out var browserMessage));
+        Assert.Equal(message, browserMessage);
+        Assert.False(other.Reader.TryRead(out _));
+        Assert.Equal(message, received);
+        Assert.Equal(1, calls);
+        Assert.Equal(DesktopNotificationStatus.Submitted, report.Workstations[UnitId]);
+        Assert.Equal(DesktopNotificationStatus.Offline, report.Workstations[missing]);
+        ((HubRegistry)app.Services.GetRequiredService<IUnitRegistryRepository>()).Active = false;
+        report = await publisher.PublishAsync(SystemNotificationTests.Notification(), [], [UnitId]);
+        Assert.Equal(DesktopNotificationStatus.Unauthorized, report.Workstations[UnitId]);
+        Assert.Equal(1, calls);
+    }
+
+    private sealed class CommandActor : CLMS.Application.Identity.Interfaces.ICurrentUser
+    {
+        private readonly TestCurrentUser viewer = new();
+        public bool Allowed = true;
+        public Task<Guid> RequireAdminAsync() => Allowed ? Task.FromResult(Guid.NewGuid())
+            : Task.FromException<Guid>(new UnauthorizedAccessException("Administrator access is required."));
+        public Task<Guid> RequirePrivilegeForAsync(ClaimsPrincipal principal, string privilege) =>
+            viewer.RequirePrivilegeForAsync(principal, privilege);
+    }
+
     private sealed class HubRegistry : IUnitRegistryRepository
     {
         public volatile bool Active = true;
@@ -454,6 +636,7 @@ public sealed class AgentConnectionTests
         var caller = new CachedCaller(new ClaimsPrincipal(new ClaimsIdentity(claims, "AgentBearer")));
         var hub = new AgentConnectionHub(NullLogger<AgentConnectionHub>.Instance, screens, presence, TimeProvider.System,
             app.Services.GetRequiredService<ApplicationScanCoordinator>(),
+            app.Services.GetRequiredService<FacultyStreamService>(),
             app.Services.GetRequiredService<CLMS.Application.Monitoring.IApplicationRegistryRepository>()) { Context = caller };
         var filter = new AgentCredentialHubFilter(registry, screens, presence);
         await filter.OnConnectedAsync(new Microsoft.AspNetCore.SignalR.HubLifetimeContext(caller, app.Services, hub), _ => hub.OnConnectedAsync());

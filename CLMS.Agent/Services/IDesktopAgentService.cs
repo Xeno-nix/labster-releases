@@ -8,6 +8,8 @@ public interface IDesktopAgentService : IDisposable
     void Initialize(Window window, Func<Task> stopSharing, Func<Task> quit);
     void Show();
     void Hide();
+    bool IsFullScreen { get; }
+    Task SetFullScreenAsync(bool enabled);
     void SetStatus(string status);
     Task SetStartupEnabledAsync(bool enabled);
 }

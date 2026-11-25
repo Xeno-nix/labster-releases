@@ -107,6 +107,13 @@
                     </Border>
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="12">
+                            <Label Text="Desktop notifications" FontSize="18" FontAttributes="Bold" />
+                            <Label x:Name="NotificationsLabel" />
+                            <Button x:Name="NotificationsButton" Text="Enable desktop notifications" Clicked="NotificationsClicked" Style="{StaticResource SecondaryButton}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="12">
                             <Label Text="Device security" FontSize="18" FontAttributes="Bold" />
                             <Label Text="Reset removes local enrollment. Revoke the old credential in the web app before enrolling again." FontSize="13" />
                             <Button x:Name="RotateButton" Text="Rotate device key" Clicked="RotateClicked" Style="{StaticResource SecondaryButton}" />

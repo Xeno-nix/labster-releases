@@ -4,6 +4,14 @@ namespace CLMS.Web.Models;
 
 public static class UnitMonitoringDisplay
 {
+    public static string FormatNetworkRate(double bytesPerSecond) => bytesPerSecond switch
+    {
+        >= 1_000_000_000 => $"{bytesPerSecond / 1_000_000_000:0.##} GB/s",
+        >= 1_000_000 => $"{bytesPerSecond / 1_000_000:0.##} MB/s",
+        >= 1_000 => $"{bytesPerSecond / 1_000:0.##} KB/s",
+        _ => $"{bytesPerSecond:0.##} B/s"
+    };
+
     public static string Label(this UnitMonitoringStatus status) => status switch
     {
         UnitMonitoringStatus.Available => "Online",

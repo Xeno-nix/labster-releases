@@ -7,13 +7,15 @@ namespace CLMS.Agent.Services;
 
 /// <summary>Shared Windows/Mac transport. This service keeps credentials in memory only.</summary>
 public sealed class AgentConnectionService(ILogger<AgentConnectionService> logger, ScreenCastSender screenCast,
-    IAgentAccessTokenProvider tokens, ApplicationProcessMonitor? applicationMonitor = null) : IAgentConnectionTransport, IAsyncDisposable
+    IAgentAccessTokenProvider tokens, ApplicationProcessMonitor? applicationMonitor = null, IFacultyStreamViewer? facultyViewer = null,
+    WorkstationCommandHandler? commands = null, NotificationReceiver? notifications = null) : IAgentConnectionTransport, IAsyncDisposable
 {
     private readonly ApplicationProcessMonitor applications = applicationMonitor ?? new();
     private readonly SemaphoreSlim gate = new(1, 1);
     private HubConnection? connection;
     private CancellationTokenSource? lifetime;
     private Task? heartbeatTask;
+    private readonly NetworkResourceSampler networkResources = new();
     private readonly TimeSpan heartbeatInterval = TimeSpan.FromSeconds(15);
     private readonly TimeSpan heartbeatTimeout = TimeSpan.FromSeconds(5);
     private readonly Func<Uri, Func<Task<string?>>, HubConnection> buildConnection = BuildConnection;
@@ -54,6 +56,14 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
             var hub = buildConnection(new Uri(server, AgentConnectionProtocol.HubPath.TrimStart('/')),
                 () => GetTokenAsync(connectionLifetime));
             connection = hub;
+            hub.On<SystemNotification, DesktopNotificationResult>(SystemNotificationProtocol.Receive, notification =>
+                notifications is not null && connection == hub
+                    ? notifications.ReceiveAsync(notification, connectionLifetime)
+                    : Task.FromResult(new DesktopNotificationResult(notification.Id, DesktopNotificationStatus.Unsupported)));
+            hub.On<WorkstationCommand, WorkstationCommandResult>(WorkstationCommandProtocol.Execute, command =>
+                commands is not null && connection == hub
+                    ? commands.ExecuteAsync(command, connectionLifetime)
+                    : Task.FromResult(new WorkstationCommandResult(command.Id, WorkstationCommandStatus.Unsupported)));
             hub.On(ApplicationMonitoringProtocol.RegistryChanged, () => SynchronizeApplicationsAsync(hub, connectionLifetime));
             hub.On<ApplicationScanRequest>(ApplicationMonitoringProtocol.Scan, async request =>
             {
@@ -64,11 +74,35 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
                 command => screenCast.StartAsync(hub, command.SessionId, connectionLifetime));
             hub.On<ScreenCastCommand>(ScreenCastProtocol.StopCapture,
                 command => screenCast.StopAsync(command.SessionId));
+            hub.On<FacultyStreamOffer>(FacultyStreamProtocol.Offer, async offer =>
+            {
+                if (facultyViewer is null || connection != hub) return;
+                try
+                {
+                    var answer = await facultyViewer.ShowAsync(offer,
+                        () => hub.InvokeAsync(FacultyStreamProtocol.Closed, offer.StreamId, offer.PeerId, connectionLifetime), connectionLifetime);
+                    if (!string.IsNullOrEmpty(answer))
+                        await hub.InvokeAsync(FacultyStreamProtocol.Answer, new FacultyStreamAnswer(offer.StreamId, offer.PeerId, answer), connectionLifetime);
+                    else
+                        await hub.InvokeAsync(FacultyStreamProtocol.Closed, offer.StreamId, offer.PeerId, connectionLifetime);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning("Faculty live stream could not open ({ExceptionType}).", ex.GetType().Name);
+                    if (connectionLifetime.IsCancellationRequested) await facultyViewer.StopAsync(offer.StreamId);
+                    else await facultyViewer.ShowErrorAsync(offer.StreamId, "signaling_failed");
+                    try { await hub.InvokeAsync(FacultyStreamProtocol.Closed, offer.StreamId, offer.PeerId, connectionLifetime); }
+                    catch { }
+                }
+            });
+            hub.On<Guid>(FacultyStreamProtocol.Stop, stream => connection == hub
+                ? facultyViewer?.StopAsync(stream) ?? Task.CompletedTask : Task.CompletedTask);
 
             hub.Reconnecting += async _ =>
             {
                 if (connection != hub) return;
                 await screenCast.StopAsync();
+                if (facultyViewer is not null) await facultyViewer.StopAsync();
                 if (connection == hub) Publish(new("Reconnecting"));
             };
             hub.Reconnected += async _ =>
@@ -92,6 +126,7 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
             {
                 if (connection != hub) return;
                 await screenCast.StopAsync();
+                if (facultyViewer is not null) await facultyViewer.StopAsync();
                 if (connection == hub) Publish(new("Disconnected — waiting for automatic retry"));
             };
 
@@ -148,6 +183,13 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
         var response = await hub.InvokeAsync<AgentConnectionInfo>(AgentConnectionProtocol.HeartbeatMethod, deadline.Token);
         if (connection == hub)
             Publish(new("Connected", response.ComputerUnitId, response.ServerTimeUtc));
+        try
+        {
+            var reading = networkResources.Sample();
+            await hub.InvokeAsync(AgentConnectionProtocol.ReportNetworkResourcesMethod, reading, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception ex) { logger.LogWarning(ex, "Network resource reporting failed."); }
     }
 
     private async Task SynchronizeApplicationsAsync(HubConnection hub, CancellationToken ct)
@@ -217,6 +259,7 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
         try
         {
             await screenCast.StopAsync();
+            if (facultyViewer is not null) await facultyViewer.StopAsync();
             if (oldConnection is not null) await oldConnection.DisposeAsync();
             if (heartbeatTask is not null) await heartbeatTask;
         }
@@ -225,6 +268,7 @@ public sealed class AgentConnectionService(ILogger<AgentConnectionService> logge
             lifetime?.Dispose();
             lifetime = null;
             heartbeatTask = null;
+            networkResources.Reset();
         }
     }
 
